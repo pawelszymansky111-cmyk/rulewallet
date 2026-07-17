@@ -29,6 +29,7 @@ contract RuleWalletHandler is Test {
         vm.warp(block.timestamp + bound(secondsForward, 1, 2 hours));
     }
 }
+
 contract RuleWalletInvariantTest is StdInvariant, Test {
     RuleWalletPolicyAccount internal account;
 

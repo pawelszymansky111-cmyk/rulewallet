@@ -28,7 +28,7 @@ The repository includes:
 - an OpenZeppelin-based policy account with agent, approver, guardian, and delayed-admin roles;
 - per-asset transaction limits and bounded 24-hour spending buckets;
 - expiring requests, nonces, emergency pause, and multi-human approvals;
-- 17 Solidity unit, fuzz, reentrancy, malicious-token, and invariant tests;
+- 19 Solidity unit, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
 - health checks, security headers, release gates, and incident documentation.
 
 ## Quick start

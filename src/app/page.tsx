@@ -75,7 +75,7 @@ export default function Home() {
         <section className="border-b border-grid bg-card/30">
           <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-border border-x border-grid md:grid-cols-4 md:divide-y-0">
             {[
-              ["17", "contract tests"],
+              ["19", "contract tests"],
               ["24 h", "rolling limits"],
               ["0", "backend keys"],
               ["46630", "testnet chain ID"],
