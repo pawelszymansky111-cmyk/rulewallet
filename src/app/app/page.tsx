@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Bot, CircleCheck, Clock3, Pause, Plus, Shield, WalletCards } from "lucide-react";
 import { DecisionBadge } from "@/components/decision-badge";
+import { TestnetCommandCenter } from "@/components/testnet-command-center";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,11 +36,15 @@ export default function DashboardPage() {
         })}
       </div>
 
+      <div className="mt-6">
+        <TestnetCommandCenter />
+      </div>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.6fr]">
         <Card>
           <CardHeader>
             <CardTitle>Recent requests</CardTitle>
-            <CardDescription>Deterministic outcomes from the local policy evaluator.</CardDescription>
+            <CardDescription>Example receipts remain visible while live testnet requests appear in the command center above.</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -76,7 +81,7 @@ export default function DashboardPage() {
       </div>
 
       <Card className="mt-6 border-primary/15 bg-primary/[0.035]">
-        <CardHeader><CardTitle className="flex items-center gap-2"><WalletCards className="size-4 text-primary" /> Connect an agent</CardTitle><CardDescription>The production flow will issue a scoped session key bound to one policy. The MVP currently exposes configuration and simulation only.</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><WalletCards className="size-4 text-primary" /> Connect an agent</CardTitle><CardDescription>Grant the onchain AGENT_ROLE to a separate testnet address. The agent can propose only policy-bound calls; it never receives the owner wallet seed or admin role.</CardDescription></CardHeader>
       </Card>
     </main>
   );

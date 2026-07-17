@@ -1,0 +1,33 @@
+import { createConfig, http } from "wagmi";
+import { injected, walletConnect } from "wagmi/connectors";
+import { robinhoodTestnet } from "@/lib/chains";
+
+const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+const connectors = walletConnectProjectId
+  ? [
+      injected({ shimDisconnect: true }),
+      walletConnect({
+        projectId: walletConnectProjectId,
+        showQrModal: true,
+        metadata: {
+          name: "RuleWallet",
+          description: "Testnet policy controls for onchain AI agents",
+          url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+          icons: [],
+        },
+      }),
+    ]
+  : [injected({ shimDisconnect: true })];
+
+export const wagmiConfig = createConfig({
+  chains: [robinhoodTestnet],
+  connectors,
+  ssr: true,
+  transports: {
+    [robinhoodTestnet.id]: http("/api/rpc", {
+      batch: true,
+      retryCount: 2,
+    }),
+  },
+});

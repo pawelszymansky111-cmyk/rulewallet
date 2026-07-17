@@ -8,9 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "contracts:fmt": "cd contracts && forge fmt --check",
+    "contracts:test": "cd contracts && forge test",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run contracts:fmt && npm run contracts:test && npm run build"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "5.6.1",
+    "@tanstack/react-query": "5.101.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.25.0",
@@ -20,7 +25,10 @@
     "react-dom": "19.2.4",
     "shadcn": "^4.13.0",
     "tailwind-merge": "^3.6.0",
-    "tw-animate-css": "^1.4.0"
+    "tw-animate-css": "^1.4.0",
+    "viem": "2.55.2",
+    "wagmi": "3.7.3",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

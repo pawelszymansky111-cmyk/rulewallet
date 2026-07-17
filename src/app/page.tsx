@@ -48,7 +48,7 @@ export default function Home() {
                 Give agents authority, <span className="text-primary">not your wallet.</span>
               </h1>
               <p className="mt-6 max-w-xl text-balance text-lg leading-8 text-muted-foreground">
-                RuleWallet is a policy and approval layer for onchain AI agents. Set exact limits, inspect every action, and revoke access in one click.
+                RuleWallet is a testnet policy account and approval layer for onchain AI agents. Simulate exact calls, enforce limits onchain, and keep every signature in your wallet.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/85">
@@ -59,7 +59,7 @@ export default function Home() {
                 </Button>
               </div>
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                {["No seed phrase", "No custody", "No real funds"].map((item) => (
+                {["No seed phrase", "No backend signer", "Mainnet disabled"].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2"><Check className="size-4 text-primary" />{item}</span>
                 ))}
               </div>
@@ -75,9 +75,9 @@ export default function Home() {
         <section className="border-b border-grid bg-card/30">
           <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-border border-x border-grid md:grid-cols-4 md:divide-y-0">
             {[
-              ["8", "rules per request"],
-              ["<1 ms", "local evaluation"],
-              ["0", "custodied keys"],
+              ["17", "contract tests"],
+              ["24 h", "rolling limits"],
+              ["0", "backend keys"],
               ["46630", "testnet chain ID"],
             ].map(([value, label]) => (
               <div key={label} className="px-5 py-6 text-center">
@@ -174,7 +174,7 @@ export default function Home() {
             <h2 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Agents act. Rules hold.</h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">Try the working simulator, inspect the policy engine, and help shape safe agent infrastructure on Robinhood Chain.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button asChild size="lg" className="bg-primary text-primary-foreground"><Link href="/app">Open the demo <ArrowRight /></Link></Button>
+              <Button asChild size="lg" className="bg-primary text-primary-foreground"><Link href="/app">Open testnet console <ArrowRight /></Link></Button>
               <Button asChild size="lg" variant="outline"><a href={githubUrl}>Star on GitHub</a></Button>
             </div>
           </div>

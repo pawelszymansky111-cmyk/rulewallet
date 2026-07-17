@@ -12,10 +12,10 @@ export const metadata: Metadata = {
 };
 
 const principles = [
-  { icon: KeyRound, title: "Never request a seed phrase", text: "A production integration should use revocable, scoped session authority." },
-  { icon: LockKeyhole, title: "Deny by default", text: "Unknown assets, targets, functions, and stale data fail closed." },
-  { icon: Network, title: "Simulate before signing", text: "Policy checks operate on decoded effects, not only human-readable intent." },
-  { icon: ShieldCheck, title: "Hard rules stay hard", text: "A human approval cannot override an allowlist or exposure limit failure." },
+  { icon: KeyRound, title: "Never request a seed phrase", text: "Every transaction stays in the connected wallet; RuleWallet has no backend signer." },
+  { icon: LockKeyhole, title: "Deny by default", text: "Unknown assets, targets, expired requests, and excess exposure revert onchain." },
+  { icon: Network, title: "Simulate before signing", text: "The exact chain, contract, target, value, nonce, and expiry are rendered before signing." },
+  { icon: ShieldCheck, title: "Hard rules stay hard", text: "Approval thresholds cannot override an allowlist, pause, nonce, expiry, or exposure failure." },
 ];
 
 export default function SecurityPage() {
@@ -25,9 +25,9 @@ export default function SecurityPage() {
       <main>
         <section className="border-b border-grid">
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
-            <Badge variant="outline" className="border-primary/25 text-primary">Security model · Draft v0.1</Badge>
+            <Badge variant="outline" className="border-primary/25 text-primary">Security model · Draft v0.2</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">Assume the agent will fail.</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. The current prototype is not audited and must not control real funds.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. Its policy account is tested but not independently audited and must not control real funds.</p>
           </div>
         </section>
 
@@ -35,7 +35,7 @@ export default function SecurityPage() {
           <Alert className="border-amber-400/25 bg-amber-400/[0.06] text-amber-200">
             <AlertTriangle />
             <AlertTitle>Testnet only</AlertTitle>
-            <AlertDescription className="text-amber-100/70">This repository demonstrates policy semantics and interface flows. It has no audit, production signer, custody layer, or warranty.</AlertDescription>
+            <AlertDescription className="text-amber-100/70">The contract and wallet flow are functional on testnet. There is no audit, mainnet deployment, custody service, or warranty.</AlertDescription>
           </Alert>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">

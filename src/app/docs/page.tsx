@@ -46,9 +46,9 @@ export default function DocsPage() {
       <main>
         <section className="border-b border-grid">
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
-            <Badge variant="outline" className="border-primary/25 text-primary">v0.1 · Product specification</Badge>
+            <Badge variant="outline" className="border-primary/25 text-primary">v0.2 · Testnet production candidate</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">RuleWallet documentation</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain wallet. The current repository is a testnet simulator, not audited wallet infrastructure.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. Wallet connection and contract execution are functional on testnet; the system remains unaudited and mainnet-disabled.</p>
           </div>
         </section>
 
@@ -95,10 +95,10 @@ export default function DocsPage() {
                 {[
                   ["01", "Agent adapter", "Normalizes MCP, SDK, or API intent into a request."],
                   ["02", "Simulator", "Decodes calls, estimates effects, and enriches market data."],
-                  ["03", "Policy engine", "Returns a deterministic decision and rule evidence."],
-                  ["04", "Approval service", "Collects an authenticated human response when required."],
-                  ["05", "Scoped executor", "Signs only requests bound to the active policy version."],
-                  ["06", "Receipt store", "Persists request, evidence, approval, and transaction result."],
+                  ["03", "Policy account", "Enforces allowlists, per-asset limits, nonces, expiry, and pause onchain."],
+                  ["04", "Approval roles", "Collect independent wallet approvals for high-value requests."],
+                  ["05", "Wallet signer", "Shows and signs the exact simulated transaction without backend custody."],
+                  ["06", "Event receipts", "Publish requests, approvals, and execution results as explorer-verifiable events."],
                 ].map(([number, title, text]) => <div key={number} className="grid gap-2 px-5 py-4 sm:grid-cols-[50px_170px_1fr]"><span className="font-mono text-xs text-primary">{number}</span><span className="font-medium">{title}</span><span className="text-sm text-muted-foreground">{text}</span></div>)}
               </div>
             </section>
@@ -107,8 +107,8 @@ export default function DocsPage() {
               <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">05 / MVP boundary</p>
               <h2 className="mt-3 text-2xl font-semibold">What this build does—and does not do.</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Interactive policy evaluation</p><p>Policy configuration and JSON export</p><p>Dashboard, request evidence, and audit concepts</p><p>Robinhood Chain testnet positioning</p></CardContent></Card>
-                <Card><CardHeader><CardTitle>Not yet included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Production key custody or account abstraction</p><p>Live transaction signing or funds</p><p>Security audit or formal verification</p><p>A token, sale, or investment product</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Wallet connection and chain switching</p><p>Onchain simulation and explicit testnet signing</p><p>Policy contract, human approvals, and receipts</p><p>Unit, fuzz, reentrancy, and invariant tests</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>First signed testnet contract deployment</p><p>Router-specific swap adapters</p><p>Independent audit and formal verification</p><p>Mainnet, real funds, token, sale, or investment product</p></CardContent></Card>
               </div>
               <div className="mt-8 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/playground">Open playground <ArrowRight /></Link></Button><Button asChild variant="outline"><a href={githubUrl}><GitBranch /> Inspect source</a></Button></div>
             </section>

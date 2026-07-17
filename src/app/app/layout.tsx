@@ -5,7 +5,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       <SiteHeader />
       <div className="border-b border-amber-400/15 bg-amber-400/[0.05] px-5 py-2 text-center text-xs text-amber-200">
-        Testnet prototype · Simulated data only · Do not deposit real funds
+        Robinhood Chain testnet only · Contract code is unaudited · Never deposit mainnet funds
       </div>
       {children}
     </div>

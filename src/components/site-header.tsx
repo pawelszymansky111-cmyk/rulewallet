@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Code2 } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
+import { WalletControl } from "@/components/wallet-control";
 
 const navigation = [
   { href: "/playground", label: "Playground" },
@@ -29,8 +30,9 @@ export function SiteHeader() {
               <Code2 />
             </a>
           </Button>
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/85">
-            <Link href="/app">Open demo</Link>
+          <WalletControl compact />
+          <Button asChild variant="ghost" className="hidden lg:inline-flex">
+            <Link href="/app">Console</Link>
           </Button>
         </div>
       </div>
