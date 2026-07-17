@@ -1,0 +1,31 @@
+name: Bug report
+description: Report reproducible incorrect behavior that is not a security vulnerability.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not report vulnerabilities here. Use private vulnerability reporting under the Security tab."
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide the smallest reliable sequence of steps.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit or deployment
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Remove secrets, wallet addresses, and personal information.

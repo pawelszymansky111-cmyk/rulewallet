@@ -1,0 +1,33 @@
+name: Policy scenario
+description: Propose a rule, failure case, or product improvement.
+title: "[Scenario]: "
+labels: ["enhancement", "policy-model"]
+body:
+  - type: textarea
+    id: threat
+    attributes:
+      label: Agent scenario or failure mode
+      description: Describe the action, adversary, or operator mistake.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected decision
+      description: Should the request be allowed, require approval, or be blocked? Why?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required evidence
+      description: What data must the engine trust to reach that decision?
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Impact
+      options:
+        - Loss of funds or authority
+        - Incorrect approval flow
+        - Audit or operator confusion
+        - Developer experience
