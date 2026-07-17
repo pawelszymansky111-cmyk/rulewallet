@@ -21,7 +21,10 @@ export default function DashboardPage() {
     <main className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div><p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Workspace / demo</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Agent controls</h1><p className="mt-2 text-muted-foreground">Monitor authority, requests, and policy decisions.</p></div>
-        <Button asChild className="bg-primary text-primary-foreground"><Link href="/app/policies/new"><Plus /> New policy</Link></Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline"><Link href="/app/deploy"><WalletCards /> Deploy contract</Link></Button>
+          <Button asChild className="bg-primary text-primary-foreground"><Link href="/app/policies/new"><Plus /> New policy</Link></Button>
+        </div>
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

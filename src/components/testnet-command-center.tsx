@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -397,6 +398,9 @@ export function TestnetCommandCenter() {
             then set <code className="font-mono text-foreground">NEXT_PUBLIC_RULEWALLET_TESTNET_ADDRESS</code>.
           </p>
           <p>This gate prevents the interface from pretending a local simulation is an onchain policy.</p>
+          <Button asChild>
+            <Link href="/app/deploy"><Wallet /> Deploy on testnet</Link>
+          </Button>
         </CardContent>
       </Card>
     );

@@ -86,7 +86,9 @@ Safe contracts could not be verified as officially supported on Robinhood Chain 
 
 ## Testnet deployment
 
-The deployment script never reads a private key. Configure public role addresses, then sign through a hardware wallet or another interactive Foundry signer:
+For a single-wallet demo, open `/app/deploy` in a browser with MetaMask. The wizard is locked to Robinhood Chain Testnet (`46630`), deploys the exact bytecode committed in `src/generated`, and makes every setup action a separate wallet confirmation. The connected wallet receives the initial admin, guardian, agent, and approver roles; this arrangement is for low-value testnet onboarding only.
+
+For separated production-style roles, use the Foundry deployment script. It never reads a private key. Configure public role addresses, then sign through a hardware wallet or another interactive Foundry signer:
 
 ```bash
 cd contracts

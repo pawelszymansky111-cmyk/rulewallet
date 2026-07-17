@@ -38,3 +38,4 @@ jobs:
       - run: cd contracts && forge install foundry-rs/forge-std@v1.16.2 --no-git --shallow
       - run: npm run contracts:fmt
       - run: npm run contracts:test
+      - run: npm run contracts:artifact:check

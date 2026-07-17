@@ -11,7 +11,8 @@
     "test": "vitest run",
     "contracts:fmt": "cd contracts && forge fmt --check",
     "contracts:test": "cd contracts && forge test",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run contracts:fmt && npm run contracts:test && npm run build"
+    "contracts:artifact:check": "node scripts/check-contract-artifact.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run contracts:fmt && npm run contracts:test && npm run contracts:artifact:check && npm run build"
   },
   "dependencies": {
     "@openzeppelin/contracts": "5.6.1",
