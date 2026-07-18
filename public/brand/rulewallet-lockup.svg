@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 292 64" role="img" aria-labelledby="title">
+  <title id="title">RuleWallet</title>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="#F2FAF4" stroke="#2F8F46" stroke-width="2"/>
+  <path d="M20 46V18H32C39.2 18 44 22 44 28C44 34 39.2 38 32 38H20M32 38L44 46" fill="none" stroke="#2F8F46" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="78" y="42" fill="#12351D" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700" letter-spacing="-1">RuleWallet</text>
+</svg>
