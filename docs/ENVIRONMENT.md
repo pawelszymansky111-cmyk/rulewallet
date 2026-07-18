@@ -19,6 +19,8 @@ These values are visible in the JavaScript bundle and must never contain secrets
 | `RH_TESTNET_RPC_URL` | Managed Robinhood Chain testnet JSON-RPC endpoint |
 | `UPSTASH_REDIS_REST_URL` | Strategy and receipt store endpoint |
 | `UPSTASH_REDIS_REST_TOKEN` | Strategy and receipt store credential |
+| `KV_REST_API_URL` | Vercel Marketplace alias for the Upstash REST endpoint |
+| `KV_REST_API_TOKEN` | Vercel Marketplace alias for the Upstash REST credential |
 | `AGENT_PRIVATE_KEY` | Dedicated testnet-only `AGENT_ROLE` signer; never an admin or funded owner key |
 | `CRON_SECRET` | Bearer secret automatically attached to Vercel Cron requests |
 | `ENABLE_MAINNET` | Must be exactly `false` in this release |

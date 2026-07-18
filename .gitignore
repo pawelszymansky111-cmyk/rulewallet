@@ -49,3 +49,7 @@ contracts/lib/
 
 # Vercel
 .vercel/
+
+# Marketplace-installed agent reference material
+.agents/
+skills-lock.json

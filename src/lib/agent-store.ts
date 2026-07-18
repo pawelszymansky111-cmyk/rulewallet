@@ -12,17 +12,24 @@ const executionKey = "rulewallet:executions";
 
 let redis: Redis | undefined;
 
+function redisEnvironment() {
+  return {
+    url: process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN,
+  };
+}
+
 export function storageConfigured() {
-  return Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN,
-  );
+  const environment = redisEnvironment();
+  return Boolean(environment.url && environment.token);
 }
 
 function getRedis() {
   if (!storageConfigured()) {
     throw new Error("Strategy storage is not configured.");
   }
-  redis ??= Redis.fromEnv();
+  const environment = redisEnvironment();
+  redis ??= new Redis({ url: environment.url!, token: environment.token! });
   return redis;
 }
 
