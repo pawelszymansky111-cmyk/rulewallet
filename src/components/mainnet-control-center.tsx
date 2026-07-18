@@ -37,6 +37,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { robinhoodMainnet } from "@/lib/chains";
 import {
+  buildMainnetFactoryDeployment,
+  RULEWALLET_FACTORY_INIT_CODE_HASH,
+} from "@/lib/mainnet-factory-deployment";
+import {
   ROBINHOOD_MAINNET_USDG,
   experimentalMainnetUiEnabled,
   mainnetFactoryAddress,
@@ -48,9 +52,9 @@ import {
 const erc20BalanceAbi = parseAbi(["function balanceOf(address account) view returns (uint256)"]);
 
 type PreparedAction = {
-  kind: "deploy" | "recipient" | "eth-policy" | "usdg-policy" | "deposit" | "withdraw" | "pause" | "unpause" | "approve" | "execute-approved";
+  kind: "factory-deploy" | "deploy" | "recipient" | "eth-policy" | "usdg-policy" | "deposit" | "withdraw" | "pause" | "unpause" | "approve" | "execute-approved";
   title: string;
-  to: Address;
+  to?: Address;
   value: bigint;
   data: Hex;
   expectedResult: string;
@@ -171,6 +175,40 @@ export function MainnetControlCenter() {
     if (!isMainnet) throw new Error("Switch the wallet to Robinhood Chain mainnet (4663).");
     if (!riskAccepted) throw new Error("Acknowledge the experimental unaudited release before preparing a transaction.");
     return { owner: getAddress(connection.address), wallet: walletClient.data, client: publicClient };
+  }
+
+  async function prepareFactoryDeployment() {
+    setBusy("prepare-factory"); setError(""); setMessage("");
+    try {
+      const { owner, client } = requireWallet();
+      if (mainnetFactoryAddress) throw new Error("A mainnet factory is already configured. A second deployment is unnecessary.");
+      const nonce = await client.getTransactionCount({ address: owner, blockTag: "pending" });
+      const plan = buildMainnetFactoryDeployment(owner, BigInt(nonce));
+      if (plan.dataHash !== RULEWALLET_FACTORY_INIT_CODE_HASH) {
+        throw new Error("Factory init-code checksum mismatch. Deployment is blocked.");
+      }
+      const existingCode = await client.getBytecode({ address: plan.predictedAddress });
+      if (existingCode && existingCode !== "0x") {
+        throw new Error(`The predicted address ${plan.predictedAddress} already contains code. Refresh the wallet nonce before continuing.`);
+      }
+      await client.call({ account: owner, data: plan.data });
+      const estimatedGas = await client.estimateGas({ account: owner, data: plan.data });
+      setPrepared({
+        kind: "factory-deploy",
+        title: "Deploy RuleWalletFactory V2",
+        to: undefined,
+        value: plan.value,
+        data: plan.data,
+        expectedResult: `Factory ${plan.expectedVersion} at ${plan.predictedAddress}, pinned to chain 4663 and canonical USDG ${plan.canonicalStablecoin}`,
+        payload: {
+          predicted: plan.predictedAddress,
+          nonce: nonce.toString(),
+          estimatedGas: estimatedGas.toString(),
+          initCodeHash: plan.dataHash,
+        },
+      });
+      setMessage("Factory simulation passed. No transaction was sent. Review the contract-creation payload below.");
+    } catch (caught) { setError(errorMessage(caught)); } finally { setBusy(""); }
   }
 
   async function prepareDeployment() {
@@ -314,11 +352,19 @@ export function MainnetControlCenter() {
     setBusy("sign"); setError(""); setMessage("Confirm the exact transaction in your wallet.");
     try {
       const { owner, wallet, client } = requireWallet();
-      const hash = await wallet.sendTransaction({ account: owner, chain: robinhoodMainnet, to: prepared.to, value: prepared.value, data: prepared.data });
+      const hash = prepared.to
+        ? await wallet.sendTransaction({ account: owner, chain: robinhoodMainnet, to: prepared.to, value: prepared.value, data: prepared.data })
+        : await wallet.sendTransaction({ account: owner, chain: robinhoodMainnet, value: prepared.value, data: prepared.data });
       setLastHash(hash);
       const receipt = await client.waitForTransactionReceipt({ hash, confirmations: 2, timeout: 180_000 });
       if (receipt.status !== "success") throw new Error("The mainnet transaction reverted.");
-      if (prepared.kind === "deploy") {
+      if (prepared.kind === "factory-deploy") {
+        const predicted = prepared.payload.predicted;
+        if (!receipt.contractAddress || typeof predicted !== "string" || receipt.contractAddress.toLowerCase() !== predicted.toLowerCase()) {
+          throw new Error("The confirmed factory address does not match the simulated address. Stop and inspect the receipt.");
+        }
+        setMessage(`Factory confirmed at ${receipt.contractAddress}. RuleWallet must now verify it and publish that address before personal onboarding opens.`);
+      } else if (prepared.kind === "deploy") {
         const predicted = prepared.payload.predicted;
         if (typeof predicted === "string" && isAddress(predicted)) {
           const selected = getAddress(predicted);
@@ -326,7 +372,7 @@ export function MainnetControlCenter() {
           if (storageKey) window.localStorage.setItem(storageKey, selected);
         }
       }
-      setMessage("Confirmed on Robinhood Chain mainnet. The Blockscout receipt is linked below.");
+      if (prepared.kind !== "factory-deploy") setMessage("Confirmed on Robinhood Chain mainnet. The Blockscout receipt is linked below.");
       setPrepared(undefined);
       await refresh();
     } catch (caught) { setError(errorMessage(caught)); } finally { setBusy(""); }
@@ -364,6 +410,20 @@ export function MainnetControlCenter() {
           </label>
 
           <Card>
+            {!mainnetFactoryAddress && <CardContent className="space-y-4 pt-6">
+              <div>
+                <p className="font-medium">0. Deploy the versioned factory</p>
+                <p className="mt-1 text-sm text-muted-foreground">One contract-creation transaction. The app simulates the pinned bytecode and shows the complete init code before MetaMask opens.</p>
+              </div>
+              <Button onClick={prepareFactoryDeployment} disabled={!riskAccepted || Boolean(busy)}>
+                {busy === "prepare-factory" ? <LoaderCircle className="animate-spin" /> : <ShieldCheck />}
+                Simulate factory deployment
+              </Button>
+              <Alert className="border-amber-300/20 bg-amber-300/[0.04]"><AlertTriangle /><AlertTitle>Real mainnet gas required</AlertTitle><AlertDescription>The connected deployer pays gas but sends 0 ETH to the contract. A successful signature still does not activate autonomous execution.</AlertDescription></Alert>
+            </CardContent>}
+          </Card>
+
+          <Card>
             <CardHeader><CardTitle>1. Personal account</CardTitle><CardDescription>Factory-deployed, non-upgradeable, owner-controlled. Operational roles must use separate addresses.</CardDescription></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col gap-2 sm:flex-row"><Input value={accountInput} onChange={(event) => setAccountInput(event.target.value)} placeholder="0x… existing V2 account" className="font-mono" /><Button variant="outline" onClick={selectAccount}>Use account</Button></div>
@@ -397,7 +457,7 @@ export function MainnetControlCenter() {
         </>
       )}
 
-      {prepared && <Card className="border-primary/25"><CardHeader><CardTitle>Exact transaction preview</CardTitle><CardDescription>Simulation passed. Verify these fields before asking your wallet to sign.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Action", prepared.title], ["Contract / recipient", prepared.to], ["Value", `${formatEther(prepared.value)} ETH`], ["Calldata", prepared.data], ["Expected result", prepared.expectedResult]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[170px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signPrepared} disabled={busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Sign exact transaction</Button><Button variant="outline" onClick={() => setPrepared(undefined)}>Cancel</Button></div></CardContent></Card>}
+      {prepared && <Card className="border-primary/25"><CardHeader><CardTitle>Exact transaction preview</CardTitle><CardDescription>Simulation passed. Verify these fields before asking your wallet to sign.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Action", prepared.title], ["Contract / recipient", prepared.to ?? "Contract creation (no recipient)"], ["Value", `${formatEther(prepared.value)} ETH`], ["Calldata", prepared.data], ["Expected result", prepared.expectedResult]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[170px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signPrepared} disabled={busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Sign exact transaction</Button><Button variant="outline" onClick={() => setPrepared(undefined)}>Cancel</Button></div></CardContent></Card>}
 
       {(message || error) && <Alert className={error ? "border-red-400/25 bg-red-400/[0.04]" : "border-primary/20 bg-primary/[0.04]"}><AlertTriangle /><AlertTitle>{error ? "Action blocked" : "Status"}</AlertTitle><AlertDescription>{error || message}</AlertDescription>{lastHash && <a href={`${explorer}/tx/${lastHash}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">Open Blockscout receipt <ExternalLink className="size-3" /></a>}</Alert>}
     </div>
