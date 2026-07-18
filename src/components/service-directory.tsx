@@ -306,7 +306,7 @@ export function ServiceDirectory() {
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div><CardTitle>Your policy account</CardTitle><CardDescription className="mt-1">Choose a contract controlled by this wallet. The selection is stored only in this browser.</CardDescription></div>
-            <Badge variant="outline" className={isAdmin ? "border-primary/25 text-primary" : "border-amber-300/25 text-amber-200"}>{isAdmin ? "Admin verified" : "Admin not verified"}</Badge>
+            <Badge variant="outline" className={isAdmin ? "border-primary/25 text-primary" : "border-amber-500/25 text-amber-800"}>{isAdmin ? "Admin verified" : "Admin not verified"}</Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -363,14 +363,14 @@ export function ServiceDirectory() {
         <CardContent className="space-y-3">
           {entries.length === 0 ? <div className="rounded-xl border border-dashed border-grid p-8 text-center text-sm text-muted-foreground">No saved addresses yet.</div> : entries.map((entry) => {
             const enabled = permissions[entry.address.toLowerCase()] ?? false;
-            return <div key={entry.address} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-grid p-4"><div className="min-w-0"><p className="flex items-center gap-2 font-medium">{entry.kind === "contract" ? <Building2 className="size-4 text-amber-200" /> : <UserRound className="size-4 text-primary" />}{entry.label}<Badge variant="outline" className={enabled ? "border-primary/25 text-primary" : "text-muted-foreground"}>{enabled ? "Allowed" : "Disabled"}</Badge></p><p className="mt-2 break-all font-mono text-xs text-muted-foreground">{entry.address}</p></div><Button type="button" variant="outline" onClick={() => prepareChange(entry, !enabled)}>{enabled ? <X /> : <Check />}{enabled ? "Disable" : "Enable"}</Button></div>;
+            return <div key={entry.address} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-grid p-4"><div className="min-w-0"><p className="flex items-center gap-2 font-medium">{entry.kind === "contract" ? <Building2 className="size-4 text-amber-700" /> : <UserRound className="size-4 text-primary" />}{entry.label}<Badge variant="outline" className={enabled ? "border-primary/25 text-primary" : "text-muted-foreground"}>{enabled ? "Allowed" : "Disabled"}</Badge></p><p className="mt-2 break-all font-mono text-xs text-muted-foreground">{entry.address}</p></div><Button type="button" variant="outline" onClick={() => prepareChange(entry, !enabled)}>{enabled ? <X /> : <Check />}{enabled ? "Disable" : "Enable"}</Button></div>;
           })}
         </CardContent>
       </Card>
 
       <EcosystemDirectoryCard onSelect={(service) => { setLabel(service.name); setTarget(""); setSource(service.source); }} />
 
-      {message && <Alert className={status === "error" ? "border-red-400/25 bg-red-400/[0.04]" : "border-primary/20 bg-primary/[0.04]"}>{status === "error" ? <X className="text-red-300" /> : status === "confirmed" ? <Check className="text-primary" /> : <LoaderCircle className={status === "confirming" ? "animate-spin text-primary" : "text-primary"} />}<AlertTitle>{status === "error" ? "Change blocked" : status === "confirmed" ? "Permission confirmed" : "Permission status"}</AlertTitle><AlertDescription>{message}</AlertDescription>{hash && <a href={`${robinhoodTestnet.blockExplorers.default.url}/tx/${hash}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">View transaction <ExternalLink className="size-3" /></a>}</Alert>}
+      {message && <Alert className={status === "error" ? "border-red-400/25 bg-red-50" : "border-primary/20 bg-primary/[0.04]"}>{status === "error" ? <X className="text-red-700" /> : status === "confirmed" ? <Check className="text-primary" /> : <LoaderCircle className={status === "confirming" ? "animate-spin text-primary" : "text-primary"} />}<AlertTitle>{status === "error" ? "Change blocked" : status === "confirmed" ? "Permission confirmed" : "Permission status"}</AlertTitle><AlertDescription>{message}</AlertDescription>{hash && <a href={`${robinhoodTestnet.blockExplorers.default.url}/tx/${hash}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">View transaction <ExternalLink className="size-3" /></a>}</Alert>}
     </div>
   );
 }

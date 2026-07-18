@@ -218,7 +218,7 @@ export function PolicyPlayground({ compact = false }: { compact?: boolean }) {
               <div key={rule.id} className="flex items-start gap-3 px-3 py-2.5">
                 <span className={cn(
                   "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full",
-                  rule.passed ? "bg-primary/10 text-primary" : "bg-red-400/10 text-red-300",
+                  rule.passed ? "bg-primary/10 text-primary" : "bg-red-50 text-red-700",
                 )}>
                   {rule.passed ? <Check className="size-3.5" /> : <CircleX className="size-3.5" />}
                 </span>

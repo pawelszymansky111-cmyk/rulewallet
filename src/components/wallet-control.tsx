@@ -74,7 +74,7 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
               </Button>
             ))}
             {!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID && (
-              <p className="px-2 py-2 text-[11px] leading-5 text-amber-200/80">
+              <p className="px-2 py-2 text-[11px] leading-5 text-amber-800">
                 WalletConnect appears after its public project ID is configured.
               </p>
             )}
@@ -94,7 +94,7 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
         size={compact ? "sm" : "default"}
         className={cn(
           "border-primary/20 bg-primary/[0.05]",
-          !correctNetwork && "border-amber-400/30 text-amber-200",
+          !correctNetwork && "border-amber-500/30 text-amber-800",
         )}
         onClick={() => setOpen((current) => !current)}
       >
@@ -110,7 +110,7 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
                 {balance.data ? `${Number(formatEther(balance.data.value)).toFixed(4)} ETH` : "Balance loading"}
               </p>
             </div>
-            <Badge variant="outline" className={correctNetwork ? "text-primary" : "text-amber-200"}>
+            <Badge variant="outline" className={correctNetwork ? "text-primary" : "text-amber-800"}>
               {isMainnet ? "Experimental mainnet" : correctNetwork ? "Testnet" : `Chain ${connection.chainId}`}
             </Badge>
           </div>

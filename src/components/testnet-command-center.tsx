@@ -367,7 +367,7 @@ export function TestnetCommandCenter() {
       <Card className="border-amber-300/20 bg-amber-300/[0.035]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Network className="size-4 text-amber-200" /> Wrong network
+            <Network className="size-4 text-amber-700" /> Wrong network
           </CardTitle>
           <CardDescription>RuleWallet only exposes Robinhood Chain testnet.</CardDescription>
         </CardHeader>
@@ -388,7 +388,7 @@ export function TestnetCommandCenter() {
       <Card className="border-amber-300/20 bg-amber-300/[0.035]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="size-4 text-amber-200" /> Contract deployment gate
+            <AlertTriangle className="size-4 text-amber-700" /> Contract deployment gate
           </CardTitle>
           <CardDescription>
             The audited-library contract build is ready, but no testnet address is configured.
@@ -574,7 +574,7 @@ export function TestnetCommandCenter() {
           }
         >
           {status === "error" ? (
-            <X className="text-red-300" />
+            <X className="text-red-700" />
           ) : status === "confirmed" ? (
             <Check className="text-primary" />
           ) : (
