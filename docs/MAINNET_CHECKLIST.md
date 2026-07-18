@@ -11,6 +11,7 @@ Mainnet is blocked until every mandatory item is complete. Checking a box requir
 - [ ] Source, constructor arguments, and bytecode verified on the explorer.
 - [ ] Invariant, fuzz, unit, integration, static-analysis, and fork tests pass.
 - [ ] Token semantics and every target/adapter reviewed.
+- [ ] Generic protocol-router calls replaced by selector-limited audited adapters.
 - [ ] Emergency pause and paused recovery rehearsed.
 
 ## Authority
@@ -36,6 +37,7 @@ Mainnet is blocked until every mandatory item is complete. Checking a box requir
 - [ ] Risk disclosures reviewed.
 - [ ] Legal, regulatory, privacy, and sanctions/compliance review completed for intended jurisdictions.
 - [ ] Public documentation matches deployed behavior.
+- [ ] Popular-service directory sources and every embedded address independently verified.
 - [ ] Explicit written owner approval received for the exact deployment commit and addresses.
 
 `ENABLE_MAINNET` must remain `false` until the final approval is recorded. The current application does not include a mainnet Wagmi chain configuration.

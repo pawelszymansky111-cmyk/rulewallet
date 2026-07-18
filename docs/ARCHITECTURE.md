@@ -12,6 +12,9 @@ Mainnet chain ID `4663` is documentation-only. The application config contains o
 Browser wallet
      │ explicit connect / switch / sign
      ▼
+Wallet-scoped policy selection
+     │ local labels / onchain permissions
+     ▼
 Next.js control surface ─────► /api/rpc read-only proxy
      │                              │
      │ exact simulation             └──► managed testnet RPC
@@ -35,6 +38,8 @@ RuleWalletPolicyAccount
 - A server-side RPC proxy keeps managed provider credentials out of browser bundles.
 - The proxy allows read/simulation methods only and rejects transaction broadcasts.
 - Wallets broadcast signed transactions directly; the server never receives a private key.
+- Each connected owner may select a personal policy account; selection and contact labels are scoped by owner, chain, and policy address in local browser storage.
+- The UI verifies deployed bytecode and `DEFAULT_ADMIN_ROLE`, simulates `setTargetAllowed`, and then asks the wallet to sign the exact call.
 
 ### Policy account
 
@@ -76,6 +81,7 @@ Arbitrary DEX calls are intentionally unsupported. A caller-supplied `amount` or
 - Agent output, calldata, token contracts, targets, RPC responses, and browser state are untrusted.
 - Frontend `allowed`, `review`, and `blocked` labels do not grant authority.
 - A target allowlist reduces scope but does not make the target safe.
+- Local address-book labels are convenience metadata, not verified identities.
 - A malicious or compromised admin can reconfigure rules; production administration must be multisig-controlled and monitored.
 - Approver wallets can be phished. Each wallet must inspect chain, contract, function, arguments, value, nonce, and expiry.
 - The server RPC proxy is availability infrastructure, not an authorization component.

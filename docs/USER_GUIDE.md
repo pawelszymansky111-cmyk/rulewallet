@@ -19,6 +19,19 @@
 
 Amounts below the configured approval threshold execute immediately if all hard rules pass. Larger amounts create a pending request.
 
+## Personal policy account and trusted addresses
+
+1. Deploy your own contract at `/app/deploy`, or open `/app/services` and enter an existing RuleWallet policy-account address.
+2. Select **Verify and use**. RuleWallet checks that code exists and that the connected wallet holds `DEFAULT_ADMIN_ROLE`.
+3. Enter a private local label and the full EVM recipient address.
+4. Select **Preview permission** and verify the chain, policy account, target, detected wallet/contract type, permission, and scope.
+5. Sign `setTargetAllowed(target, true)` in your wallet.
+6. Disable the address at any time with another simulated, explicit wallet transaction.
+
+Labels are stored only in the current browser and are not identity verification. The onchain `allowedTargets` mapping is authoritative. Always verify a recipient address through a second trusted channel.
+
+The ecosystem section is for discovery. Protocol contracts are not one-click enabled because the current policy account cannot restrict arbitrary router calldata. A service becomes automation-ready only after RuleWallet ships and audits a dedicated adapter that constrains selectors, assets, recipients, and minimum output.
+
 ## Scheduled strategies
 
 1. Open `/app/agent` with the onchain admin wallet connected.

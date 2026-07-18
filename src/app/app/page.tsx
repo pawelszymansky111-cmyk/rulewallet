@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Bot, CircleCheck, Clock3, Pause, Plus, Shield, WalletCards } from "lucide-react";
+import { ArrowRight, BookUser, Bot, CircleCheck, Clock3, Pause, Plus, Shield, WalletCards } from "lucide-react";
 import { DecisionBadge } from "@/components/decision-badge";
 import { TestnetCommandCenter } from "@/components/testnet-command-center";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div><p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Workspace / demo</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Agent controls</h1><p className="mt-2 text-muted-foreground">Monitor authority, requests, and policy decisions.</p></div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline"><Link href="/app/services"><BookUser /> Trusted addresses</Link></Button>
           <Button asChild variant="outline"><Link href="/app/agent"><Bot /> Agent automation</Link></Button>
           <Button asChild variant="outline"><Link href="/app/deploy"><WalletCards /> Deploy contract</Link></Button>
           <Button asChild className="bg-primary text-primary-foreground"><Link href="/app/policies/new"><Plus /> New policy</Link></Button>
