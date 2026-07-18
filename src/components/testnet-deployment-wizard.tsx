@@ -41,10 +41,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { robinhoodTestnet } from "@/lib/chains";
+import { usePolicyAccount } from "@/components/policy-account-provider";
+import { deploymentStorageKey } from "@/lib/policy-account";
 
 const contractAbi = artifact.abi as Abi;
 const contractBytecode = artifact.bytecode as Hex;
-const storageKey = "rulewallet:testnet-deployment:v1";
 
 type DeploymentRecord = {
   address: Address;
@@ -74,6 +75,7 @@ function shortAddress(address: string) {
 }
 
 export function TestnetDeploymentWizard() {
+  const policyAccount = usePolicyAccount();
   const connection = useConnection();
   const publicClient = usePublicClient({ chainId: robinhoodTestnet.id });
   const walletClient = useWalletClient({ chainId: robinhoodTestnet.id });
@@ -98,7 +100,7 @@ export function TestnetDeploymentWizard() {
     if (!connection.address) return;
     const timeoutId = window.setTimeout(() => {
       try {
-        const saved = window.localStorage.getItem(storageKey);
+        const saved = window.localStorage.getItem(deploymentStorageKey);
         if (!saved) return;
         const record = JSON.parse(saved) as DeploymentRecord;
         if (
@@ -109,7 +111,7 @@ export function TestnetDeploymentWizard() {
           setDeployment(record);
         }
       } catch {
-        window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(deploymentStorageKey);
       }
     }, 0);
     return () => window.clearTimeout(timeoutId);
@@ -142,7 +144,8 @@ export function TestnetDeploymentWizard() {
         owner: connection.address,
         transactionHash: hash,
       };
-      window.localStorage.setItem(storageKey, JSON.stringify(record));
+      window.localStorage.setItem(deploymentStorageKey, JSON.stringify(record));
+      policyAccount.selectPolicyAccount(record.address);
       setDeployment(record);
       setCompleted((current) => [...new Set([...current, "deploy" as const])]);
     } catch (caught) {

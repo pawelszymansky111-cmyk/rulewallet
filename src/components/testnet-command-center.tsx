@@ -30,10 +30,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { robinhoodTestnet } from "@/lib/chains";
+import { usePolicyAccount } from "@/components/policy-account-provider";
 import {
   nativeAssetAddress,
   ruleWalletAbi,
-  ruleWalletAddress,
 } from "@/lib/rulewallet-contract";
 
 type ContractSnapshot = {
@@ -67,6 +67,8 @@ function errorMessage(error: unknown) {
 }
 
 export function TestnetCommandCenter() {
+  const policyAccount = usePolicyAccount();
+  const policyAccountAddress = policyAccount.address;
   const connection = useConnection();
   const publicClient = usePublicClient({ chainId: robinhoodTestnet.id });
   const walletClient = useWalletClient({ chainId: robinhoodTestnet.id });
@@ -90,40 +92,40 @@ export function TestnetCommandCenter() {
     : undefined;
 
   const refreshContract = useCallback(async () => {
-    if (!publicClient || !ruleWalletAddress || !connection.address) return;
+    if (!publicClient || !policyAccountAddress || !connection.address) return;
     setStatus("reading");
     try {
       const [active, paused, nonce, rollingSpent, minimumApprovals, nativePolicy] =
         await Promise.all([
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "policyActive",
           }),
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "paused",
           }),
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "nextNonce",
             args: [connection.address],
           }),
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "rollingSpent",
             args: [nativeAssetAddress],
           }),
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "minimumApprovals",
           }),
           publicClient.readContract({
-            address: ruleWalletAddress,
+            address: policyAccountAddress,
             abi: ruleWalletAbi,
             functionName: "assetPolicies",
             args: [nativeAssetAddress],
@@ -147,7 +149,7 @@ export function TestnetCommandCenter() {
       setStatus("error");
       setMessage(errorMessage(error));
     }
-  }, [connection.address, publicClient]);
+  }, [connection.address, policyAccountAddress, publicClient]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -160,7 +162,7 @@ export function TestnetCommandCenter() {
     if (!prepared) return [];
     return [
       ["Network", `Robinhood testnet · ${robinhoodTestnet.id}`],
-      ["Policy account", ruleWalletAddress ?? "Not configured"],
+      ["Policy account", policyAccountAddress ?? "Not configured"],
       ["Target", prepared.target],
       ["Value", `${formatEther(prepared.value)} ETH`],
       ["Calldata", "0x (empty native transfer)"],
@@ -173,10 +175,10 @@ export function TestnetCommandCenter() {
           : "Direct policy execution",
       ],
     ];
-  }, [prepared, snapshot?.minimumApprovals]);
+  }, [policyAccountAddress, prepared, snapshot?.minimumApprovals]);
 
   async function simulate() {
-    if (!publicClient || !ruleWalletAddress || !connection.address || !snapshot) return;
+    if (!publicClient || !policyAccountAddress || !connection.address || !snapshot) return;
     setMessage("");
     setHash(undefined);
     setReceipt(undefined);
@@ -217,7 +219,7 @@ export function TestnetCommandCenter() {
     setStatus("simulating");
     try {
       await publicClient.simulateContract({
-        address: ruleWalletAddress,
+        address: policyAccountAddress,
         abi: ruleWalletAbi,
         functionName: "requestNativeCall",
         args: [
@@ -246,7 +248,7 @@ export function TestnetCommandCenter() {
       !prepared ||
       !walletClient.data ||
       !publicClient ||
-      !ruleWalletAddress ||
+      !policyAccountAddress ||
       !connection.address
     ) return;
     setStatus("signing");
@@ -255,7 +257,7 @@ export function TestnetCommandCenter() {
       const transactionHash = await walletClient.data.writeContract({
         account: connection.address,
         chain: robinhoodTestnet,
-        address: ruleWalletAddress,
+        address: policyAccountAddress,
         abi: ruleWalletAbi,
         functionName: "requestNativeCall",
         args: [
@@ -288,7 +290,7 @@ export function TestnetCommandCenter() {
   }
 
   async function submitApproval(action: "approve" | "execute") {
-    if (!walletClient.data || !publicClient || !ruleWalletAddress || !connection.address) return;
+    if (!walletClient.data || !publicClient || !policyAccountAddress || !connection.address) return;
     let requestId: bigint;
     try {
       requestId = BigInt(approvalRequestId);
@@ -304,7 +306,7 @@ export function TestnetCommandCenter() {
           ? await walletClient.data.writeContract({
               account: connection.address,
               chain: robinhoodTestnet,
-              address: ruleWalletAddress,
+              address: policyAccountAddress,
               abi: ruleWalletAbi,
               functionName: "approveRequest",
               args: [requestId],
@@ -312,7 +314,7 @@ export function TestnetCommandCenter() {
           : await walletClient.data.writeContract({
               account: connection.address,
               chain: robinhoodTestnet,
-              address: ruleWalletAddress,
+              address: policyAccountAddress,
               abi: ruleWalletAbi,
               functionName: "executeApprovedRequest",
               args: [requestId],
@@ -381,7 +383,7 @@ export function TestnetCommandCenter() {
     );
   }
 
-  if (!ruleWalletAddress) {
+  if (!policyAccountAddress) {
     return (
       <Card className="border-amber-300/20 bg-amber-300/[0.035]">
         <CardHeader>

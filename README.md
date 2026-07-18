@@ -25,12 +25,17 @@ The repository includes:
 - Robinhood Chain testnet switching and balance reads;
 - server-proxied, rate-limited read-only RPC access;
 - exact transaction simulation before a wallet signature;
+- wallet-specific policy-account selection and a self-service trusted-address book;
+- onchain admin verification and simulated allowlist changes before every signature;
+- a verified-source ecosystem directory with unsafe generic router permissions gated;
 - an OpenZeppelin-based policy account with agent, approver, guardian, and delayed-admin roles;
 - per-asset transaction limits and bounded 24-hour spending buckets;
 - expiring requests, nonces, emergency pause, and multi-human approvals;
 - 19 Solidity unit, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
 - health checks, security headers, release gates, and incident documentation.
 - a public guided demo, live onchain metrics, and shareable autonomous execution receipts.
+
+Open `/app/services` to select a policy account owned by the connected wallet, add a labeled recipient, preview the exact `setTargetAllowed` call, and enable or disable it onchain. Labels stay local to the browser; the contract permission is the source of truth.
 
 ## Quick start
 
@@ -92,6 +97,8 @@ Arbitrary swaps are disabled. A generic calldata wrapper cannot prove slippage o
 Recurring transfer strategies are stored in Upstash Redis and evaluated by a protected Vercel Cron route once per day. Before every call, the runner checks the onchain role, target allowlist, active/pause state, native-asset policy, approval boundary, contract balance, and exact agent nonce, then performs an RPC simulation. Confirmed, blocked, and failed attempts appear on `/activity` with explorer receipts.
 
 The dedicated signer key and `CRON_SECRET` are server-only Vercel secrets. They must never use a `NEXT_PUBLIC_` prefix. Mainnet remains hard-disabled, and the automation runner rejects amounts above the human-approval threshold.
+
+The service directory links to protocols listed by official Robinhood Chain or protocol documentation. It deliberately does not hard-code router targets: the current policy account permits arbitrary calldata to an allowed native-call target, so each DeFi integration needs a selector-limited, token-aware, minimum-output adapter and an independent review.
 
 Safe contracts could not be verified as officially supported on Robinhood Chain when this architecture was selected, so no Safe address is assumed or invented.
 
