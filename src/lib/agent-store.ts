@@ -78,12 +78,17 @@ export async function saveExecution(execution: AgentExecution) {
 
 export async function claimExecutionLock(strategyId: string) {
   const lockKey = `rulewallet:lock:${strategyId}`;
-  const claimed = await getRedis().set(lockKey, crypto.randomUUID(), { nx: true, ex: 120 });
-  return claimed === "OK" ? lockKey : undefined;
+  const token = crypto.randomUUID();
+  const claimed = await getRedis().set(lockKey, token, { nx: true, ex: 120 });
+  return claimed === "OK" ? { key: lockKey, token } : undefined;
 }
 
-export async function releaseExecutionLock(lockKey: string) {
-  await getRedis().del(lockKey);
+export async function releaseExecutionLock(lock: { key: string; token: string }) {
+  await getRedis().eval(
+    "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+    [lock.key],
+    [lock.token],
+  );
 }
 
 export async function claimAdminNonce(nonce: string) {

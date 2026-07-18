@@ -2,99 +2,98 @@
 
 ## Release boundary
 
-RuleWallet is an unaudited Robinhood Chain testnet production candidate. The web application can connect a user wallet, simulate a contract call, submit an explicitly approved testnet transaction, and track its receipt. Financial rules are enforced by a non-upgradeable policy account, not by the browser or API.
+RuleWallet now has two isolated environments:
 
-Mainnet chain ID `4663` is documentation-only. The application config contains only Robinhood Chain testnet chain ID `46630`, and `ENABLE_MAINNET` accepts only `false`.
+| Environment | Chain ID | Contract path | Funds |
+| --- | ---: | --- | --- |
+| Robinhood Chain testnet | `46630` | Existing `RuleWalletPolicyAccount` V1 and scheduled demo agent | Valueless test ETH only |
+| Robinhood Chain mainnet | `4663` | Experimental factory-deployed `RuleWalletPolicyAccountV2` | Real assets; unaudited and high risk |
 
-## Components
+V1 is preserved for the public testnet demo. V2 is non-upgradeable, has a narrower transfer-only surface, and is not deployed by this repository release. No backend or administrator can override V2 policy checks.
+
+## Mainnet flow
 
 ```text
-Browser wallet
-     │ explicit connect / switch / sign
-     ▼
-Wallet-scoped policy selection
-     │ local labels / onchain permissions
-     ▼
-Next.js control surface ─────► /api/rpc read-only proxy
-     │                              │
-     │ exact simulation             └──► managed testnet RPC
-     ▼
-RuleWalletPolicyAccount
-     ├── hard policy fails ─────────────► revert with typed error
-     ├── below approval threshold ──────► execute + receipt event
-     └── above approval threshold ──────► pending request
-                                              │
-                          independent approver wallets
-                                              │
-                                              ▼
-                                     threshold execution
+Owner wallet ── simulate exact transaction ── review chain/to/value/calldata/result
+     │                                      │
+     └──────────────── wallet signature ◄───┘
+                         │
+                         ▼
+               Versioned V2 factory
+                         │ CREATE2
+                         ▼
+             Personal non-upgradeable account
+              ├─ OWNER: policy + withdrawal
+              ├─ AGENT: bounded direct transfer only
+              ├─ APPROVER: high-value approval only
+              └─ GUARDIAN: emergency pause only
+                         │
+         ┌───────────────┴────────────────┐
+         ▼                                ▼
+ direct native ETH                 canonical USDG
+ trusted recipient                 trusted recipient
+ asset limits                      asset limits
 ```
 
-### Web application
+The browser broadcasts owner, approver, and guardian transactions through the connected wallet. The read-only RPC proxy rejects transaction-broadcast methods. The contract—not the UI, API, scheduler, signer provider, or database—is the authorization boundary.
 
-- Next.js App Router with React Server Components by default.
-- Wagmi and Viem for EIP-1193 wallet connections and typed EVM calls.
-- Injected wallets always available; WalletConnect appears when its public project ID is configured.
-- A server-side RPC proxy keeps managed provider credentials out of browser bundles.
-- The proxy allows read/simulation methods only and rejects transaction broadcasts.
-- Wallets broadcast signed transactions directly; the server never receives a private key.
-- Each connected owner may select a personal policy account; selection and contact labels are scoped by owner, chain, and policy address in local browser storage.
-- The UI verifies deployed bytecode and `DEFAULT_ADMIN_ROLE`, simulates `setTargetAllowed`, and then asks the wallet to sign the exact call.
+## V2 contract boundary
 
-### Policy account
+`RuleWalletPolicyAccountV2` uses OpenZeppelin `AccessControlDefaultAdminRules`, `EIP712`, `Pausable`, `ReentrancyGuard`, and `SafeERC20`.
 
-`RuleWalletPolicyAccount` uses OpenZeppelin Contracts `5.6.1`:
+It supports only:
 
-- `AccessControlDefaultAdminRules` for a single delayed, two-step default admin;
-- `Pausable` for guardian-triggered emergency stops;
-- `ReentrancyGuard` around every execution and recovery path;
-- `SafeERC20` for direct token transfers.
+1. direct native ETH transfers;
+2. direct transfers of the immutable canonical Robinhood Chain USDG address;
+3. trusted-recipient enable/revoke;
+4. mandatory positive per-transaction and rolling 24-hour limits for each enabled agent asset;
+5. optional human-approval thresholds;
+6. EIP-712 recurring strategy authorizations;
+7. owner withdrawals, guardian pause, and owner unpause.
 
-Roles:
+It has no arbitrary calls, generic ERC-20 path, token approvals, DEX router, bridge, swap, delegatecall, or upgrade hook. Agent policy changes and owner withdrawals are separate wallet-signed transactions. Owner withdrawals are intentionally outside agent spending limits and may withdraw any available balance.
 
-| Role | Authority |
-| --- | --- |
-| Default admin | Configure policies, roles, allowlists, unpause, and recover funds while paused |
-| Guardian | Pause and cancel pending requests |
-| Agent | Propose or execute only policy-compliant actions |
-| Approver | Record one approval per high-value request |
+### Signed strategies
 
-The admin should be transferred to a verified multisig before meaningful testnet value is used. The contract is not upgradeable; changes require a new deployment and explicit migration.
+An EIP-712 strategy commits to:
 
-## Scheduled agent boundary
+- chain ID and policy-account address;
+- asset, recipient, and exact amount;
+- owner nonce and expiry;
+- minimum execution interval and maximum execution count.
 
-The scheduled agent uses a distinct testnet EOA whose private key exists only in the production server environment. The EOA receives only `AGENT_ROLE`. Vercel Cron invokes an authenticated route daily; Upstash Redis stores signed strategies, one-time admin nonces, execution locks, and public receipts.
+The EIP-712 domain also binds the signature to `RuleWallet`, version `2`, the current chain, and the verifying account. A nonce binds to one digest on first execution. The account rejects nonce conflicts, expiry, early recurrence, exhaustion, revoked strategies, invalid owners, untrusted recipients, unsupported assets, paused/inactive policies, and either limit being exceeded.
 
-Every automated execution re-reads contract state and simulates the exact call. The runner fails closed when the policy is paused/inactive, the role is missing, the target or asset is disallowed, the limit or approval threshold would be crossed, the balance is insufficient, or the nonce has changed. Revoking `AGENT_ROLE` or pausing the contract immediately removes execution authority independently of the web database.
+### Rolling accounting
 
-### Supported actions
+V1 and V2 retain the current hour plus the previous 24 hourly buckets. This deliberately over-counts near an hour boundary for at most one hour, but never forgets spend before a complete 24 hours. Pending requests are revalidated before execution.
 
-1. Native ETH call to an explicitly allowed target.
-2. Direct ERC-20 transfer for an explicitly allowed token and recipient.
+## Signer and scheduler boundary
 
-Every asset has independent native-unit limits: maximum per transaction, bounded rolling 24-hour spend, and approval threshold. Rolling spend retains the current hour plus the previous 24 one-hour buckets. This bounded, conservative window never drops spend before it is 24 hours old, though it can continue counting it for up to one extra hour.
+Testnet retains its dedicated, server-only demo EOA for backwards compatibility. `AGENT_PRIVATE_KEY` is explicitly testnet-only.
 
-Arbitrary DEX calls are intentionally unsupported. A caller-supplied `amount` or `slippageBps` cannot prove what generic calldata will move. A production swap feature needs a router-specific adapter that decodes inputs, validates token flow and `minAmountOut`, and is independently audited.
+Mainnet uses the `SecureAgentSigner` interface. Its only implemented adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service. It accepts no raw private key. Mainnet autonomy fails closed unless all of these are true:
 
-## Trust boundaries
+- `ENABLE_MAINNET_AUTONOMY=true`;
+- `MAINNET_SIGNER_MODE=external-kms`;
+- the configured public signer address is valid;
+- signer endpoint and runtime credential are present;
+- the agent has `AGENT_ROLE` on the selected account;
+- the exact call simulates successfully under current onchain policy.
 
-- Agent output, calldata, token contracts, targets, RPC responses, and browser state are untrusted.
-- Frontend `allowed`, `review`, and `blocked` labels do not grant authority.
-- A target allowlist reduces scope but does not make the target safe.
-- Local address-book labels are convenience metadata, not verified identities.
-- A malicious or compromised admin can reconfigure rules; production administration must be multisig-controlled and monitored.
-- Approver wallets can be phished. Each wallet must inspect chain, contract, function, arguments, value, nonce, and expiry.
-- The server RPC proxy is availability infrastructure, not an authorization component.
-- The public fallback RPC is rate-limited and is unsuitable for a real production launch.
+Durable Redis locks use unique ownership tokens and compare-before-delete release. Transaction nonces come from the chain and must be serialized by the secure signing service. Confirmation tracking and public receipts use Blockscout transaction hashes.
 
-## Persistence and receipts
+## RPC and data
 
-Onchain events are the authoritative audit record. The current release does not operate a centralized receipt database. The browser displays transaction hashes and explorer links; indexers may later build read models from `RequestCreated`, `RequestApproved`, `RequestCancelled`, and `RequestExecuted`.
+- Browser reads go through `/api/rpc?chainId=4663|46630`.
+- Only an allowlist of read/simulation JSON-RPC methods is accepted.
+- Mainnet and testnet have separate primary, failover, and public fallback configuration.
+- The official public RPC is last because Robinhood documents it as rate-limited and unsuitable for production use.
+- Local address-book labels remain browser-local and are not proof of identity.
+- Onchain events and Blockscout receipts are authoritative; offchain records are a read model only.
 
-## Safe decision
+## Deployment boundary
 
-The architecture brief preferred Safe if Safe contracts were officially deployed and supported on Robinhood Chain. No authoritative Safe deployment evidence for chain IDs `4663` or `46630` was found during implementation. RuleWallet therefore uses the specified fallback and does not hard-code guessed Safe addresses.
+The factory pins chain ID and canonical USDG in immutable state. Personal accounts are deployed with CREATE2 from owner-specific salts, recorded by owner and version hash, and are not proxies. A new version requires a new factory/account deployment and an explicit owner migration.
 
-## Remaining production work
-
-See [`THREAT_MODEL.md`](THREAT_MODEL.md), [`AUDIT_PREP.md`](AUDIT_PREP.md), and [`MAINNET_CHECKLIST.md`](MAINNET_CHECKLIST.md). Mainnet activation is blocked until every mandatory gate is independently verified.
+See [`THREAT_MODEL.md`](THREAT_MODEL.md), [`DEPLOYMENT.md`](DEPLOYMENT.md), and [`MAINNET_CHECKLIST.md`](MAINNET_CHECKLIST.md).

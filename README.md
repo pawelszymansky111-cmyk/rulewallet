@@ -4,7 +4,7 @@
 
 RuleWallet is an open-source policy and approval layer for onchain AI agents. It turns broad wallet access into narrow, inspectable authority: spending limits, token and contract allowlists, market constraints, human approvals, audit receipts, and instant revocation.
 
-> **Status:** unaudited testnet production candidate. The repository now includes a wallet-connected interface and a tested onchain policy account. Mainnet is disabled. Do not use it with real assets.
+> **Status:** V1 remains a working testnet demo. V2 is an experimental, unaudited Robinhood Chain mainnet release candidate. No mainnet contract is deployed by this repository update, autonomous mainnet execution is disabled by default, and the software is not suitable for large balances. RuleWallet is not affiliated with Robinhood.
 
 ## Why this exists
 
@@ -28,10 +28,13 @@ The repository includes:
 - wallet-specific policy-account selection and a self-service trusted-address book;
 - onchain admin verification and simulated allowlist changes before every signature;
 - a verified-source ecosystem directory with unsafe generic router permissions gated;
-- an OpenZeppelin-based policy account with agent, approver, guardian, and delayed-admin roles;
+- an OpenZeppelin-based V1 testnet account plus a versioned V2 mainnet factory;
+- personal non-upgradeable V2 accounts with separate owner, agent, approver, and guardian roles;
+- direct native ETH and canonical USDG transfers only in V2—no arbitrary calls, approvals, swaps, routers, bridges, or stock-token trading;
 - per-asset transaction limits and bounded 24-hour spending buckets;
-- expiring requests, nonces, emergency pause, and multi-human approvals;
-- 19 Solidity unit, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
+- EIP-712 recurring strategies, expiry, replay controls, emergency pause, and multi-human approvals;
+- unrestricted owner deposit/withdrawal of available balances, isolated from agent limits;
+- 36 Solidity unit, factory, fork, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
 - health checks, security headers, release gates, and incident documentation.
 - a public guided demo, live onchain metrics, and shareable autonomous execution receipts.
 
@@ -47,7 +50,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000), then try `/playground` and `/app`.
 
-For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rulewallet.vercel.app/demo), inspect [live receipts](https://rulewallet.vercel.app/activity), and verify the metrics response at [`/api/public/metrics`](https://rulewallet.vercel.app/api/public/metrics).
+For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rulewallet.vercel.app/demo), inspect [live receipts](https://rulewallet.vercel.app/activity), or open the explicitly experimental [mainnet lab](https://rulewallet.vercel.app/mainnet). The mainnet UI stays in preparation mode until a verified V2 factory address exists.
 
 For hackathon review, open the [submission page](https://rulewallet.vercel.app/hackathon), follow the [two-minute judge demo](https://rulewallet.vercel.app/demo), or use the [owner onboarding flow](https://rulewallet.vercel.app/start). Ready-to-paste submission and pitch copy live in [`docs/HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) and [`docs/PITCH_SCRIPT.md`](docs/PITCH_SCRIPT.md).
 
@@ -72,13 +75,20 @@ NEXT_PUBLIC_SITE_URL=
 NEXT_PUBLIC_GITHUB_URL=
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 NEXT_PUBLIC_RULEWALLET_TESTNET_ADDRESS=
+NEXT_PUBLIC_RULEWALLET_MAINNET_FACTORY_ADDRESS=
+NEXT_PUBLIC_ENABLE_EXPERIMENTAL_MAINNET=true
 RH_TESTNET_RPC_URL=
-ENABLE_MAINNET=false
+RH_TESTNET_RPC_FALLBACK_URL=
+RH_MAINNET_RPC_URL=
+RH_MAINNET_RPC_FALLBACK_URL=
+ENABLE_MAINNET=true
+ENABLE_MAINNET_AUTONOMY=false
+MAINNET_SIGNER_MODE=disabled
 ```
 
 See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
-## Onchain policy account
+## Onchain policy accounts
 
 [`contracts/src/RuleWalletPolicyAccount.sol`](contracts/src/RuleWalletPolicyAccount.sol) is deliberately non-upgradeable. It supports:
 
@@ -90,7 +100,9 @@ See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 - emergency pause and admin-only paused recovery;
 - separate limits for each asset's native unit.
 
-Arbitrary swaps are disabled. A generic calldata wrapper cannot prove slippage or token outflow; each router needs a specific audited adapter.
+[`contracts/src/RuleWalletPolicyAccountV2.sol`](contracts/src/RuleWalletPolicyAccountV2.sol) is the narrower experimental mainnet design. It supports only direct ETH and immutable canonical USDG transfers to trusted recipients. Every enabled agent asset requires owner-set per-transaction and rolling 24-hour limits. Optional thresholds create pending human approvals. EIP-712 strategies bind chain, account, asset, recipient, amount, nonce, expiry, recurrence interval, and execution cap.
+
+[`contracts/src/RuleWalletFactory.sol`](contracts/src/RuleWalletFactory.sol) deploys personal V2 accounts with CREATE2 and records their version. V2 has no proxy or upgrade hook. Owner withdrawals are explicit wallet transactions and are not constrained by agent allowances.
 
 ## Autonomous testnet agent
 
@@ -98,13 +110,13 @@ Arbitrary swaps are disabled. A generic calldata wrapper cannot prove slippage o
 
 Recurring transfer strategies are stored in Upstash Redis and evaluated by a protected Vercel Cron route once per day. Before every call, the runner checks the onchain role, target allowlist, active/pause state, native-asset policy, approval boundary, contract balance, and exact agent nonce, then performs an RPC simulation. Confirmed, blocked, and failed attempts appear on `/activity` with explorer receipts.
 
-The dedicated signer key and `CRON_SECRET` are server-only Vercel secrets. They must never use a `NEXT_PUBLIC_` prefix. Mainnet remains hard-disabled, and the automation runner rejects amounts above the human-approval threshold.
+The legacy dedicated signer key and `CRON_SECRET` are testnet-only server secrets. Mainnet never reads `AGENT_PRIVATE_KEY`; it uses a `SecureAgentSigner` interface for a separately operated non-exportable KMS/MPC/HSM key and fails closed when that configuration is missing. `ENABLE_MAINNET_AUTONOMY` remains a separate kill switch.
 
 The service directory links to protocols listed by official Robinhood Chain or protocol documentation. It deliberately does not hard-code router targets: the current policy account permits arbitrary calldata to an allowed native-call target, so each DeFi integration needs a selector-limited, token-aware, minimum-output adapter and an independent review.
 
 Safe contracts could not be verified as officially supported on Robinhood Chain when this architecture was selected, so no Safe address is assumed or invented.
 
-## Testnet deployment
+## Deployment
 
 For a single-wallet demo, open `/app/deploy` in a browser with MetaMask. The wizard is locked to Robinhood Chain Testnet (`46630`), deploys the exact bytecode committed in `src/generated`, and makes every setup action a separate wallet confirmation. The connected wallet receives the initial admin, guardian, agent, and approver roles; this arrangement is for low-value testnet onboarding only.
 
@@ -126,6 +138,8 @@ forge script script/DeployRuleWallet.s.sol:DeployRuleWallet \
 ```
 
 Verify the resulting address on the Robinhood Chain testnet Blockscout instance, then set `NEXT_PUBLIC_RULEWALLET_TESTNET_ADDRESS`. Never paste a seed phrase or private key into RuleWallet, a support message, or a committed environment file.
+
+For experimental mainnet, first read [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/MAINNET_CHECKLIST.md`](docs/MAINNET_CHECKLIST.md). The V2 factory script requires chain `4663` and canonical USDG, but intentionally stops at a no-broadcast simulation unless a human explicitly runs an external hardware-wallet command. Before any signature, review the exact chain, creation bytecode, zero value, constructor arguments, and expected factory state.
 
 ## Offchain policy example
 
@@ -164,7 +178,7 @@ The contract is the source of truth for financial rules. Frontend decisions are 
 
 ## Safety boundary
 
-This release is not certified for real funds. Before mainnet, RuleWallet requires an independent audit, resolved findings, verified bytecode, multisig administration, production RPC failover, monitoring, canary limits, legal review, and explicit owner approval. The full blocking checklist is in [`docs/MAINNET_CHECKLIST.md`](docs/MAINNET_CHECKLIST.md).
+V2 is experimental and unaudited. Publishing the UI is not permission to deploy contracts, enable automation, or use a large balance. Independent review, verified bytecode, separate operational roles, non-exportable signing, production RPC failover, monitoring, incident drills, restrictive canaries, and explicit owner approvals remain documented gates in [`docs/MAINNET_CHECKLIST.md`](docs/MAINNET_CHECKLIST.md).
 
 RuleWallet is not affiliated with Allowance, Robinhood Markets, Robinhood Chain, Y Combinator, or any protocol named in demo fixtures. It is an original implementation inspired by the general concept of scoped agent permissions.
 

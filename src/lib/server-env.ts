@@ -3,7 +3,17 @@ import { z } from "zod";
 
 const serverEnvironmentSchema = z.object({
   RH_TESTNET_RPC_URL: z.url().optional(),
-  ENABLE_MAINNET: z.enum(["false"]).default("false"),
+  RH_TESTNET_RPC_FALLBACK_URL: z.url().optional(),
+  RH_MAINNET_RPC_URL: z.url().optional(),
+  RH_MAINNET_RPC_FALLBACK_URL: z.url().optional(),
+  ENABLE_MAINNET: z.enum(["true", "false"]).default("false"),
+  ENABLE_MAINNET_AUTONOMY: z.enum(["true", "false"]).default("false"),
+  MAINNET_SIGNER_MODE: z.enum(["disabled", "external-kms"]).default("disabled"),
+  MAINNET_AGENT_ADDRESS: z.string().optional(),
+  MAINNET_SIGNER_ENDPOINT: z.url().optional(),
+  MAINNET_SIGNER_AUTH_TOKEN: z.string().min(16).optional(),
+  MAINNET_ALERT_WEBHOOK_URL: z.url().optional(),
+  MAINNET_ALERT_WEBHOOK_TOKEN: z.string().min(16).optional(),
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
 });
@@ -16,7 +26,17 @@ export function getServerEnvironment(): ServerEnvironment {
   if (!cachedEnvironment) {
     cachedEnvironment = serverEnvironmentSchema.parse({
       RH_TESTNET_RPC_URL: process.env.RH_TESTNET_RPC_URL || undefined,
+      RH_TESTNET_RPC_FALLBACK_URL: process.env.RH_TESTNET_RPC_FALLBACK_URL || undefined,
+      RH_MAINNET_RPC_URL: process.env.RH_MAINNET_RPC_URL || undefined,
+      RH_MAINNET_RPC_FALLBACK_URL: process.env.RH_MAINNET_RPC_FALLBACK_URL || undefined,
       ENABLE_MAINNET: process.env.ENABLE_MAINNET || "false",
+      ENABLE_MAINNET_AUTONOMY: process.env.ENABLE_MAINNET_AUTONOMY || "false",
+      MAINNET_SIGNER_MODE: process.env.MAINNET_SIGNER_MODE || "disabled",
+      MAINNET_AGENT_ADDRESS: process.env.MAINNET_AGENT_ADDRESS || undefined,
+      MAINNET_SIGNER_ENDPOINT: process.env.MAINNET_SIGNER_ENDPOINT || undefined,
+      MAINNET_SIGNER_AUTH_TOKEN: process.env.MAINNET_SIGNER_AUTH_TOKEN || undefined,
+      MAINNET_ALERT_WEBHOOK_URL: process.env.MAINNET_ALERT_WEBHOOK_URL || undefined,
+      MAINNET_ALERT_WEBHOOK_TOKEN: process.env.MAINNET_ALERT_WEBHOOK_TOKEN || undefined,
       VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
       VERCEL_ENV: process.env.VERCEL_ENV,
     });

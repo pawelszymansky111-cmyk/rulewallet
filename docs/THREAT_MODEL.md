@@ -1,52 +1,50 @@
 # Threat model
 
-## Assets
+## Assets and trust boundaries
 
-- ETH and supported ERC-20 balances held by the policy account;
-- role assignments, limits, allowlists, nonces, and pending approvals;
-- user intent displayed before a signature;
-- managed RPC credentials and deployment metadata;
-- the dedicated agent signer, strategy records, and one-time admin signatures;
-- the integrity of contract bytecode and the web deployment.
+- ETH and canonical USDG held by each personal V2 account;
+- owner policies, role assignments, trusted recipients, rolling spend, strategy state, and pending approvals;
+- the exact transaction intent shown before a wallet signature;
+- KMS/MPC/HSM authorization, RPC credentials, durable locks, and confirmation records;
+- factory/account bytecode, source verification, frontend artifacts, and deployment metadata.
 
-## Adversaries
+The contract is trusted to enforce policy. Agent output, browser state, RPC responses, backend code, signing infrastructure, recipients, token responses, dependencies, and operators are untrusted or compromiseable.
 
-- a compromised or prompt-injected AI agent;
-- a malicious target or ERC-20 contract;
-- a phished approver, guardian, or admin;
-- a compromised browser extension or frontend deployment;
-- an RPC provider returning stale or false data;
-- an attacker replaying, reordering, or front-running requests;
-- a malicious dependency or CI credential compromise.
+## Main abuse cases
 
-## Primary abuse cases and controls
-
-| Threat | Control | Residual risk |
+| Threat | Onchain/offchain control | Residual risk |
 | --- | --- | --- |
-| Agent spends beyond authority | Per-asset transaction and rolling limits enforced onchain | Admin can reconfigure limits |
-| Agent calls arbitrary destination | Target allowlist enforced at proposal and execution | Allowed target can itself be vulnerable |
-| Agent replays a request | Strict per-agent nonce and expiry | Compromised agent can use the next valid nonce |
-| High-value request bypasses humans | Unique approver mapping and threshold checked onchain | Approver keys may be compromised |
-| Request becomes unsafe while pending | Policy and rolling limits rechecked at execution | Target behavior can change after approval |
-| Reentrancy | Reentrancy guard and state finalized before external call | Allowed target logic still needs review |
-| Non-standard token lies | SafeERC20 and balance checks | Fee-on-transfer/rebasing semantics are unsupported |
-| UI swaps transaction after preview | Prepared arguments are rendered and reused for wallet signing | Compromised wallet can still display false information |
-| RPC credential theft | Provider URL is server-only behind `/api/rpc` | Server compromise exposes provider access |
-| Scheduled signer compromise | Dedicated EOA has only `AGENT_ROLE`; onchain limits and allowlists remain mandatory | Attacker can spend within the remaining policy allowance until revocation |
-| Admin-signature replay | Chain/contract-bound payload, five-minute expiry, Redis one-time nonce | Storage outage blocks legitimate mutations |
-| Duplicate scheduler delivery | Per-strategy Redis execution lock plus strict onchain agent nonce | A lock expiry during an unusually long RPC incident can create a failed duplicate attempt |
-| Emergency | Guardian pause; admin recovery only while paused | Guardian can deny service; admin controls recovery |
+| Compromised agent drains the account | Mandatory per-transaction and rolling 24h caps; trusted recipients; only ETH/USDG | Attacker can consume the remaining configured allowance |
+| Backend bypasses policy | Contract revalidates every execution; backend has no owner/approver/guardian authority | Compromised owner can reconfigure policy |
+| Arbitrary call or malicious router | V2 exposes no arbitrary-call, approval, router, swap, or bridge function | Direct recipient or canonical token implementation can still fail |
+| Strategy replay or mutation | EIP-712 chain/account binding, nonce-to-digest binding, expiry, interval, execution cap, revocation | Owner can sign an unsafe but valid strategy |
+| High-value action skips approval | Threshold creates a pending request; unique approvers and minimum count checked onchain | Compromised approvers may approve malicious requests |
+| Policy changes after approval | Recipient, asset policy, limits, pause, and rolling spend rechecked at execution | Denial of service from later restrictive changes |
+| Reentrancy | Reentrancy guard and finalized state before direct transfer | Recipient fallback can still revert and block its own transfer |
+| Owner cannot recover funds | Owner withdrawal is independent of agent limits and remains available while paused | Owner-key loss or compromise remains catastrophic |
+| Guardian abuses pause | Guardian can pause but cannot unpause, change policy, or withdraw | Guardian can cause denial of service |
+| Mainnet raw key exposure | Mainnet code has no raw private-key path; secure-signer interface requires non-exportable external custody | Signer service/operator compromise |
+| Duplicate scheduler delivery | Token-owned durable lock, idempotency key, onchain nonce/strategy interval | Long outage around lock expiry can produce blocked duplicates |
+| RPC inconsistency/outage | Managed primary and failover, simulation, confirmation tracking, explorer link | Multiple providers can share bad upstream data |
+| Frontend substitutes calldata | Exact chain/to/value/calldata/result preview reused for send; wallet confirmation required | Compromised wallet/host can misrepresent its own UI |
 
-## Invariants
+## V2 invariants
 
-- Rolling spend recorded by the account never exceeds the configured asset limit.
-- A request ID is never reused.
-- A consumed agent nonce cannot be replayed.
-- Approval cannot make a failed hard rule executable.
-- A finalized or expired request cannot execute.
-- The guardian cannot unpause or withdraw.
-- No server process signs an admin, guardian, approver, or user-wallet transaction. The dedicated server agent signs only `AGENT_ROLE` calls that still pass onchain policy checks.
+- An enabled agent asset always has a positive per-transaction limit and a rolling limit at least as large.
+- Rolling recorded spend cannot exceed the current owner-configured limit.
+- Agents can transfer only native ETH or the immutable canonical USDG address.
+- Agents can transfer only to an enabled trusted recipient.
+- Agent requests consume a strict per-agent nonce.
+- One owner strategy nonce binds to one EIP-712 digest.
+- Human approval cannot override a failed hard policy.
+- Expired, cancelled, executed, revoked, exhausted, or early recurring actions cannot execute.
+- Guardian cannot withdraw or unpause; agent cannot configure, approve, pause, unpause, or withdraw.
+- Owner withdrawals do not consume or depend on agent allowance.
 
-## Excluded claims
+## Alerts
 
-The current test suite does not prove economic safety, correctness of third-party targets, RPC honesty, protection from wallet malware, or readiness for mainnet. Those claims require independent review and operational controls.
+Production monitoring must alert on failed/reverted execution spikes, nonce conflicts, repeated lock contention, policy/role/recipient changes, pause/unpause, owner withdrawals, signer address changes, RPC disagreement, balance thresholds, and signer-provider authentication failures. Alerts never create authority; the guardian pause is the containment control.
+
+## Explicit non-claims
+
+This experimental release is unaudited. Tests do not prove absence of bugs, economic safety, RPC honesty, key security, correct recipient identity, stablecoin solvency, or suitability for large balances. RuleWallet is not affiliated with Robinhood.

@@ -51,8 +51,8 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
   if (!ruleWalletAddress) return recordFailure(strategy, trigger, "blocked", "Policy contract is not configured.");
   if (!agentSignerConfigured()) return recordFailure(strategy, trigger, "blocked", "Agent signer is not configured.");
 
-  const lockKey = await claimExecutionLock(strategy.id);
-  if (!lockKey) return recordFailure(strategy, trigger, "blocked", "Another execution is already in progress.");
+  const lock = await claimExecutionLock(strategy.id);
+  if (!lock) return recordFailure(strategy, trigger, "blocked", "Another execution is already in progress.");
 
   try {
     const account = getAgentAccount();
@@ -123,7 +123,7 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
   } catch (error) {
     return recordFailure(strategy, trigger, "failed", errorText(error));
   } finally {
-    await releaseExecutionLock(lockKey);
+    await releaseExecutionLock(lock);
   }
 }
 

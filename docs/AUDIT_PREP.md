@@ -1,44 +1,36 @@
 # Audit preparation
 
-## Audit target
+## Primary scope
 
-- `contracts/src/RuleWalletPolicyAccount.sol`
-- deployment and role configuration scripts;
-- ABI consumed by `src/lib/rulewallet-contract.ts`;
-- wallet simulation/signing flow;
-- testnet deployment bytecode and constructor arguments.
+- `contracts/src/RuleWalletFactory.sol`
+- `contracts/src/RuleWalletPolicyAccountV2.sol`
+- `contracts/script/DeployRuleWalletV2Mainnet.s.sol`
+- V2 ABI/registry and `/mainnet` simulation-to-signing flow
+- `SecureAgentSigner` boundary, durable lock ownership, RPC failover, and mainnet status gates
+
+V1 remains a separate testnet-compatibility scope.
 
 ## Reviewer focus
 
-1. Access-control graph and delayed admin transfer.
-2. Native and token balance accounting.
-3. Conservative 25-bucket implementation of the 24-hour rolling limit, including the up-to-one-hour over-count boundary.
-4. Request state transitions, nonce consumption, expiry, cancellation, and approval uniqueness.
-5. Reentrancy around external calls and emergency recovery.
-6. Malicious ERC-20 behavior and unsupported token semantics.
-7. Event completeness and offchain indexer assumptions.
-8. Browser simulation-to-signature binding.
-9. Deployment reproducibility and explorer verification.
+1. CREATE2 salt/address calculation, version registry, constructor immutables, and wrong-chain guard.
+2. Owner/default-admin/agent/approver/guardian role graph and role rotation.
+3. ETH/USDG-only boundary and absence of arbitrary call/approval/upgrade paths.
+4. Positive asset-policy validation, conservative 25-bucket rolling accounting, pending-request revalidation, and optional threshold semantics.
+5. EIP-712 type/domain encoding, owner recovery, nonce-to-digest binding, interval, expiry, revocation, execution cap, and pending approval interaction.
+6. Reentrancy, recipient failure, canonical token behavior, owner withdrawals, and pause behavior.
+7. Event completeness, public receipt assumptions, and confirmation/reorg handling.
+8. UI simulation-to-send binding and exact transaction preview.
+9. Secure signer allowlisting, idempotency, nonce serialization, credential lifecycle, and fail-closed behavior.
 
-## Evidence already present
+## Evidence
 
-- deterministic compiler configuration in `contracts/foundry.toml`;
-- non-upgradeable implementation;
+- Solidity `0.8.24`, Cancun EVM, optimizer 1,000 runs, no metadata bytecode hash;
 - OpenZeppelin Contracts pinned to `5.6.1`;
-- unit tests for allowlists, limits, approvals, nonce replay, expiry, pause, recovery, reentrancy, and false-return tokens;
-- 512-run fuzz test;
-- 128-run, depth-32 invariant campaigns;
-- explicit mainnet release checklist.
+- non-upgradeable V2 implementation and versioned factory;
+- unit/factory/role/limit/approval/withdrawal/strategy/replay/pause/token tests;
+- 512-run fuzz campaigns and 128-run depth-32 V1/V2 invariants;
+- optional current-state chain `4663` fork verifying canonical USDG code and V2 deployment;
+- deterministic generated web artifacts checked against Foundry output;
+- release checklist, architecture, threat model, deployment guide, and incident runbook.
 
-## Required before audit begins
-
-- freeze the commit and compiler image;
-- publish deployed testnet address and constructor arguments;
-- verify source and bytecode on Blockscout;
-- add router adapters only as separate review scopes;
-- resolve all static-analysis findings or document accepted risk;
-- provide role owner/key-management diagram;
-- run a public testnet canary and capture receipts;
-- commission at least one independent smart-contract audit.
-
-Coverage and passing tests are evidence, not an audit.
+Passing tests and coverage are evidence, not an audit. Source verification is evidence of code identity, not safety.
