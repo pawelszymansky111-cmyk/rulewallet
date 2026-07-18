@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BookUser, Bot, CircleCheck, Clock3, Pause, Plus, Shield, WalletCards } from "lucide-react";
 import { DecisionBadge } from "@/components/decision-badge";
+import { ModeVisibility } from "@/components/mode-visibility";
+import { SimpleConsoleOverview } from "@/components/simple-console-overview";
 import { TestnetCommandCenter } from "@/components/testnet-command-center";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,15 +22,17 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Workspace / demo</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">Agent controls</h1><p className="mt-2 text-muted-foreground">Monitor authority, requests, and policy decisions.</p></div>
-        <div className="flex flex-wrap gap-2">
+        <div><p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Workspace / testnet</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">RuleWallet console</h1><p className="mt-2 text-muted-foreground">Simple mode guides the setup. Pro mode exposes requests, policy state, and operator controls.</p></div>
+        <ModeVisibility mode="pro"><div className="flex flex-wrap gap-2">
           <Button asChild variant="outline"><Link href="/app/services"><BookUser /> Trusted addresses</Link></Button>
           <Button asChild variant="outline"><Link href="/app/agent"><Bot /> Agent automation</Link></Button>
           <Button asChild variant="outline"><Link href="/app/deploy"><WalletCards /> Deploy contract</Link></Button>
           <Button asChild className="bg-primary text-primary-foreground"><Link href="/app/policies/new"><Plus /> New policy</Link></Button>
-        </div>
+        </div></ModeVisibility>
       </div>
 
+      <ModeVisibility mode="simple"><SimpleConsoleOverview /></ModeVisibility>
+      <ModeVisibility mode="pro"><>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: "Active policies", value: "2", icon: Shield },
@@ -88,6 +92,7 @@ export default function DashboardPage() {
       <Card className="mt-6 border-primary/15 bg-primary/[0.035]">
         <CardHeader><CardTitle className="flex items-center gap-2"><WalletCards className="size-4 text-primary" /> Connect an agent</CardTitle><CardDescription>Grant the onchain AGENT_ROLE to a separate testnet address. The agent can propose only policy-bound calls; it never receives the owner wallet seed or admin role.</CardDescription></CardHeader>
       </Card>
+      </></ModeVisibility>
     </main>
   );
 }
