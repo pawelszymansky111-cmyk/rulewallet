@@ -1,13 +1,39 @@
-import { getAddress, isAddress, parseAbi, zeroAddress, type Address } from "viem";
+import { formatUnits, getAddress, isAddress, parseAbi, parseUnits, zeroAddress, type Address } from "viem";
 
 export const ROBINHOOD_MAINNET_CHAIN_ID = 4_663;
 export const ROBINHOOD_MAINNET_USDG = getAddress("0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
 export const ROBINHOOD_MAINNET_WETH = getAddress("0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73");
+export const ROBINHOOD_MAINNET_USDG_DECIMALS = 6;
+
+export type MainnetAssetSymbol = "ETH" | "USDG";
 
 export const canonicalMainnetAssets = {
   ETH: { address: zeroAddress, symbol: "ETH", decimals: 18 },
-  USDG: { address: ROBINHOOD_MAINNET_USDG, symbol: "USDG", decimals: 18 },
+  USDG: { address: ROBINHOOD_MAINNET_USDG, symbol: "USDG", decimals: ROBINHOOD_MAINNET_USDG_DECIMALS },
 } as const;
+
+export function parseMainnetAssetUnits(value: string, asset: MainnetAssetSymbol) {
+  return parseUnits(value, canonicalMainnetAssets[asset].decimals);
+}
+
+export function formatMainnetAssetUnits(value: bigint, asset: MainnetAssetSymbol) {
+  return formatUnits(value, canonicalMainnetAssets[asset].decimals);
+}
+
+export function buildMainnetAssetPolicyArgs(
+  asset: MainnetAssetSymbol,
+  perTransaction: string,
+  rolling24Hours: string,
+  approvalAbove: string,
+) {
+  return [
+    canonicalMainnetAssets[asset].address,
+    true,
+    parseMainnetAssetUnits(perTransaction, asset),
+    parseMainnetAssetUnits(rolling24Hours, asset),
+    approvalAbove.trim() ? parseMainnetAssetUnits(approvalAbove, asset) : BigInt(0),
+  ] as const;
+}
 
 export const ruleWalletFactoryAbi = parseAbi([
   "function VERSION() view returns (string)",
@@ -77,7 +103,7 @@ export const mainnetSharedAccountAddress = configuredAddress(
   process.env.NEXT_PUBLIC_RULEWALLET_MAINNET_ACCOUNT_ADDRESS,
 );
 
-export const RULEWALLET_V2_VERSION = "2.0.0-experimental";
+export const RULEWALLET_V2_VERSION = "2.1.0-security-beta";
 
 export const experimentalMainnetUiEnabled =
   process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_MAINNET === "true";

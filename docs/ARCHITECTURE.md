@@ -1,5 +1,9 @@
 # Architecture
 
+## Security-beta boundary
+
+The public product is the Robinhood Chain testnet beta. Mainnet is an experimental manual preview. Canonical USDG uses 6 base-unit decimals. A mainnet account is trusted only when the configured factory's complete immutable-linked runtime hash matches the pinned `2.1.0-security-beta` hash and that exact factory records the account version. Autonomous mainnet execution is compile-time disabled.
+
 ## Release boundary
 
 RuleWallet now has two isolated environments:
@@ -72,16 +76,17 @@ V1 and V2 retain the current hour plus the previous 24 hourly buckets. This deli
 
 Testnet retains its dedicated, server-only demo EOA for backwards compatibility. `AGENT_PRIVATE_KEY` is explicitly testnet-only.
 
-Mainnet uses the `SecureAgentSigner` interface. Its only implemented adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service. It accepts no raw private key. Mainnet autonomy fails closed unless all of these are true:
+Mainnet uses the `SecureAgentSigner` interface. Its adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service and accepts no raw private key. The security-beta release gate is compile-time disabled. A future audited release would still fail closed unless all of these are true:
 
-- `ENABLE_MAINNET_AUTONOMY=true`;
+- a separately reviewed code change enables the compile-time release gate and `ENABLE_MAINNET_AUTONOMY=true`;
 - `MAINNET_SIGNER_MODE=external-kms`;
-- the configured public signer address is valid;
-- signer endpoint and runtime credential are present;
+- the configured public signer address, key ID, and signer identity attestation are verified;
+- signer endpoint is HTTPS, matches the exact allowed hostname, and has a runtime credential;
+- two managed RPC endpoints agree and strict gas/fee ceilings pass;
 - the agent has `AGENT_ROLE` on the selected account;
 - the exact call simulates successfully under current onchain policy.
 
-Durable Redis locks use unique ownership tokens and compare-before-delete release. Transaction nonces come from the chain and must be serialized by the secure signing service. Confirmation tracking and public receipts use Blockscout transaction hashes.
+Durable Redis locks use unique ownership tokens and compare-before-delete release. A signer-global lock serializes nonce allocation across strategies, and a submitted nonce remains durably reserved across timeout until reconciliation. Pending, replaced, timed-out, and late-confirmed states are recorded. Confirmation tracking and public receipts use Blockscout transaction hashes.
 
 ## RPC and data
 

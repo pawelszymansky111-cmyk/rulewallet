@@ -1,5 +1,6 @@
 import "server-only";
 import { getAddress, isAddress, isHash, type Address, type Hash, type Hex } from "viem";
+import { validateSecureSignerConfiguration } from "@/lib/mainnet-safety";
 
 export type MainnetTransactionIntent = {
   chainId: 4663;
@@ -47,21 +48,12 @@ export function mainnetSignerStatus(): MainnetSignerStatus {
   if (mode !== "external-kms") {
     return { configured: false, mode: "invalid", reason: "Unsupported secure signer mode." };
   }
-  if (!isAddress(process.env.MAINNET_AGENT_ADDRESS ?? "")) {
-    return { configured: false, mode: "invalid", reason: "MAINNET_AGENT_ADDRESS is missing or invalid." };
-  }
-  if (!process.env.MAINNET_SIGNER_ENDPOINT || !process.env.MAINNET_SIGNER_AUTH_TOKEN) {
-    return {
-      configured: false,
-      mode: "invalid",
-      address: getAddress(process.env.MAINNET_AGENT_ADDRESS!),
-      reason: "The secure signer endpoint or runtime credential is missing.",
-    };
-  }
+  const verification = validateSecureSignerConfiguration();
+  if (!verification.verified) return { configured: false, mode: "invalid", reason: verification.reason };
   return {
     configured: true,
     mode,
-    address: getAddress(process.env.MAINNET_AGENT_ADDRESS!),
+    address: verification.address,
   };
 }
 
@@ -108,12 +100,13 @@ class ExternalKmsAgentSigner implements SecureAgentSigner {
 
 export function getMainnetAgentSigner(): SecureAgentSigner {
   const status = mainnetSignerStatus();
-  if (!status.configured || !status.address) {
+  const verification = validateSecureSignerConfiguration();
+  if (!status.configured || !status.address || !verification.verified) {
     throw new Error(status.reason ?? "Secure mainnet signer is not configured.");
   }
   return new ExternalKmsAgentSigner(
     status.address,
-    process.env.MAINNET_SIGNER_ENDPOINT!,
+    verification.endpoint,
     process.env.MAINNET_SIGNER_AUTH_TOKEN!,
   );
 }

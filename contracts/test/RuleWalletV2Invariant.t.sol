@@ -66,4 +66,8 @@ contract RuleWalletV2InvariantTest is StdInvariant, Test {
             assertGe(rolling, perTransaction);
         }
     }
+
+    function invariant_ApprovalThresholdNeverExceedsActiveUniqueApprovers() public view {
+        assertLe(account.minimumApprovals(), account.activeApproverCount());
+    }
 }

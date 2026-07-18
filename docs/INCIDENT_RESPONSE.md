@@ -1,5 +1,9 @@
 # Incident response runbook
 
+## Security-beta containment
+
+Mainnet autonomy is compile-time disabled and has no production Cron schedule. If status ever reports otherwise, treat it as a critical release-integrity incident: take the deployment offline, revoke signer workload identity, preserve logs, compare the deployed commit and runtime hashes, and do not resume from an environment-variable change alone.
+
 ## Severity
 
 - **Critical:** unauthorized/incorrect transfer, owner/signer compromise, exploitable contract flaw, or observed asset loss.

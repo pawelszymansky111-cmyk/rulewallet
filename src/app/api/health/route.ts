@@ -4,6 +4,7 @@ import { storageConfigured } from "@/lib/agent-store";
 import { ruleWalletAddress } from "@/lib/rulewallet-contract";
 import { getServerEnvironment } from "@/lib/server-env";
 import { mainnetSignerStatus } from "@/lib/secure-agent-signer";
+import { MAINNET_AUTONOMY_RELEASE_ENABLED, mainnetProductionGates } from "@/lib/mainnet-safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,8 @@ export function GET() {
       chainId: 46_630,
       mainnetEnabled: environment.ENABLE_MAINNET === "true",
       mainnetAutonomyEnabled:
-        environment.ENABLE_MAINNET_AUTONOMY === "true" && mainnetSigner.configured,
+        MAINNET_AUTONOMY_RELEASE_ENABLED && environment.ENABLE_MAINNET_AUTONOMY === "true" && mainnetSigner.configured,
+      mainnetProductionGates: mainnetProductionGates(),
       mainnetSignerMode: mainnetSigner.mode,
       policyContractConfigured: Boolean(ruleWalletAddress),
       agentSignerConfigured: agentSignerConfigured(),

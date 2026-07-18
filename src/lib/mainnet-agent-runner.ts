@@ -1,19 +1,26 @@
 import "server-only";
 import { encodeFunctionData, getAddress, type Hex } from "viem";
-import { getMainnetPublicClient } from "@/lib/mainnet-clients";
+import { getIndependentMainnetPublicClients, getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
   claimMainnetExecutionLock,
   getMainnetStrategy,
   listMainnetStrategies,
+  listMainnetExecutions,
   releaseMainnetExecutionLock,
+  claimMainnetSignerLock,
   saveMainnetExecution,
   saveMainnetStrategy,
+  getMainnetPendingSignerTransaction,
+  saveMainnetPendingSignerTransaction,
+  clearMainnetPendingSignerTransaction,
 } from "@/lib/mainnet-agent-store";
 import type { MainnetAgentStrategy, MainnetAgentExecution } from "@/lib/mainnet-agent-types";
 import { ruleWalletV2Abi } from "@/lib/mainnet-registry";
 import { sendMainnetAlert } from "@/lib/mainnet-monitoring";
 import { getMainnetAgentSigner, mainnetSignerStatus } from "@/lib/secure-agent-signer";
 import { getServerEnvironment } from "@/lib/server-env";
+import { assertRpcAgreement, assertWithinMainnetFeeCeilings, MAINNET_AUTONOMY_RELEASE_ENABLED } from "@/lib/mainnet-safety";
+import { keccak256 } from "viem";
 
 function errorText(error: unknown) {
   return error instanceof Error ? error.message.split("\n")[0].slice(0, 400) : "Unknown mainnet execution error";
@@ -67,6 +74,10 @@ export async function executeMainnetStrategy(strategyId: string) {
   if (!strategy) throw new Error("Mainnet strategy not found.");
   if (!strategy.active) return record(strategy, "blocked", "Strategy is inactive.");
 
+  if (!MAINNET_AUTONOMY_RELEASE_ENABLED) {
+    return record(strategy, "blocked", "Autonomous mainnet execution is compile-time disabled; this release supports manual preview actions only.");
+  }
+
   const environment = getServerEnvironment();
   const signerStatus = mainnetSignerStatus();
   if (environment.ENABLE_MAINNET !== "true" || environment.ENABLE_MAINNET_AUTONOMY !== "true") {
@@ -79,8 +90,17 @@ export async function executeMainnetStrategy(strategyId: string) {
   const lock = await claimMainnetExecutionLock(strategy.id);
   if (!lock) return record(strategy, "blocked", "A durable execution lock is already held.");
 
+  const signerLock = await claimMainnetSignerLock(signerStatus.address);
+  if (!signerLock) {
+    await releaseMainnetExecutionLock(lock);
+    return record(strategy, "blocked", "The signer-global durable nonce lock is already held.");
+  }
+
   try {
+    const existingPending = await getMainnetPendingSignerTransaction(signerStatus.address);
+    if (existingPending) return record(strategy, "blocked", `Signer nonce ${existingPending.nonce} is still reserved by pending transaction ${existingPending.transactionHash}.`);
     const client = getMainnetPublicClient();
+    const independentClients = getIndependentMainnetPublicClients();
     const signer = getMainnetAgentSigner();
     const typedStrategy = strategyTuple(strategy);
     const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
@@ -120,13 +140,21 @@ export async function executeMainnetStrategy(strategyId: string) {
       client.estimateFeesPerGas(),
     ]);
     if (!fees.maxFeePerGas || !fees.maxPriorityFeePerGas) throw new Error("RPC did not return EIP-1559 fee estimates.");
+    const agreement = await Promise.all(independentClients.map(async (rpc) => ({
+      chainId: await rpc.getChainId(),
+      nonce: await rpc.getTransactionCount({ address: signer.address, blockTag: "pending" }),
+      codeHash: keccak256(await rpc.getCode({ address: strategy.account }) ?? "0x"),
+    })));
+    assertRpcAgreement(agreement);
+    const gas = estimatedGas * BigInt(120) / BigInt(100);
+    assertWithinMainnetFeeCeilings({ gas, maxFeePerGas: fees.maxFeePerGas, maxPriorityFeePerGas: fees.maxPriorityFeePerGas });
 
     const submitted = await signer.submitTransaction({
       chainId: 4663,
       to: strategy.account,
       data,
       value: "0",
-      gas: (estimatedGas * BigInt(120) / BigInt(100)).toString(),
+      gas: gas.toString(),
       maxFeePerGas: fees.maxFeePerGas.toString(),
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas.toString(),
       nonce,
@@ -135,17 +163,52 @@ export async function executeMainnetStrategy(strategyId: string) {
         ? "Direct policy-compliant transfer and RequestExecuted event"
         : `Pending human approval request ${simulation.result}`,
     });
-    const receipt = await client.waitForTransactionReceipt({ hash: submitted.transactionHash, confirmations: 3, timeout: 180_000 });
-    const transaction = await client.getTransaction({ hash: submitted.transactionHash });
+    await saveMainnetPendingSignerTransaction(signer.address, {
+      transactionHash: submitted.transactionHash,
+      nonce,
+      strategyId: strategy.id,
+      submittedAt: new Date().toISOString(),
+    });
+    await saveMainnetExecution({
+      id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
+      account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
+      amount: strategy.amount, trigger: "schedule", status: "pending",
+      reason: `Submitted with signer-global nonce ${nonce}; awaiting 3 confirmations.`,
+      transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
+    });
+    let replacementReason: string | undefined;
+    let receipt;
+    try {
+      receipt = await client.waitForTransactionReceipt({
+        hash: submitted.transactionHash,
+        confirmations: 3,
+        timeout: 180_000,
+        onReplaced: ({ reason }) => { replacementReason = reason; },
+      });
+    } catch (confirmationError) {
+      if (/timed? out|timeout/i.test(errorText(confirmationError))) {
+        return saveMainnetExecution({
+          id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
+          account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
+          amount: strategy.amount, trigger: "schedule", status: "timed_out",
+          reason: "Confirmation timed out. The nonce remains reserved and late confirmation must be reconciled before retrying.",
+          transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
+        });
+      }
+      throw confirmationError;
+    }
+    const finalHash = receipt.transactionHash;
+    const transaction = await client.getTransaction({ hash: finalHash });
     if (
       receipt.status !== "success" || transaction.from !== signer.address
       || !transaction.to || getAddress(transaction.to) !== getAddress(strategy.account)
       || transaction.input.toLowerCase() !== data.toLowerCase() || transaction.value !== BigInt(0)
       || transaction.nonce !== nonce
     ) {
-      await sendMainnetAlert({ severity: "critical", code: "SIGNED_TRANSACTION_MISMATCH", summary: "Signer receipt did not match the approved transaction intent.", account: strategy.account, strategyId: strategy.id, transactionHash: submitted.transactionHash, occurredAt: new Date().toISOString() }).catch(() => false);
+      await sendMainnetAlert({ severity: "critical", code: "SIGNED_TRANSACTION_MISMATCH", summary: "Signer receipt did not match the approved transaction intent.", account: strategy.account, strategyId: strategy.id, transactionHash: finalHash, occurredAt: new Date().toISOString() }).catch(() => false);
       throw new Error("Secure signer transaction did not match the exact approved intent.");
     }
+    await clearMainnetPendingSignerTransaction(signer.address, submitted.transactionHash);
 
     const now = new Date();
     await saveMainnetStrategy({
@@ -156,14 +219,15 @@ export async function executeMainnetStrategy(strategyId: string) {
     return saveMainnetExecution({
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
-      amount: strategy.amount, trigger: "schedule", status: "confirmed",
-      reason: simulation.result === BigInt(0) ? "Policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
-      transactionHash: submitted.transactionHash, blockNumber: receipt.blockNumber.toString(), confirmations: 3,
+      amount: strategy.amount, trigger: "schedule", status: replacementReason ? "replaced" : "confirmed",
+      reason: replacementReason ? `Transaction ${replacementReason}; replacement intent was revalidated and confirmed.` : simulation.result === BigInt(0) ? "Policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
+      transactionHash: finalHash, blockNumber: receipt.blockNumber.toString(), confirmations: 3,
       createdAt: now.toISOString(),
     });
   } catch (error) {
     return record(strategy, "failed", errorText(error));
   } finally {
+    await releaseMainnetExecutionLock(signerLock);
     await releaseMainnetExecutionLock(lock);
   }
 }
@@ -175,4 +239,27 @@ export async function runDueMainnetStrategies() {
   const executions = [];
   for (const strategy of due.slice(0, 10)) executions.push(await executeMainnetStrategy(strategy.id));
   return executions;
+}
+
+// Monitoring-only reconciliation. It never signs or submits a transaction.
+export async function reconcileLateMainnetConfirmations() {
+  const client = getMainnetPublicClient();
+  const timedOut = (await listMainnetExecutions(100)).filter((execution) => execution.status === "timed_out" && execution.transactionHash);
+  const reconciled: MainnetAgentExecution[] = [];
+  for (const execution of timedOut) {
+    const receipt = await client.getTransactionReceipt({ hash: execution.transactionHash! }).catch(() => undefined);
+    if (!receipt || receipt.status !== "success") continue;
+    const late = await saveMainnetExecution({
+      ...execution,
+      id: crypto.randomUUID(),
+      status: "late_confirmed",
+      reason: "A previously timed-out transaction confirmed late. Retries remain blocked pending operator reconciliation.",
+      blockNumber: receipt.blockNumber.toString(),
+      confirmations: 0,
+      createdAt: new Date().toISOString(),
+    });
+    await sendMainnetAlert({ severity: "critical", code: "LATE_MAINNET_CONFIRMATION", summary: late.reason!, account: late.account, strategyId: late.strategyId, transactionHash: late.transactionHash, occurredAt: late.createdAt }).catch(() => false);
+    reconciled.push(late);
+  }
+  return reconciled;
 }

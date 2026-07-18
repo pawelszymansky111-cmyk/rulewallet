@@ -38,4 +38,6 @@ jobs:
       - run: cd contracts && forge install foundry-rs/forge-std@v1.16.2 --no-git --shallow
       - run: npm run contracts:fmt
       - run: npm run contracts:test
+      - name: Mandatory current-state Robinhood Chain mainnet fork
+        run: npm run contracts:test:mainnet-fork
       - run: npm run contracts:artifact:check

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTypedData, zeroAddress, type Hex } from "viem";
+import { hashTypedData, verifyTypedData, zeroAddress, type Hex } from "viem";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
@@ -7,13 +7,14 @@ import {
   publicStrategy,
   strategyTypedData,
 } from "@/lib/mainnet-agent-types";
-import { listMainnetStrategies, saveMainnetStrategy } from "@/lib/mainnet-agent-store";
+import { claimMainnetStrategyDigest, listMainnetStrategies, saveMainnetStrategy } from "@/lib/mainnet-agent-store";
 import {
   mainnetFactoryAddress,
   ROBINHOOD_MAINNET_USDG,
   ruleWalletFactoryAbi,
   ruleWalletV2Abi,
 } from "@/lib/mainnet-registry";
+import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,6 +57,10 @@ export async function POST(request: NextRequest) {
     if (!mainnetFactoryAddress) {
       return NextResponse.json({ error: "Verified V2 factory is not configured." }, { status: 503 });
     }
+    const factoryVerification = await verifyPinnedMainnetFactory(client, mainnetFactoryAddress);
+    if (!factoryVerification.verified) {
+      return NextResponse.json({ error: "Pinned security-beta factory bytecode is not deployed or verified." }, { status: 503 });
+    }
     const [code, ownerRole, canonicalStablecoin, expectedVersion, accountVersion] = await Promise.all([
       client.getCode({ address: input.account }),
       client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "OWNER_ROLE" }),
@@ -69,9 +74,16 @@ export async function POST(request: NextRequest) {
     const isOwner = await client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [ownerRole, input.owner] });
     if (!isOwner) return NextResponse.json({ error: "Signer does not hold OWNER_ROLE on this account." }, { status: 403 });
 
+    const digest = hashTypedData(typedData);
+    const ttlSeconds = Number(BigInt(input.expiry) - BigInt(Math.floor(Date.now() / 1000)));
+    if (!await claimMainnetStrategyDigest(digest, ttlSeconds)) {
+      return NextResponse.json({ error: "This exact EIP-712 strategy has already been stored." }, { status: 409 });
+    }
+
     const createdAt = new Date();
     const saved = await saveMainnetStrategy({
       ...input,
+      digest,
       id: crypto.randomUUID(),
       chainId: 4663,
       active: true,
