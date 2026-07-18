@@ -12,12 +12,16 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 
 - Product: https://rulewallet.vercel.app
 - Guided demo: https://rulewallet.vercel.app/demo
+- Hackathon submission: https://rulewallet.vercel.app/hackathon
+- Owner onboarding: https://rulewallet.vercel.app/start
 - Public receipts: https://rulewallet.vercel.app/activity
 - Documentation: https://rulewallet.vercel.app/docs
 - Security model: https://rulewallet.vercel.app/security
 - Repository: https://github.com/pawelszymansky111-cmyk/rulewallet
 - X thread: [`X_LAUNCH_THREAD.md`](X_LAUNCH_THREAD.md)
 - Demo runbook: [`PUBLIC_DEMO.md`](PUBLIC_DEMO.md)
+- Submission copy: [`HACKATHON_SUBMISSION.md`](HACKATHON_SUBMISSION.md)
+- Pitch script: [`PITCH_SCRIPT.md`](PITCH_SCRIPT.md)
 
 ## X profile
 
@@ -38,18 +42,18 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 
 The key visual was generated without text or third-party marks. Use the product's generated previews when crisp branded copy is required.
 
-## 30-second recording
+## Two-minute judge recording
 
 1. Open `/demo`; show `Policy: enforcing`, the live block, agent nonce, and confirmed receipt count.
 2. Continue to the receipt and open its transaction on the testnet explorer.
 3. Open the simulator; show one allowed request and one blocked unknown target.
-4. End on the line: **Autonomous execution. Bounded onchain.**
+4. End on the line: **Give agents authority, not your wallet.**
 
 Do not record wallet secrets, browser notifications, personal tabs, Vercel environment variables, or mainnet balances.
 
 ## Community outreach
 
-> I’m building RuleWallet, an open-source policy account for autonomous onchain agents. The public Robinhood Chain testnet demo now has a dedicated agent role, scheduled execution, hard onchain limits, and explorer-backed receipts. I’m looking for one concrete action your agent needs and one failure the policy must block. Would you try the four-minute demo? https://rulewallet.vercel.app/demo
+> I’m building RuleWallet, an open-source policy account for autonomous onchain agents. The public Robinhood Chain testnet demo now has a dedicated agent role, scheduled execution, hard onchain limits, and explorer-backed receipts. I’m looking for one concrete action your agent needs and one failure the policy must block. Would you try the two-minute demo? https://rulewallet.vercel.app/demo
 
 Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent developers, and onchain security researchers. Contribute useful feedback before posting a link, and ask for a concrete failure case rather than generic promotion.
 
@@ -58,7 +62,7 @@ Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent d
 - [ ] Production deployment is `READY` and aliased to `rulewallet.vercel.app`.
 - [ ] `/api/health` reports `mainnetEnabled: false`.
 - [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
-- [ ] `/demo`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
+- [ ] `/start`, `/demo`, `/hackathon`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
 - [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.
 - [ ] GitHub main contains the same verified commit as production.
 - [ ] X profile and every post say testnet; no token or affiliation claim appears.

@@ -12,7 +12,9 @@ export function SiteFooter() {
           <p>Open-source testnet software. Not affiliated with Robinhood Markets.</p>
         </div>
         <nav className="flex flex-wrap gap-x-6 gap-y-3" aria-label="Footer navigation">
+          <Link href="/start" className="hover:text-foreground">Start</Link>
           <Link href="/demo" className="hover:text-foreground">Guided demo</Link>
+          <Link href="/hackathon" className="hover:text-foreground">Hackathon</Link>
           <Link href="/activity" className="hover:text-foreground">Activity</Link>
           <Link href="/docs" className="hover:text-foreground">Docs</Link>
           <Link href="/security" className="hover:text-foreground">Security</Link>

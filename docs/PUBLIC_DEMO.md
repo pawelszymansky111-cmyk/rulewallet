@@ -1,6 +1,6 @@
 # Public testnet demo
 
-The shortest credible RuleWallet demo is read-only, takes about four minutes, and never requires real funds.
+The shortest credible RuleWallet demo is read-only, takes two minutes, and never requires real funds.
 
 ## Links
 
@@ -14,12 +14,11 @@ The shortest credible RuleWallet demo is read-only, takes about four minutes, an
 - Dedicated agent: `0xE0557B42F1EF6F97f209ef5D6Ba017CE054B6eaf`
 - Network: Robinhood Chain Testnet (`46630`)
 
-## Four-minute walkthrough
+## Two-minute walkthrough
 
-1. Open `/demo` and verify the policy is active, the agent role is granted, and mainnet is disabled.
-2. Continue to the latest receipt. Compare its transaction hash and block number with the testnet explorer.
-3. Open `/playground`: allow the 45 USDC fixture, cross the human approval threshold, then select an unknown target and confirm it fails closed.
-4. Open `/app/agent` to inspect the live scheduled strategy, dedicated signer balance, pause controls, and public receipt feed. Browsing is public; admin mutations require the actual admin wallet.
+1. **0:00–0:30:** open `/demo` and verify the policy is active, the agent role is granted, and mainnet is disabled.
+2. **0:30–1:05:** continue to the latest receipt and compare its transaction hash and block number with the testnet explorer.
+3. **1:05–2:00:** open `/playground`, cross the approval threshold or select an unknown target, then show the pause and revoke controls in `/app/agent`.
 
 ## What is real
 
@@ -41,4 +40,4 @@ The shortest credible RuleWallet demo is read-only, takes about four minutes, an
 - Record at 1080p with the browser zoom at 100%.
 - Hide bookmarks, personal notifications, wallet balances, email, and unrelated tabs.
 - Do not show seed phrases, private keys, environment variables, or Vercel secrets.
-- Begin on `/demo`, end on the explorer-backed receipt, and keep the recording under 45 seconds.
+- Begin on `/demo`, end on the explorer-backed receipt, and keep the judge walkthrough under two minutes.
