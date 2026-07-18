@@ -1,6 +1,13 @@
 import { isAddress, parseAbi, zeroAddress, type Address } from "viem";
 
 export const ruleWalletAbi = parseAbi([
+  "function DEFAULT_ADMIN_ROLE() view returns (bytes32)",
+  "function AGENT_ROLE() view returns (bytes32)",
+  "function GUARDIAN_ROLE() view returns (bytes32)",
+  "function APPROVER_ROLE() view returns (bytes32)",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
+  "function grantRole(bytes32 role, address account)",
+  "function revokeRole(bytes32 role, address account)",
   "function policyActive() view returns (bool)",
   "function paused() view returns (bool)",
   "function minimumApprovals() view returns (uint8)",
@@ -13,6 +20,7 @@ export const ruleWalletAbi = parseAbi([
   "function approveRequest(uint256 requestId)",
   "function executeApprovedRequest(uint256 requestId)",
   "function pause()",
+  "function unpause()",
   "event RequestCreated(uint256 indexed requestId, uint8 indexed kind, address indexed agent, address target, address asset, uint256 amount, uint256 expiresAt, uint16 declaredSlippageBps)",
   "event RequestApproved(uint256 indexed requestId, address indexed approver, uint256 approvals)",
   "event RequestExecuted(uint256 indexed requestId, uint8 indexed kind, address indexed actor, address target, address asset, uint256 amount, bytes32 dataHash)",

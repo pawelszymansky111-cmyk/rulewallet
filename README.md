@@ -82,6 +82,14 @@ See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
 Arbitrary swaps are disabled. A generic calldata wrapper cannot prove slippage or token outflow; each router needs a specific audited adapter.
 
+## Autonomous testnet agent
+
+`/app/agent` manages a dedicated server-side testnet signer. The signer can only call the deployed policy account after the admin grants `AGENT_ROLE`; it cannot change policies, allowlist targets, approve requests, or bypass an emergency pause. Strategy mutations use short-lived, single-use EIP-191 signatures from the onchain admin.
+
+Recurring transfer strategies are stored in Upstash Redis and evaluated by a protected Vercel Cron route once per day. Before every call, the runner checks the onchain role, target allowlist, active/pause state, native-asset policy, approval boundary, contract balance, and exact agent nonce, then performs an RPC simulation. Confirmed, blocked, and failed attempts appear on `/activity` with explorer receipts.
+
+The dedicated signer key and `CRON_SECRET` are server-only Vercel secrets. They must never use a `NEXT_PUBLIC_` prefix. Mainnet remains hard-disabled, and the automation runner rejects amounts above the human-approval threshold.
+
 Safe contracts could not be verified as officially supported on Robinhood Chain when this architecture was selected, so no Safe address is assumed or invented.
 
 ## Testnet deployment

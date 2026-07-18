@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { WalletControl } from "@/components/wallet-control";
 
 const navigation = [
+  { href: "/activity", label: "Activity" },
   { href: "/playground", label: "Playground" },
   { href: "/docs", label: "Docs" },
   { href: "/security", label: "Security" },

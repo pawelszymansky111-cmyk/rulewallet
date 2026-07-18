@@ -17,6 +17,10 @@ These values are visible in the JavaScript bundle and must never contain secrets
 | Variable | Purpose |
 | --- | --- |
 | `RH_TESTNET_RPC_URL` | Managed Robinhood Chain testnet JSON-RPC endpoint |
+| `UPSTASH_REDIS_REST_URL` | Strategy and receipt store endpoint |
+| `UPSTASH_REDIS_REST_TOKEN` | Strategy and receipt store credential |
+| `AGENT_PRIVATE_KEY` | Dedicated testnet-only `AGENT_ROLE` signer; never an admin or funded owner key |
+| `CRON_SECRET` | Bearer secret automatically attached to Vercel Cron requests |
 | `ENABLE_MAINNET` | Must be exactly `false` in this release |
 
 The application validates server configuration lazily so static builds do not initialize services before runtime variables exist.

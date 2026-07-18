@@ -6,6 +6,7 @@
 - role assignments, limits, allowlists, nonces, and pending approvals;
 - user intent displayed before a signature;
 - managed RPC credentials and deployment metadata;
+- the dedicated agent signer, strategy records, and one-time admin signatures;
 - the integrity of contract bytecode and the web deployment.
 
 ## Adversaries
@@ -31,6 +32,9 @@
 | Non-standard token lies | SafeERC20 and balance checks | Fee-on-transfer/rebasing semantics are unsupported |
 | UI swaps transaction after preview | Prepared arguments are rendered and reused for wallet signing | Compromised wallet can still display false information |
 | RPC credential theft | Provider URL is server-only behind `/api/rpc` | Server compromise exposes provider access |
+| Scheduled signer compromise | Dedicated EOA has only `AGENT_ROLE`; onchain limits and allowlists remain mandatory | Attacker can spend within the remaining policy allowance until revocation |
+| Admin-signature replay | Chain/contract-bound payload, five-minute expiry, Redis one-time nonce | Storage outage blocks legitimate mutations |
+| Duplicate scheduler delivery | Per-strategy Redis execution lock plus strict onchain agent nonce | A lock expiry during an unusually long RPC incident can create a failed duplicate attempt |
 | Emergency | Guardian pause; admin recovery only while paused | Guardian can deny service; admin controls recovery |
 
 ## Invariants
@@ -41,7 +45,7 @@
 - Approval cannot make a failed hard rule executable.
 - A finalized or expired request cannot execute.
 - The guardian cannot unpause or withdraw.
-- No server process signs a user transaction.
+- No server process signs an admin, guardian, approver, or user-wallet transaction. The dedicated server agent signs only `AGENT_ROLE` calls that still pass onchain policy checks.
 
 ## Excluded claims
 

@@ -56,6 +56,12 @@ Roles:
 
 The admin should be transferred to a verified multisig before meaningful testnet value is used. The contract is not upgradeable; changes require a new deployment and explicit migration.
 
+## Scheduled agent boundary
+
+The scheduled agent uses a distinct testnet EOA whose private key exists only in the production server environment. The EOA receives only `AGENT_ROLE`. Vercel Cron invokes an authenticated route daily; Upstash Redis stores signed strategies, one-time admin nonces, execution locks, and public receipts.
+
+Every automated execution re-reads contract state and simulates the exact call. The runner fails closed when the policy is paused/inactive, the role is missing, the target or asset is disallowed, the limit or approval threshold would be crossed, the balance is insufficient, or the nonce has changed. Revoking `AGENT_ROLE` or pausing the contract immediately removes execution authority independently of the web database.
+
 ### Supported actions
 
 1. Native ETH call to an explicitly allowed target.
