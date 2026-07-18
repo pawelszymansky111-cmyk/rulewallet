@@ -49,6 +49,8 @@ Open [http://localhost:3000](http://localhost:3000), then try `/playground` and 
 
 For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rulewallet.vercel.app/demo), inspect [live receipts](https://rulewallet.vercel.app/activity), and verify the metrics response at [`/api/public/metrics`](https://rulewallet.vercel.app/api/public/metrics).
 
+For hackathon review, open the [submission page](https://rulewallet.vercel.app/hackathon), follow the [two-minute judge demo](https://rulewallet.vercel.app/demo), or use the [owner onboarding flow](https://rulewallet.vercel.app/start). Ready-to-paste submission and pitch copy live in [`docs/HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) and [`docs/PITCH_SCRIPT.md`](docs/PITCH_SCRIPT.md).
+
 Quality checks:
 
 ```bash

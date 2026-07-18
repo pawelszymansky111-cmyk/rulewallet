@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, ExternalLink, LoaderCircle, Radio, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, LoaderCircle, Radio, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,7 @@ import { robinhoodTestnet } from "@/lib/chains";
 const steps = [
   { title: "Verify the guardrails", description: "Read the active contract state directly from Robinhood Chain testnet." },
   { title: "Inspect an execution", description: "Open the latest autonomous receipt and verify its transaction independently." },
-  { title: "Try to break a rule", description: "Use the zero-risk simulator to test caps, allowlists, and approval thresholds." },
-  { title: "Explore the operator flow", description: "See how an admin creates, pauses, and audits a scheduled testnet strategy." },
+  { title: "Break a rule, then inspect control", description: "Test a hard failure and see how an admin pauses or revokes automation." },
 ] as const;
 
 export function GuidedDemo() {
@@ -35,7 +34,7 @@ export function GuidedDemo() {
       <Card className="h-fit bg-card/70">
         <CardHeader>
           <Badge variant="outline" className="w-fit border-primary/25 text-primary"><Radio /> Guided tour</Badge>
-          <CardTitle className="text-2xl">Four minutes. No funds required.</CardTitle>
+          <CardTitle className="text-2xl">Two minutes. No funds required.</CardTitle>
           <CardDescription>This walkthrough is public and read-only. Connecting a wallet is optional.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -91,11 +90,11 @@ export function GuidedDemo() {
           )}
 
           {metrics && activeStep === 2 && (
-            <div className="space-y-5"><div className="rounded-xl border border-grid bg-card/40 p-5"><p className="font-medium">Suggested test</p><ol className="mt-3 space-y-2 text-sm text-muted-foreground"><li>1. Start with the safe 45 USDC request.</li><li>2. Raise it above the approval threshold.</li><li>3. Select an unknown target and watch it fail closed.</li></ol></div><Button asChild><Link href="/playground">Open simulator <ArrowRight /></Link></Button></div>
-          )}
-
-          {metrics && activeStep === 3 && (
-            <div className="space-y-5"><div className="rounded-xl border border-grid bg-card/40 p-5"><p className="font-medium">What the operator can control</p><div className="mt-4 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">{["Dedicated agent role", "Daily or weekly cadence", "Signed strategy changes", "Run-now canary", "Pause and revoke", "Public receipts"].map((item) => <p key={item} className="flex items-center gap-2"><Check className="size-4 text-primary" />{item}</p>)}</div></div><Button asChild><Link href="/app/agent">Explore agent console <ArrowRight /></Link></Button><p className="text-xs text-muted-foreground">Wallet signatures are only needed for admin mutations. Browsing is safe and public.</p></div>
+            <div className="space-y-5">
+              <div className="rounded-xl border border-grid bg-card/40 p-5"><p className="font-medium">Suggested failure test</p><ol className="mt-3 space-y-2 text-sm text-muted-foreground"><li>1. Start with the safe 45 USDC request.</li><li>2. Raise it above the approval threshold.</li><li>3. Select an unknown target and watch it fail closed.</li></ol></div>
+              <div className="grid gap-3 sm:grid-cols-2"><Button asChild><Link href="/playground">Open simulator <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/app/agent">Inspect pause and revoke <ArrowRight /></Link></Button></div>
+              <p className="text-xs text-muted-foreground">Browsing is public. Wallet signatures are required only for admin mutations.</p>
+            </div>
           )}
 
           <div className="mt-8 flex items-center justify-between border-t border-grid pt-5">

@@ -49,7 +49,7 @@ export default function DocsPage() {
             <Badge variant="outline" className="border-primary/25 text-primary">Public testnet launch · Live system</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">RuleWallet documentation</h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. The deployed testnet contract, scheduled agent, and public receipts are live; the system remains unaudited and mainnet-disabled.</p>
-            <div className="mt-7 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/demo">Start guided demo <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/activity">View live receipts</Link></Button></div>
+            <div className="mt-7 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/demo">Start guided demo <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/hackathon">Hackathon submission</Link></Button><Button asChild variant="ghost"><Link href="/activity">View live receipts</Link></Button></div>
           </div>
         </section>
 

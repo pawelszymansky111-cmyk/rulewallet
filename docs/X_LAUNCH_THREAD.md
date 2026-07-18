@@ -30,12 +30,11 @@ Activity: https://rulewallet.vercel.app/activity
 
 ## 4 / Try it
 
-The guided demo takes four minutes and needs no wallet or funds.
+The guided demo takes two minutes and needs no wallet or funds.
 
 1. inspect live policy state
 2. verify the autonomous tx
-3. try to break the simulator
-4. explore pause and revoke controls
+3. break a rule, then inspect pause and revoke
 
 https://rulewallet.vercel.app/demo
 
@@ -69,3 +68,9 @@ https://github.com/pawelszymansky111-cmyk/rulewallet
 If your agent needs to pay, trade, rebalance, or subscribe without holding unlimited wallet authority, tell us the narrowest policy it would need.
 
 Try the demo, inspect the receipt, and open an issue with one scenario RuleWallet must block.
+
+## Optional hackathon post
+
+RuleWallet is packaged as a complete hackathon submission: problem, architecture, innovation, working proof, two-minute judge flow, roadmap, source, and honest safety boundaries.
+
+https://rulewallet.vercel.app/hackathon

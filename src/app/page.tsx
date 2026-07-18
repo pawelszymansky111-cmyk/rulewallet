@@ -43,7 +43,7 @@ export default function Home() {
           <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[0.92fr_1.08fr] lg:items-center lg:px-8 lg:py-28">
             <div>
               <Badge variant="outline" className="mb-6 border-primary/25 bg-primary/5 text-primary">
-                Robinhood Chain testnet · Open source
+                Hackathon build · Robinhood Chain testnet · Open source
               </Badge>
               <h1 className="max-w-3xl text-balance text-5xl leading-[0.98] font-semibold tracking-[-0.055em] sm:text-6xl lg:text-7xl">
                 Give agents authority, <span className="text-primary">not your wallet.</span>
@@ -56,7 +56,7 @@ export default function Home() {
                   <Link href="/demo">Start guided demo <ArrowRight /></Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                  <Link href="/docs"><Braces /> Read the spec</Link>
+                  <Link href="/start"><Braces /> Build your testnet wallet</Link>
                 </Button>
               </div>
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
@@ -162,7 +162,8 @@ export default function Home() {
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">Follow a live autonomous testnet execution from policy state to public receipt, then try to break the guardrails yourself.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <Button asChild size="lg" className="bg-primary text-primary-foreground"><Link href="/demo">Take the guided tour <ArrowRight /></Link></Button>
-              <Button asChild size="lg" variant="outline"><a href={githubUrl}>Star on GitHub</a></Button>
+              <Button asChild size="lg" variant="outline"><Link href="/hackathon">Hackathon submission</Link></Button>
+              <Button asChild size="lg" variant="ghost"><a href={githubUrl}>Star on GitHub</a></Button>
             </div>
           </div>
         </section>
