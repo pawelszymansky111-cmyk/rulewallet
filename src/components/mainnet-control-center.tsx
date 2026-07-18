@@ -384,9 +384,9 @@ export function MainnetControlCenter() {
 
   return (
     <div className="space-y-6">
-      <Alert className="border-red-400/25 bg-red-400/[0.055] text-red-100">
+      <Alert className="border-red-500/25 bg-red-50 text-red-900">
         <AlertTriangle /><AlertTitle>Experimental, unaudited mainnet software</AlertTitle>
-        <AlertDescription className="text-red-100/75">Real assets can be lost. RuleWallet is not affiliated with Robinhood, is not audited or risk-free, and is not suitable for large balances. Autonomous mainnet execution stays off without a verified non-exportable signer.</AlertDescription>
+        <AlertDescription className="text-red-800">Real assets can be lost. RuleWallet is not affiliated with Robinhood, is not audited or risk-free, and is not suitable for large balances. Autonomous mainnet execution stays off without a verified non-exportable signer.</AlertDescription>
       </Alert>
 
       <div className="grid gap-4 md:grid-cols-4">

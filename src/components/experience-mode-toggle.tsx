@@ -22,7 +22,7 @@ export function ExperienceModeToggle({ compact = false, className }: ExperienceM
         size="sm"
         checked={pro}
         onCheckedChange={(checked) => setMode(checked ? "pro" : "simple")}
-        aria-label="Toggle Pro mode"
+        aria-label={pro ? "Switch to Simple mode" : "Switch to Pro mode"}
       />
     </label>
   );

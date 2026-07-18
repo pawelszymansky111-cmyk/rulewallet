@@ -38,14 +38,16 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "RuleWallet — Agents act. Rules hold.",
-    description: "A working autonomous testnet agent with onchain limits and public execution receipts.",
+    description:
+      "A working autonomous testnet agent with onchain limits and public execution receipts.",
     type: "website",
     siteName: "RuleWallet",
   },
   twitter: {
     card: "summary_large_image",
     title: "RuleWallet — Agents act. Rules hold.",
-    description: "A working autonomous testnet agent with onchain limits and public execution receipts.",
+    description:
+      "A working autonomous testnet agent with onchain limits and public execution receipts.",
   },
 };
 
@@ -58,7 +60,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <ExperienceModeProvider>

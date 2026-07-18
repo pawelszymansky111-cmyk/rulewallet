@@ -32,10 +32,10 @@ export default function SecurityPage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8 lg:py-20">
-          <Alert className="border-amber-400/25 bg-amber-400/[0.06] text-amber-200">
+          <Alert className="border-amber-500/25 bg-amber-50 text-amber-900">
             <AlertTriangle />
             <AlertTitle>Experimental mainnet code is not a safety claim</AlertTitle>
-            <AlertDescription className="text-amber-100/70">V1 is live on testnet. V2 mainnet contracts, UI, and signer boundaries are implemented but not deployed or audited by this release. Do not treat source verification or passing tests as proof of safety.</AlertDescription>
+            <AlertDescription className="text-amber-800">V1 is live on testnet. V2 mainnet contracts, UI, and signer boundaries are implemented but not deployed or audited by this release. Do not treat source verification or passing tests as proof of safety.</AlertDescription>
           </Alert>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">

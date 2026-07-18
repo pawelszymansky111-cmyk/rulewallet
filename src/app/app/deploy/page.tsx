@@ -19,7 +19,7 @@ export default function DeployPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Deploy RuleWallet</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">Launch the tested policy account from MetaMask, then apply conservative demo limits.</p>
         </div>
-        <Badge variant="outline" className="border-amber-300/25 text-amber-200"><LockKeyhole /> No mainnet</Badge>
+        <Badge variant="outline" className="border-amber-500/25 text-amber-800"><LockKeyhole /> No mainnet</Badge>
       </div>
       <TestnetDeploymentWizard />
     </main>

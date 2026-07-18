@@ -67,7 +67,7 @@ export default function HackathonPage() {
               <CardHeader><CardTitle>Submission snapshot</CardTitle><CardDescription>What judges can verify without trusting our claims.</CardDescription></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {["Deployed policy contract", "Dedicated scoped agent signer", "Scheduled recurring strategy", "Onchain simulation and enforcement", "Public explorer-backed receipts", "Open tests and threat model"].map((item) => <p key={item} className="flex items-center gap-2"><Check className="size-4 shrink-0 text-primary" />{item}</p>)}
-                <div className="mt-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-4 text-xs leading-5 text-amber-100/75"><strong className="text-amber-100">Safety boundary:</strong> testnet ETH has no value. The contracts are unaudited, mainnet is disabled, and real funds must never be deposited.</div>
+                <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-50 p-4 text-xs leading-5 text-amber-800"><strong className="text-amber-900">Safety boundary:</strong> testnet ETH has no value. The contracts are unaudited, mainnet is disabled, and real funds must never be deposited.</div>
               </CardContent>
             </Card>
           </div>

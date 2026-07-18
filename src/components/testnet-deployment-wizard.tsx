@@ -226,7 +226,7 @@ export function TestnetDeploymentWizard() {
     return (
       <Card className="border-amber-300/20 bg-amber-300/[0.035]">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Network className="size-4 text-amber-200" /> Switch network</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Network className="size-4 text-amber-700" /> Switch network</CardTitle>
           <CardDescription>This deployment is locked to Robinhood Chain Testnet, chain ID 46630.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -258,10 +258,10 @@ export function TestnetDeploymentWizard() {
             <div><p className="text-xs text-muted-foreground">Approval threshold</p><p className="mt-1">1 of 1</p></div>
           </div>
 
-          <Alert className="border-amber-300/20 bg-amber-300/[0.04] text-amber-100">
+          <Alert className="border-amber-500/20 bg-amber-50 text-amber-900">
             <ShieldAlert />
             <AlertTitle>Single-wallet demo configuration</AlertTitle>
-            <AlertDescription className="text-amber-100/70">Suitable only for this testnet launch. Use separate agent and guardian addresses plus a multisig before meaningful value.</AlertDescription>
+            <AlertDescription className="text-amber-800">Suitable only for this testnet launch. Use separate agent and guardian addresses plus a multisig before meaningful value.</AlertDescription>
           </Alert>
 
           {!deployment && (

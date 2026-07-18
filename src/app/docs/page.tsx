@@ -83,8 +83,8 @@ export default function DocsPage() {
               <h2 className="mt-3 text-2xl font-semibold">One of three explicit outcomes.</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-3">
                 <Card><CardHeader><CardTitle className="text-primary">Allowed</CardTitle><CardDescription>Every hard rule passes and the request stays below the human threshold.</CardDescription></CardHeader></Card>
-                <Card><CardHeader><CardTitle className="text-amber-300">Needs approval</CardTitle><CardDescription>Hard rules pass, but a person must authorize the action.</CardDescription></CardHeader></Card>
-                <Card><CardHeader><CardTitle className="text-red-300">Blocked</CardTitle><CardDescription>At least one hard rule fails; approval cannot override it.</CardDescription></CardHeader></Card>
+                <Card><CardHeader><CardTitle className="text-amber-800">Needs approval</CardTitle><CardDescription>Hard rules pass, but a person must authorize the action.</CardDescription></CardHeader></Card>
+                <Card><CardHeader><CardTitle className="text-red-700">Blocked</CardTitle><CardDescription>At least one hard rule fails; approval cannot override it.</CardDescription></CardHeader></Card>
               </div>
               <pre className="mt-6 overflow-x-auto rounded-xl border border-grid bg-card p-5 font-mono text-xs leading-6 text-muted-foreground"><code>{requestExample}</code></pre>
             </section>
