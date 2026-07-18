@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s · RuleWallet",
   },
   description:
-    "Live testnet policy controls for autonomous onchain agents. Verify limits, scheduled execution, and public receipts without real funds.",
+    "Policy controls for bounded onchain agents, with a live testnet demo and an explicitly experimental Robinhood Chain mainnet release.",
   keywords: [
     "AI agents",
     "wallet policy",

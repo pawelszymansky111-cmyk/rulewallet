@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 const principles = [
-  { icon: KeyRound, title: "Never request a seed phrase", text: "Every transaction stays in the connected wallet; RuleWallet has no backend signer." },
+  { icon: KeyRound, title: "Never request a seed phrase", text: "Owner, approver, and guardian actions stay in their wallets. Mainnet agents require a non-exportable KMS/MPC/HSM key." },
   { icon: LockKeyhole, title: "Deny by default", text: "Unknown assets, targets, expired requests, and excess exposure revert onchain." },
   { icon: Network, title: "Simulate before signing", text: "The exact chain, contract, target, value, nonce, and expiry are rendered before signing." },
   { icon: ShieldCheck, title: "Hard rules stay hard", text: "Approval thresholds cannot override an allowlist, pause, nonce, expiry, or exposure failure." },
@@ -27,15 +27,15 @@ export default function SecurityPage() {
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
             <Badge variant="outline" className="border-primary/25 text-primary">Security model · Draft v0.2</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">Assume the agent will fail.</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. Its policy account is tested but not independently audited and must not control real funds.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. V2 has a narrower mainnet boundary, but it is not independently audited and remains experimental high-risk software.</p>
           </div>
         </section>
 
         <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8 lg:py-20">
           <Alert className="border-amber-400/25 bg-amber-400/[0.06] text-amber-200">
             <AlertTriangle />
-            <AlertTitle>Testnet only</AlertTitle>
-            <AlertDescription className="text-amber-100/70">The contract and wallet flow are functional on testnet. There is no audit, mainnet deployment, custody service, or warranty.</AlertDescription>
+            <AlertTitle>Experimental mainnet code is not a safety claim</AlertTitle>
+            <AlertDescription className="text-amber-100/70">V1 is live on testnet. V2 mainnet contracts, UI, and signer boundaries are implemented but not deployed or audited by this release. Do not treat source verification or passing tests as proof of safety.</AlertDescription>
           </Alert>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">

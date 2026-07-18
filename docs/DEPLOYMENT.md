@@ -1,35 +1,82 @@
 # Deployment and rollback
 
-## Web preview
+## Web release
 
-1. Run `npm run verify`.
-2. Authenticate the Vercel CLI through its browser device flow.
-3. Link the repository to an explicit project and account scope.
-4. Configure environment variables for preview.
-5. Deploy a preview with `vercel deploy`.
-6. Verify `/`, `/app`, `/playground`, `/api/health`, wallet connection, mobile layout, headers, and console errors.
+1. Run `npm run verify` from a clean commit.
+2. Deploy a preview and verify `/`, `/start`, `/mainnet`, `/api/health`, and `/api/mainnet/status`.
+3. Confirm mainnet autonomy is `false` unless every signer/monitoring gate is complete.
+4. Promote the exact verified artifact; do not rebuild a different commit.
+5. Keep mainnet factory/account variables empty until their source and constructor arguments are verified on Blockscout.
 
-## Browser-signed testnet contract
+## Mainnet factory: prepare only
 
-1. Open `/app/deploy` in the browser that owns the MetaMask extension.
-2. Confirm Robinhood Chain Testnet and chain ID `46630` in both the page and wallet.
-3. Review the connected address and single-wallet role warning.
-4. Sign the deployment, then verify the receipt and contract address in the explorer.
-5. Apply the conservative demo limits and funding as separate transactions.
-6. Set `NEXT_PUBLIC_RULEWALLET_TESTNET_ADDRESS` only after verifying the deployed bytecode and constructor roles.
+The repository does not broadcast a factory deployment automatically. The only mainnet script pins chain `4663` and canonical USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` and never reads a private key.
 
-The browser never receives or stores a private key. The committed browser artifact is checked against the Foundry build in CI. Do not use the single-wallet role layout for meaningful value.
+Build and run a no-broadcast simulation first:
 
-## Production promotion
+```bash
+cd contracts
+export RH_MAINNET_RPC_URL="https://your-managed-primary"
+forge build
+forge script script/DeployRuleWalletV2Mainnet.s.sol:DeployRuleWalletV2Mainnet \
+  --rpc-url robinhood_mainnet \
+  --sender 0xYOUR_HARDWARE_WALLET_ADDRESS \
+  -vvvv
+```
 
-Promote the exact verified preview artifact. Do not rebuild a different commit between approval and production promotion.
+Before any signature, record and review:
 
-Production remains testnet-only. A production web deployment is not permission to deploy contracts to mainnet or use real funds.
+- chain: Robinhood Chain mainnet, ID `4663`;
+- transaction type: contract creation (`to` is empty);
+- value: `0 ETH`;
+- calldata: exact factory init code from the dry-run broadcast artifact;
+- constructor: `(4663, 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168)`;
+- expected result: one `RuleWalletFactory` whose `deploymentChainId`, `canonicalStablecoin`, `VERSION`, and `VERSION_HASH` match the release.
 
-## Rollback
+Only after an owner explicitly approves that exact payload should a human run an external hardware-wallet command such as:
 
-1. Stop automated agents if transaction display or signing may be affected.
-2. Use Vercel deployment history to identify the last verified commit.
-3. Run `vercel rollback <deployment-url-or-id>` or promote the last verified deployment.
-4. Recheck `/api/health`, CSP/security headers, and wallet simulation.
-5. If a signed transaction may have differed from its preview, invoke the contract incident runbook and guardian pause.
+```bash
+forge script script/DeployRuleWalletV2Mainnet.s.sol:DeployRuleWalletV2Mainnet \
+  --rpc-url robinhood_mainnet \
+  --broadcast \
+  --ledger
+```
+
+RuleWallet/Codex must stop before that signature. Never replace `--ledger` with a pasted seed phrase or a committed raw key.
+
+## Verify on Blockscout
+
+After the receipt is final and the address is independently checked:
+
+```bash
+CONSTRUCTOR_ARGS=$(cast abi-encode "constructor(uint256,address)" \
+  4663 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168)
+
+forge verify-contract 0xFACTORY \
+  src/RuleWalletFactory.sol:RuleWalletFactory \
+  --chain-id 4663 \
+  --rpc-url robinhood_mainnet \
+  --verifier blockscout \
+  --verifier-url https://robinhoodchain.blockscout.com/api/ \
+  --constructor-args "$CONSTRUCTOR_ARGS"
+```
+
+Compare runtime bytecode, compiler `0.8.24`, optimizer settings, constructor arguments, canonical USDG, version hash, deployment transaction, and repository commit. Then set `NEXT_PUBLIC_RULEWALLET_MAINNET_FACTORY_ADDRESS` and redeploy the frontend.
+
+## Personal V2 account
+
+`/mainnet` requires four distinct owner/guardian/agent/approver addresses. It first simulates factory deployment and displays exact chain, factory, value, calldata, predicted account, and result. The connected owner signs in the wallet. Each recipient, asset policy, pause/unpause, deposit, and withdrawal is then a separate simulated wallet transaction.
+
+No platform-wide maximum balance or owner withdrawal limit exists. Agent policies remain mandatory and bounded.
+
+## Rollback and containment
+
+Frontend rollback cannot reverse an onchain transaction. If display/signing integrity is suspect:
+
+1. disable mainnet autonomy and scheduled jobs;
+2. guardian-pauses affected accounts using a separately verified wallet/device;
+3. roll Vercel back to the last verified deployment;
+4. preserve logs, receipts, roles, policy state, and commit hashes;
+5. follow [`INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md).
+
+V2 is non-upgradeable. A contract flaw requires pause, owner withdrawal to a verified recovery address, new version deployment, and explicit owner migration.

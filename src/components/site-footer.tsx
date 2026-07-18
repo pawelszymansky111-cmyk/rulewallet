@@ -9,13 +9,14 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-10 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between lg:px-8">
         <div className="space-y-3">
           <BrandMark />
-          <p>Open-source testnet software. Not affiliated with Robinhood Markets.</p>
+          <p>Open source. Experimental and unaudited. Not affiliated with Robinhood.</p>
         </div>
         <nav className="flex flex-wrap gap-x-6 gap-y-3" aria-label="Footer navigation">
           <Link href="/start" className="hover:text-foreground">Start</Link>
           <Link href="/demo" className="hover:text-foreground">Guided demo</Link>
           <Link href="/hackathon" className="hover:text-foreground">Hackathon</Link>
           <Link href="/activity" className="hover:text-foreground">Activity</Link>
+          <Link href="/mainnet" className="hover:text-foreground">Mainnet lab</Link>
           <Link href="/docs" className="hover:text-foreground">Docs</Link>
           <Link href="/security" className="hover:text-foreground">Security</Link>
           <Link href="/playground" className="hover:text-foreground">Playground</Link>

@@ -12,7 +12,7 @@ import {
 } from "wagmi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { robinhoodTestnet } from "@/lib/chains";
+import { isRobinhoodChain, robinhoodMainnet, robinhoodTestnet } from "@/lib/chains";
 import { cn } from "@/lib/utils";
 
 function shortAddress(address: string) {
@@ -28,11 +28,12 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
   const switchChain = useSwitchChain();
   const balance = useBalance({
     address: connection.address,
-    chainId: robinhoodTestnet.id,
+    chainId: isRobinhoodChain(connection.chainId) ? connection.chainId : robinhoodTestnet.id,
     query: { enabled: Boolean(connection.address) },
   });
 
-  const correctNetwork = connection.chainId === robinhoodTestnet.id;
+  const correctNetwork = isRobinhoodChain(connection.chainId);
+  const isMainnet = connection.chainId === robinhoodMainnet.id;
 
   async function copyAddress() {
     if (!connection.address) return;
@@ -58,7 +59,7 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
         {open && (
           <div role="dialog" aria-label="Wallet connections" className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-64 rounded-xl border border-primary/15 bg-popover p-2 shadow-2xl shadow-black/40">
             <p className="px-2 py-2 text-xs text-muted-foreground">
-              Testnet only. RuleWallet never asks for a seed phrase.
+              RuleWallet never asks for a seed phrase or private key.
             </p>
             {connect.connectors.map((connector) => (
               <Button
@@ -110,7 +111,7 @@ export function WalletControl({ compact = false }: { compact?: boolean }) {
               </p>
             </div>
             <Badge variant="outline" className={correctNetwork ? "text-primary" : "text-amber-200"}>
-              {correctNetwork ? "Testnet" : `Chain ${connection.chainId}`}
+              {isMainnet ? "Experimental mainnet" : correctNetwork ? "Testnet" : `Chain ${connection.chainId}`}
             </Badge>
           </div>
           {!correctNetwork && (

@@ -23,8 +23,30 @@ export const robinhoodTestnet = defineChain({
   testnet: true,
 });
 
-export const robinhoodMainnetReference = {
+export const robinhoodMainnet = defineChain({
   id: 4_663,
   name: "Robinhood Chain",
-  explorer: "https://robinhoodchain.blockscout.com",
-} as const;
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://rpc.mainnet.chain.robinhood.com"],
+      webSocket: ["wss://feed.mainnet.chain.robinhood.com"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Robinhood Chain Blockscout",
+      url: "https://robinhoodchain.blockscout.com",
+    },
+  },
+});
+
+export const robinhoodChains = [robinhoodTestnet, robinhoodMainnet] as const;
+
+export function isRobinhoodChain(chainId: number | undefined) {
+  return chainId === robinhoodTestnet.id || chainId === robinhoodMainnet.id;
+}

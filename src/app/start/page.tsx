@@ -30,7 +30,7 @@ export default function StartPage() {
         <h1 className="mt-5 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">From zero to a personal testnet policy account.</h1>
         <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">Follow these steps in order. RuleWallet never asks for a seed phrase or private key; administrative changes are simulated and signed inside your wallet.</p>
 
-        <Alert className="mt-8 border-amber-300/20 bg-amber-300/[0.04] text-amber-100"><ShieldAlert /><AlertTitle>Testing environment only</AlertTitle><AlertDescription className="text-amber-100/75">Use only faucet-issued testnet ETH. The contracts are unaudited, mainnet is disabled, and real assets must never be deposited.</AlertDescription></Alert>
+        <Alert className="mt-8 border-amber-300/20 bg-amber-300/[0.04] text-amber-100"><ShieldAlert /><AlertTitle>This onboarding is testnet only</AlertTitle><AlertDescription className="text-amber-100/75">Use only faucet-issued testnet ETH in this V1 flow. Experimental mainnet V2 is isolated at <Link href="/mainnet" className="underline">/mainnet</Link> and has separate risk gates.</AlertDescription></Alert>
 
         <div className="mt-10 space-y-4">
           {steps.map((step, index) => {
