@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ExperienceModeProvider } from "@/components/experience-mode-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletProvider } from "@/components/wallet-provider";
 import "./globals.css";
@@ -60,9 +61,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <WalletProvider>
-          <TooltipProvider>{children}</TooltipProvider>
-        </WalletProvider>
+        <ExperienceModeProvider>
+          <WalletProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </WalletProvider>
+        </ExperienceModeProvider>
       </body>
     </html>
   );

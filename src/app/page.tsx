@@ -4,6 +4,7 @@ import {
   Braces,
   Check,
   Eye,
+  ExternalLink,
   Fingerprint,
   GitPullRequestArrow,
   LockKeyhole,
@@ -56,11 +57,12 @@ export default function Home() {
                   <Link href="/demo">Start guided demo <ArrowRight /></Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
-                  <Link href="/start"><Braces /> Build your testnet wallet</Link>
+                  <Link href="/start"><Braces /> Learn and set up</Link>
                 </Button>
+                <Button asChild size="lg" variant="ghost"><a href="/app" target="_blank" rel="noreferrer">Open console <ExternalLink /></a></Button>
               </div>
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                {["No seed phrase", "Testnet funds only", "Mainnet disabled"].map((item) => (
+                {["No seed phrase", "Public demo first", "Mainnet clearly gated"].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2"><Check className="size-4 text-primary" />{item}</span>
                 ))}
               </div>

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react";
 import { MainnetControlCenter } from "@/components/mainnet-control-center";
+import { MainnetSimpleMode } from "@/components/mainnet-simple-mode";
 import { MainnetStrategyPanel } from "@/components/mainnet-strategy-panel";
+import { ModeVisibility } from "@/components/mode-visibility";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -26,8 +28,8 @@ export default function MainnetPage() {
           </div>
           <div className="flex gap-2"><Button asChild variant="outline"><Link href="/start"><ArrowLeft /> Testnet start</Link></Button><Button asChild variant="outline"><a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noreferrer">Blockscout <ExternalLink /></a></Button><Button asChild variant="outline"><Link href="/docs"><BookOpen /> Docs</Link></Button></div>
         </div>
-        <div className="mt-10"><MainnetControlCenter /></div>
-        <div className="mt-10"><MainnetStrategyPanel /></div>
+        <div className="mt-10"><ModeVisibility mode="simple"><MainnetSimpleMode /></ModeVisibility></div>
+        <ModeVisibility mode="pro"><><div className="mt-10"><MainnetControlCenter /></div><div className="mt-10"><MainnetStrategyPanel /></div></></ModeVisibility>
       </main>
       <SiteFooter />
     </div>
