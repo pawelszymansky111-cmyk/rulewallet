@@ -65,8 +65,8 @@
   --accent: oklch(0.93 0.04 145);
   --accent-foreground: oklch(0.23 0.055 145);
   --destructive: oklch(0.56 0.2 25);
-  --border: oklch(0.28 0.035 150 / 14%);
-  --input: oklch(0.28 0.035 150 / 18%);
+  --border: oklch(0.38 0.06 148 / 22%);
+  --input: oklch(0.38 0.06 148 / 28%);
   --ring: oklch(0.53 0.17 145 / 45%);
   --chart-1: oklch(0.53 0.17 145);
   --chart-2: oklch(0.74 0.13 176);
@@ -136,7 +136,7 @@
   }
 
   .border-grid {
-    border-color: oklch(0.24 0.025 150 / 10%);
+    border-color: oklch(0.38 0.07 148 / 18%);
   }
 
   .lime-shadow {
