@@ -25,7 +25,7 @@ export function SiteHeader() {
   const { mode } = useExperienceMode();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-grid bg-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-primary/20 bg-background/94 shadow-[0_5px_24px_oklch(0.35_0.08_145/0.07)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
         <BrandMark />
         <nav
@@ -36,7 +36,7 @@ export function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className="transition-colors hover:text-foreground"
+              className="rounded-md border border-transparent px-2 py-1.5 transition-colors hover:border-primary/20 hover:bg-primary/[0.055] hover:text-primary"
             >
               {item[mode]}
             </Link>
@@ -63,7 +63,7 @@ export function SiteHeader() {
               <Menu className="size-4" />
             </summary>
             <nav
-              className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-grid bg-card p-2 shadow-2xl"
+              className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-primary/25 bg-card p-2 shadow-2xl"
               aria-label="Mobile navigation"
             >
               <ExperienceModeToggle className="mb-2 w-full justify-between" />
