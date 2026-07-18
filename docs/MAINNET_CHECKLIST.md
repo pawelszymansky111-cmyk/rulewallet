@@ -16,8 +16,11 @@ The code and UI may be published before contracts are deployed. Every unchecked 
 - [x] Mainnet raw-key path removed; secure non-exportable signer interface fails closed.
 - [x] Managed RPC primary/failover supported; public RPC is last-resort read fallback.
 - [x] Token-owned durable execution locks and idempotency boundary added.
-- [x] Unit, 512-run fuzz, 128×32 invariant, factory, replay, role, token, and optional mainnet-fork tests added.
+- [x] Unit, 512-run fuzz, 128×32 invariant, factory, replay, role, token, and mandatory current-state mainnet-fork tests added.
 - [x] Mainnet UI simulates and displays chain, contract, value, calldata, and expected result before wallet signing.
+- [x] Canonical USDG is enforced as 6 decimals in construction and display paths.
+- [x] Pinned factory runtime hash and account provenance checks reject getter-only spoof contracts.
+- [x] Mainnet scheduler removed from production Cron; compile-time autonomy gate is closed.
 
 ## Required before the first contract signature
 
@@ -45,7 +48,7 @@ The code and UI may be published before contracts are deployed. Every unchecked 
 - [ ] Alerts cover role/policy/recipient changes, failures, nonce conflicts, pause, withdrawals, and unusual spend.
 - [ ] Guardian pause and owner recovery rehearsed with separate hardware wallets.
 - [ ] Small-value canary runs under deliberately restrictive limits.
-- [ ] `ENABLE_MAINNET_AUTONOMY=true` approved only for the exact verified environment.
+- [ ] A separately audited future release changes the compile-time autonomy gate; `ENABLE_MAINNET_AUTONOMY` remains `false` in this release.
 
 ## Ongoing release gates
 

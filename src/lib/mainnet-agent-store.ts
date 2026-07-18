@@ -30,6 +30,12 @@ function strategyKey(id: string) {
   return `${prefix}:strategy:${id}`;
 }
 
+export async function claimMainnetStrategyDigest(digest: string, ttlSeconds: number) {
+  const key = `${prefix}:strategy-digest:${digest.toLowerCase()}`;
+  const result = await client().set(key, "claimed", { nx: true, ex: Math.max(300, ttlSeconds) });
+  return result === "OK";
+}
+
 export async function listMainnetStrategies() {
   const ids = await client().smembers<string[]>(strategyIdsKey);
   if (ids.length === 0) return [];
@@ -71,6 +77,37 @@ export async function claimMainnetExecutionLock(strategyId: string) {
   const token = crypto.randomUUID();
   const result = await client().set(key, token, { nx: true, ex: 300 });
   return result === "OK" ? { key, token } : undefined;
+}
+
+// Serializes every transaction emitted by one signer across all strategies.
+// This closes the gap where two per-strategy locks could allocate the same
+// pending account nonce concurrently.
+export async function claimMainnetSignerLock(signerAddress: string) {
+  const key = `${prefix}:lock:signer:${signerAddress.toLowerCase()}`;
+  const token = crypto.randomUUID();
+  const result = await client().set(key, token, { nx: true, ex: 300 });
+  return result === "OK" ? { key, token } : undefined;
+}
+
+function pendingSignerKey(signerAddress: string) {
+  return `${prefix}:pending:signer:${signerAddress.toLowerCase()}`;
+}
+
+export async function getMainnetPendingSignerTransaction(signerAddress: string) {
+  return client().get<{ transactionHash: string; nonce: number; strategyId: string; submittedAt: string }>(pendingSignerKey(signerAddress));
+}
+
+export async function saveMainnetPendingSignerTransaction(signerAddress: string, value: { transactionHash: string; nonce: number; strategyId: string; submittedAt: string }) {
+  await client().set(pendingSignerKey(signerAddress), value);
+}
+
+export async function clearMainnetPendingSignerTransaction(signerAddress: string, transactionHash: string) {
+  const key = pendingSignerKey(signerAddress);
+  await client().eval(
+    "local v=redis.call('get',KEYS[1]); if v and string.find(v,ARGV[1],1,true) then return redis.call('del',KEYS[1]) else return 0 end",
+    [key],
+    [transactionHash],
+  );
 }
 
 export async function releaseMainnetExecutionLock(lock: { key: string; token: string }) {

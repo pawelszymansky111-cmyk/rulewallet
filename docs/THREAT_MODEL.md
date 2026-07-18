@@ -1,5 +1,12 @@
 # Threat model
 
+## Security-beta additions
+
+- Queued requests are hostile inputs: execution revalidates the originating agent role, strategy revocation/expiry, active unique approvals, recipient, pause, and current limits.
+- Expected-looking factory getters are not provenance. Only the pinned runtime hash plus the exact factory's deployment record is accepted.
+- RPC and signer services are separate trust domains. Future signing requires two agreeing RPCs, a signer-global nonce lock, strict fees, HTTPS hostname pinning, and a real signer identity attestation.
+- Environment flags cannot enable mainnet autonomy in this release.
+
 ## Assets and trust boundaries
 
 - ETH and canonical USDG held by each personal V2 account;

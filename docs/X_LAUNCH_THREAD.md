@@ -1,5 +1,17 @@
 # X launch thread
 
+1/ We built RuleWallet: a policy wallet for autonomous agents on Robinhood Chain testnet. Give agents bounded authority—not your wallet. 🟢
+
+2/ The beta supports trusted recipients, per-transfer + rolling limits, scheduled transfers, human approvals, emergency pause, owner withdrawal, and public onchain receipts.
+
+3/ Simple and Pro modes expose the same controls in different language. The guided demo takes two minutes, and testnet ETH has no value.
+
+4/ Security-beta work fixed canonical USDG to 6 decimals, revalidates queued authorization at execution, enforces separate roles, and pins factory runtime provenance.
+
+5/ Mainnet is only an experimental manual preview. Autonomous execution is compile-time disabled; no swaps, bridges, arbitrary calls, unlimited approvals, or raw mainnet private keys.
+
+6/ The review is internal—not an external audit. Try the testnet demo, inspect the code and receipts, and tell us what policy an onchain agent needs next: https://rulewallet.vercel.app/demo
+
 Post each numbered section as one X post. Attach `public/social/rulewallet-testnet-launch.png` to post 1 and a short `/demo` recording to post 4.
 
 ## 1 / Launch

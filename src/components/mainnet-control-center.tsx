@@ -16,13 +16,11 @@ import {
 import {
   encodeFunctionData,
   formatEther,
-  formatUnits,
   getAddress,
   isAddress,
   keccak256,
   parseAbi,
   parseEther,
-  parseUnits,
   stringToHex,
   zeroAddress,
   type Address,
@@ -42,6 +40,8 @@ import {
 } from "@/lib/mainnet-factory-deployment";
 import {
   ROBINHOOD_MAINNET_USDG,
+  buildMainnetAssetPolicyArgs,
+  formatMainnetAssetUnits,
   experimentalMainnetUiEnabled,
   mainnetFactoryAddress,
   mainnetSharedAccountAddress,
@@ -75,13 +75,13 @@ type Metrics = {
 type MainnetStatus = {
   latestBlock?: string;
   factoryVerifiedOnchain: boolean;
+  factoryRuntimeCodeHash?: Hex;
+  canonicalUsdgVerified: boolean;
+  canonicalUsdgDecimals?: number;
   autonomyEnabled: boolean;
   signer: { configured: boolean; mode: string; address?: Address; reason?: string };
+  productionGates: Array<{ id: string; ready: boolean; message: string }>;
 };
-
-function short(value: string) {
-  return `${value.slice(0, 8)}…${value.slice(-6)}`;
-}
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -91,9 +91,9 @@ function errorMessage(error: unknown) {
   return "The requested action could not be completed.";
 }
 
-function policySummary(policy: readonly [boolean, bigint, bigint, bigint], symbol: string) {
+function policySummary(policy: readonly [boolean, bigint, bigint, bigint], symbol: "ETH" | "USDG") {
   if (!policy[0]) return `Disabled for agents (${symbol})`;
-  return `${formatUnits(policy[1], 18)} per tx · ${formatUnits(policy[2], 18)} / 24h · ${policy[3] === BigInt(0) ? "no approval threshold" : `approval above ${formatUnits(policy[3], 18)}`}`;
+  return `${formatMainnetAssetUnits(policy[1], symbol)} per tx · ${formatMainnetAssetUnits(policy[2], symbol)} / 24h · ${policy[3] === BigInt(0) ? "no approval threshold" : `approval above ${formatMainnetAssetUnits(policy[3], symbol)}`}`;
 }
 
 export function MainnetControlCenter() {
@@ -134,9 +134,21 @@ export function MainnetControlCenter() {
   const refresh = useCallback(async () => {
     setError("");
     const statusResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
-    if (statusResponse.ok) setStatus(await statusResponse.json());
+    const freshStatus = statusResponse.ok ? await statusResponse.json() as MainnetStatus : undefined;
+    if (freshStatus) setStatus(freshStatus);
     if (!publicClient || !accountAddress) return;
     try {
+      if (!freshStatus?.factoryVerifiedOnchain || !mainnetFactoryAddress) {
+        throw new Error("The configured security-beta factory runtime is not verified; account provenance cannot be trusted.");
+      }
+      if (!freshStatus.canonicalUsdgVerified || freshStatus.canonicalUsdgDecimals !== 6) {
+        throw new Error("Canonical USDG metadata verification failed; USDG actions are disabled.");
+      }
+      const [expectedVersion, accountVersion] = await Promise.all([
+        publicClient.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
+        publicClient.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [accountAddress] }),
+      ]);
+      if (accountVersion !== expectedVersion) throw new Error("Selected account was not deployed by the pinned security-beta factory.");
       const [ethBalance, usdgBalance, policyActive, paused, ethPolicy, usdgPolicy, ethRolling, usdgRolling, canonicalStablecoin] =
         await Promise.all([
           publicClient.getBalance({ address: accountAddress }),
@@ -216,12 +228,16 @@ export function MainnetControlCenter() {
     try {
       const { owner, client } = requireWallet();
       if (!mainnetFactoryAddress) throw new Error("The V2 factory is not deployed/configured. Follow the mainnet deployment guide first.");
+      const verificationResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
+      const verification = verificationResponse.ok ? await verificationResponse.json() as MainnetStatus : undefined;
+      if (!verification?.factoryVerifiedOnchain) throw new Error("The configured factory runtime bytecode hash is not pinned to this security-beta release.");
+      if (!verification.canonicalUsdgVerified || verification.canonicalUsdgDecimals !== 6) throw new Error("Canonical 6-decimal USDG verification failed; deployment is blocked.");
       const [factoryChainId, factoryUsdg, factoryVersion] = await Promise.all([
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "deploymentChainId" }),
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "canonicalStablecoin" }),
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION" }),
       ]);
-      if (factoryChainId !== BigInt(4663) || factoryUsdg !== ROBINHOOD_MAINNET_USDG || factoryVersion !== "2.0.0-experimental") {
+      if (factoryChainId !== BigInt(4663) || factoryUsdg !== ROBINHOOD_MAINNET_USDG || factoryVersion !== "2.1.0-security-beta") {
         throw new Error("Configured factory does not match the pinned chain, canonical USDG, and V2 version.");
       }
       const roles = [guardian, agent, approver];
@@ -276,14 +292,11 @@ export function MainnetControlCenter() {
     try {
       const { owner, client } = requireWallet();
       if (!accountAddress) throw new Error("Select a RuleWallet V2 account.");
-      const token = asset === "ETH" ? zeroAddress : ROBINHOOD_MAINNET_USDG;
-      const perTx = parseUnits(perTransaction, 18);
-      const rolling = parseUnits(rolling24h, 18);
-      const threshold = approvalAbove.trim() ? parseUnits(approvalAbove, 18) : BigInt(0);
+      const args = buildMainnetAssetPolicyArgs(asset, perTransaction, rolling24h, approvalAbove);
+      const [token,, perTx, rolling, threshold] = args;
       if (perTx <= 0 || rolling < perTx || (threshold !== BigInt(0) && threshold > perTx)) {
         throw new Error("Limits must be positive; rolling 24h ≥ per transaction and approval threshold ≤ per transaction.");
       }
-      const args = [token, true, perTx, rolling, threshold] as const;
       await client.simulateContract({ account: owner, address: accountAddress, abi: ruleWalletV2Abi, functionName: "setAssetPolicy", args });
       setPrepared({ kind: asset === "ETH" ? "eth-policy" : "usdg-policy", title: `Set ${asset} agent limits`, to: accountAddress, value: BigInt(0), data: encodeFunctionData({ abi: ruleWalletV2Abi, functionName: "setAssetPolicy", args }), expectedResult: `${asset}: ${perTransaction} per transaction; ${rolling24h} rolling 24h; ${threshold === BigInt(0) ? "no human threshold" : `approval above ${approvalAbove}`}`, payload: { asset: token, enabled: true, perTransaction, rolling24h, approvalAbove: threshold.toString() } });
       setMessage("Simulation passed. This is a separate owner-signed limit change.");
@@ -384,19 +397,21 @@ export function MainnetControlCenter() {
 
   return (
     <div className="space-y-6">
-      <Alert className="border-red-500/25 bg-red-50 text-red-900">
-        <AlertTriangle /><AlertTitle>Experimental, unaudited mainnet software</AlertTitle>
-        <AlertDescription className="text-red-800">Real assets can be lost. RuleWallet is not affiliated with Robinhood, is not audited or risk-free, and is not suitable for large balances. Autonomous mainnet execution stays off without a verified non-exportable signer.</AlertDescription>
+      <Alert className="border-amber-500/30 bg-amber-50 text-amber-950">
+        <AlertTriangle /><AlertTitle>Experimental preview — manual actions only</AlertTitle>
+        <AlertDescription className="text-amber-900">Real assets can be lost. This release is unaudited and not affiliated with Robinhood. Autonomous mainnet execution is compile-time disabled; every available action requires your wallet to simulate and sign it.</AlertDescription>
       </Alert>
 
       <div className="grid gap-4 md:grid-cols-4">
         {[
           ["Network", "Robinhood Chain · 4663"],
-          ["Factory", status?.factoryVerifiedOnchain ? "Verified bytecode present" : "Not deployed/configured"],
-          ["Secure signer", status?.signer.configured ? `Configured · ${short(status.signer.address!)}` : "Disabled"],
-          ["Autonomy", status?.autonomyEnabled ? "Enabled" : "Disabled by safety gate"],
+          ["Factory", status?.factoryVerifiedOnchain ? "Pinned runtime verified" : "Security-beta factory unavailable"],
+          ["USDG", status?.canonicalUsdgVerified ? "Canonical · 6 decimals" : "Controls disabled"],
+          ["Autonomy", "Compile-time disabled"],
         ].map(([label, value]) => <Card key={label} size="sm"><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-sm text-primary">{value}</CardTitle></CardHeader></Card>)}
       </div>
+
+      {status?.productionGates && <Card><CardHeader><CardTitle>Production automation gates</CardTitle><CardDescription>These checks are informational in this manual-only preview. Failed gates cannot be overridden by the backend.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{status.productionGates.map((gate) => <div key={gate.id} className="rounded-lg border border-grid p-3 text-sm"><span className={gate.ready ? "font-medium text-primary" : "font-medium text-amber-700"}>{gate.ready ? "Ready" : "Incomplete"} · {gate.id}</span><p className="mt-1 text-muted-foreground">{gate.message}</p></div>)}</CardContent></Card>}
 
       {!connection.isConnected ? (
         <Card><CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="size-4" /> Connect the owner wallet</CardTitle><CardDescription>Use the header. Never enter a seed phrase or private key into RuleWallet.</CardDescription></CardHeader></Card>
@@ -442,7 +457,7 @@ export function MainnetControlCenter() {
           {accountAddress && (
             <>
               <Card><CardHeader><div className="flex items-start justify-between gap-4"><div><CardTitle>Live account monitor</CardTitle><CardDescription className="mt-1">Explorer-backed balances and policy state.</CardDescription></div><Button variant="outline" size="sm" onClick={refresh}><RefreshCw /> Refresh</Button></div></CardHeader><CardContent className="space-y-3 text-sm">
-                {metrics ? <><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-grid p-3">ETH balance <b className="float-right font-mono">{formatEther(metrics.ethBalance)}</b></div><div className="rounded-lg border border-grid p-3">USDG balance <b className="float-right font-mono">{formatUnits(metrics.usdgBalance, 18)}</b></div></div><p>{policySummary(metrics.ethPolicy, "ETH")}</p><p>{policySummary(metrics.usdgPolicy, "USDG")}</p><p className="text-muted-foreground">Rolling spent: {formatEther(metrics.ethRolling)} ETH · {formatUnits(metrics.usdgRolling, 18)} USDG · {metrics.paused ? "Paused" : metrics.policyActive ? "Active" : "Inactive"}</p></> : <p className="text-muted-foreground">Load or verify a deployed V2 account to display live state.</p>}
+                {metrics ? <><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-grid p-3">ETH balance <b className="float-right font-mono">{formatEther(metrics.ethBalance)}</b></div><div className="rounded-lg border border-grid p-3">USDG balance <b className="float-right font-mono">{formatMainnetAssetUnits(metrics.usdgBalance, "USDG")}</b></div></div><p>{policySummary(metrics.ethPolicy, "ETH")}</p><p>{policySummary(metrics.usdgPolicy, "USDG")}</p><p className="text-muted-foreground">Rolling spent: {formatEther(metrics.ethRolling)} ETH · {formatMainnetAssetUnits(metrics.usdgRolling, "USDG")} USDG · {metrics.paused ? "Paused" : metrics.policyActive ? "Active" : "Inactive"}</p></> : <p className="text-muted-foreground">Load or verify a deployed V2 account to display live state.</p>}
               </CardContent></Card>
 
               <div className="grid gap-6 lg:grid-cols-2">

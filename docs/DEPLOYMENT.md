@@ -1,5 +1,7 @@
 # Deployment and rollback
 
+> Security-beta rule: deploy the frontend normally, but do not deploy the `2.1.0-security-beta` mainnet factory or broadcast any chain transaction as part of an application release. The existing older factory is intentionally reported as incompatible. A future factory deployment requires a separately reviewed hardware-wallet signature.
+
 ## Web release
 
 1. Run `npm run verify` from a clean commit.
@@ -12,7 +14,7 @@
 
 The repository does not broadcast a factory deployment automatically. The only mainnet script pins chain `4663` and canonical USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` and never reads a private key.
 
-The `/mainnet` page also exposes the same pinned factory artifact through a browser-wallet flow. It reads the connected wallet nonce, predicts the factory address, checks that the address has no code, simulates the contract creation, verifies init-code checksum `0xa878628ad64c1f77bdb0a6fb2550ed0cc543ae0a25de446dad335e53557c2445`, and displays the complete calldata before enabling the MetaMask signature. This is a signing convenience only; it does not bypass wallet confirmation or activate autonomy.
+The `/mainnet` page also exposes the same pinned factory artifact through a browser-wallet flow. It reads the connected wallet nonce, predicts the factory address, checks that the address has no code, simulates the contract creation, verifies security-beta init-code checksum `0x62100ea86a79ac148a08a5897cd8227aeb95e8da6a2dcaef573876047a6dd2df`, and displays the complete calldata before enabling the MetaMask signature. After deployment, the complete immutable-linked runtime must hash to `0x852fd105d0cbf2c8d740f896cbab0059151989d47736e9522b1759d9e4ce4a16`. This is a signing convenience only; it does not bypass wallet confirmation or activate autonomy.
 
 Build and run a no-broadcast simulation first:
 

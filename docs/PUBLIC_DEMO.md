@@ -1,5 +1,15 @@
 # Public testnet demo
 
+## Two-minute security-beta demo
+
+1. **0:00–0:20 — Problem:** open `/demo`; explain that agents should receive rules, not an unrestricted wallet key.
+2. **0:20–0:45 — Onboarding:** open `/start`; show wallet/network setup and the valueless-testnet warning.
+3. **0:45–1:20 — Control:** open `/app/agent`; show a trusted recipient, mandatory per-transfer/24-hour limits, an approval threshold, and scheduled testnet transfer.
+4. **1:20–1:40 — Proof:** run the testnet strategy and open its public Blockscout-backed receipt in `/activity`.
+5. **1:40–2:00 — Safety:** show pause/withdrawal, then `/mainnet`; point out the pinned-factory check, 6-decimal USDG status, visible incomplete gates, and compile-time-disabled autonomy.
+
+Use only faucet assets in the live demo. Testnet ETH has no monetary value.
+
 The shortest credible RuleWallet demo is read-only, takes two minutes, and never requires real funds.
 
 ## Links

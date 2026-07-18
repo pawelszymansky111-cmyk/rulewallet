@@ -1,5 +1,15 @@
 # RuleWallet public testnet launch kit
 
+## Security-beta launch checklist
+
+- [ ] `npm run verify` passes from a clean checkout.
+- [ ] The mandatory current-state mainnet fork confirms canonical USDG is `USDG` with 6 decimals.
+- [ ] `/demo`, `/start`, `/app/agent`, `/activity`, `/docs`, and `/mainnet` render on mobile and desktop.
+- [ ] `/mainnet` says “Experimental preview — manual actions only,” reports the old factory as incompatible, and reports autonomy disabled.
+- [ ] No seed phrase, private key, signer credential, RPC credential, or Redis credential appears in Git history or build output.
+- [ ] No blockchain transaction was broadcast during release verification.
+- [ ] Publish the hackathon copy and X thread only after the production deployment health check passes.
+
 ## Positioning
 
 **Tagline:** Agents act. Rules hold.

@@ -25,13 +25,19 @@ These values are bundled into JavaScript and must never contain secrets.
 | `AGENT_PRIVATE_KEY` | Legacy dedicated testnet-only agent signer; never read by mainnet code |
 | `CRON_SECRET` | Vercel Cron authentication secret |
 | `ENABLE_MAINNET` | Enables server-side mainnet status/read features |
-| `ENABLE_MAINNET_AUTONOMY` | Separate kill switch; keep `false` until secure signer and monitoring gates pass |
+| `ENABLE_MAINNET_AUTONOMY` | Must remain `false`; the security-beta compile-time gate also prevents execution |
 | `MAINNET_SIGNER_MODE` | `disabled` or `external-kms` |
 | `MAINNET_AGENT_ADDRESS` | Public address of the non-exportable mainnet agent key |
 | `MAINNET_SIGNER_ENDPOINT` | Private KMS/MPC/HSM signing-service endpoint |
 | `MAINNET_SIGNER_AUTH_TOKEN` | Runtime-only service credential; never logged or exposed |
+| `MAINNET_SIGNER_ALLOWED_HOST` | Exact HTTPS hostname allowlist for the external signer |
+| `MAINNET_SIGNER_KEY_ID` | Public non-exportable key identity from the real signer service |
+| `MAINNET_SIGNER_ATTESTATION_SHA256` | Expected `sha256:<hex>` signer identity attestation |
+| `MAINNET_MAX_GAS` | Hard gas limit; absence blocks future autonomy |
+| `MAINNET_MAX_FEE_PER_GAS_WEI` | Hard EIP-1559 max-fee ceiling |
+| `MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI` | Hard priority-fee ceiling |
 
-If any secure signer field is absent or invalid, `/api/mainnet/status` reports the reason and autonomous mainnet execution remains disabled. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet signer readiness.
+If any gate is absent or invalid, `/api/mainnet/status` reports it. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet readiness. In this release, all mainnet autonomy remains disabled regardless of configuration.
 
 ## Production separation
 

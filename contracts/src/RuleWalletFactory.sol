@@ -6,7 +6,7 @@ import {RuleWalletPolicyAccountV2} from "./RuleWalletPolicyAccountV2.sol";
 /// @title RuleWalletFactory
 /// @notice Versioned factory for personal, non-upgradeable RuleWallet V2 accounts.
 contract RuleWalletFactory {
-    string public constant VERSION = "2.0.0-experimental";
+    string public constant VERSION = "2.1.0-security-beta";
     bytes32 public constant VERSION_HASH = keccak256(bytes(VERSION));
 
     address public immutable canonicalStablecoin;

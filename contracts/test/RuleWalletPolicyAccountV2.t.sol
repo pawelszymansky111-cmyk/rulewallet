@@ -7,6 +7,8 @@ import {RuleWalletPolicyAccountV2} from "../src/RuleWalletPolicyAccountV2.sol";
 import {MockERC20} from "./mocks/MockERC20.sol";
 
 contract RuleWalletPolicyAccountV2Test is Test {
+    bytes32 internal constant PINNED_FACTORY_RUNTIME_HASH =
+        0x852fd105d0cbf2c8d740f896cbab0059151989d47736e9522b1759d9e4ce4a16;
     uint256 internal ownerKey = 0xA11CE;
     address internal owner;
     address internal guardian = makeAddr("guardian");
@@ -39,7 +41,7 @@ contract RuleWalletPolicyAccountV2Test is Test {
     function testFactoryDeploysPredictedNonUpgradeablePersonalAccount() public {
         RuleWalletFactory factory = new RuleWalletFactory(block.chainid, address(usdg));
         address[] memory approvers = new address[](1);
-        approvers[0] = owner;
+        approvers[0] = approverOne;
         bytes32 salt = keccak256("personal-account");
         address predicted = factory.predictAccountAddress(owner, guardian, agent, approvers, 1, salt);
 
@@ -50,6 +52,11 @@ contract RuleWalletPolicyAccountV2Test is Test {
         assertEq(factory.accountsOf(owner).length, 1);
         assertEq(factory.accountVersion(deployed), factory.VERSION_HASH());
         assertTrue(RuleWalletPolicyAccountV2(payable(deployed)).hasRole(account.OWNER_ROLE(), owner));
+    }
+
+    function testFactoryRuntimeHashIsPinnedForMainnetConstructorArguments() public {
+        RuleWalletFactory factory = new RuleWalletFactory(4663, 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168);
+        assertEq(address(factory).codehash, PINNED_FACTORY_RUNTIME_HASH);
     }
 
     function testAgentExecutesOnlyDirectNativeTransferInsideLimits() public {
@@ -166,6 +173,132 @@ contract RuleWalletPolicyAccountV2Test is Test {
         vm.prank(agent);
         vm.expectRevert(abi.encodeWithSelector(RuleWalletPolicyAccountV2.StrategyIsRevoked.selector, digest));
         account.executeSignedStrategy(strategy, abi.encodePacked(r, s, v), uint64(block.timestamp + 1 hours));
+    }
+
+    function testQueuedSignedStrategyCannotExecuteAfterRevocation() public {
+        RuleWalletPolicyAccountV2.Strategy memory strategy = _strategy(11, 2);
+        strategy.amount = 0.5 ether;
+        bytes32 digest = account.strategyDigest(strategy);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, digest);
+
+        vm.prank(agent);
+        uint256 requestId =
+            account.executeSignedStrategy(strategy, abi.encodePacked(r, s, v), uint64(block.timestamp + 2 hours));
+        vm.prank(approverOne);
+        account.approveRequest(requestId);
+        vm.prank(approverTwo);
+        account.approveRequest(requestId);
+        vm.prank(owner);
+        account.revokeStrategy(digest);
+
+        vm.expectRevert(abi.encodeWithSelector(RuleWalletPolicyAccountV2.StrategyIsRevoked.selector, digest));
+        account.executeApprovedRequest(requestId);
+    }
+
+    function testQueuedSignedStrategyCannotExecuteAfterStrategyExpiry() public {
+        RuleWalletPolicyAccountV2.Strategy memory strategy = _strategy(12, 2);
+        strategy.amount = 0.5 ether;
+        strategy.expiry = uint64(block.timestamp + 1 hours);
+        bytes32 digest = account.strategyDigest(strategy);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerKey, digest);
+
+        vm.prank(agent);
+        uint256 requestId =
+            account.executeSignedStrategy(strategy, abi.encodePacked(r, s, v), uint64(block.timestamp + 2 hours));
+        vm.warp(block.timestamp + 1 hours + 1);
+        vm.prank(approverOne);
+        account.approveRequest(requestId);
+        vm.prank(approverTwo);
+        account.approveRequest(requestId);
+
+        vm.expectRevert(abi.encodeWithSelector(RuleWalletPolicyAccountV2.StrategyExpired.selector, digest));
+        account.executeApprovedRequest(requestId);
+    }
+
+    function testQueuedRequestCannotExecuteAfterAgentRoleRevocation() public {
+        bytes32 agentRole = account.AGENT_ROLE();
+        vm.prank(agent);
+        uint256 requestId = account.requestNativeTransfer(recipient, 0.5 ether, uint64(block.timestamp + 2 hours), 0);
+        vm.prank(approverOne);
+        account.approveRequest(requestId);
+        vm.prank(approverTwo);
+        account.approveRequest(requestId);
+
+        vm.prank(owner);
+        account.revokeRole(agentRole, agent);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.RequestAgentNoLongerAuthorized.selector, requestId, agent)
+        );
+        account.executeApprovedRequest(requestId);
+    }
+
+    function testRevokedApproverVoteNoLongerCounts() public {
+        bytes32 approverRole = account.APPROVER_ROLE();
+        vm.prank(owner);
+        account.setMinimumApprovals(1);
+        vm.prank(agent);
+        uint256 requestId = account.requestNativeTransfer(recipient, 0.5 ether, uint64(block.timestamp + 2 hours), 0);
+        vm.prank(approverOne);
+        account.approveRequest(requestId);
+
+        vm.prank(owner);
+        account.revokeRole(approverRole, approverOne);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.InsufficientApprovals.selector, requestId, 0, 1)
+        );
+        account.executeApprovedRequest(requestId);
+    }
+
+    function testOperationalRolesMustRemainDistinct() public {
+        bytes32 ownerRole = account.OWNER_ROLE();
+        bytes32 approverRole = account.APPROVER_ROLE();
+        address[] memory approvers = new address[](1);
+        approvers[0] = agent;
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.OperationalRoleCollision.selector, agent, approverRole)
+        );
+        new RuleWalletPolicyAccountV2(owner, guardian, agent, approvers, 1, address(usdg));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.OperationalRoleCollision.selector, agent, ownerRole)
+        );
+        account.grantRole(ownerRole, agent);
+    }
+
+    function testDuplicateApproversAndUnreachableThresholdAreRejected() public {
+        address[] memory approvers = new address[](2);
+        approvers[0] = approverOne;
+        approvers[1] = approverOne;
+        vm.expectRevert(abi.encodeWithSelector(RuleWalletPolicyAccountV2.DuplicateApprover.selector, approverOne));
+        new RuleWalletPolicyAccountV2(owner, guardian, agent, approvers, 2, address(usdg));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.ApprovalThresholdExceedsActiveApprovers.selector, 3, 2)
+        );
+        account.setMinimumApprovals(3);
+    }
+
+    function testDefaultAdminCanManageRolesButOperationalCollisionStillFails() public {
+        bytes32 agentRole = account.AGENT_ROLE();
+        bytes32 guardianRole = account.GUARDIAN_ROLE();
+        address nextAgent = makeAddr("next-agent");
+        vm.prank(agent);
+        vm.expectRevert();
+        account.grantRole(agentRole, nextAgent);
+
+        vm.prank(owner);
+        account.grantRole(agentRole, nextAgent);
+        assertTrue(account.hasRole(agentRole, nextAgent));
+
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(RuleWalletPolicyAccountV2.OperationalRoleCollision.selector, nextAgent, guardianRole)
+        );
+        account.grantRole(guardianRole, nextAgent);
     }
 
     function testWrongChainAndExpiredSignedStrategiesFail() public {

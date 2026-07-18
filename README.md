@@ -4,7 +4,7 @@
 
 RuleWallet is an open-source policy and approval layer for onchain AI agents. It turns broad wallet access into narrow, inspectable authority: spending limits, token and contract allowlists, market constraints, human approvals, audit receipts, and instant revocation.
 
-> **Status:** V1 remains a working testnet demo. V2 is an experimental, unaudited Robinhood Chain mainnet release candidate. No mainnet contract is deployed by this repository update, autonomous mainnet execution is disabled by default, and the software is not suitable for large balances. RuleWallet is not affiliated with Robinhood.
+> **Status:** V1 is the working public testnet beta. V2 is an experimental Robinhood Chain mainnet preview for manual wallet actions only. Autonomous mainnet execution is compile-time disabled, the older experimental factory is not accepted as security-beta provenance, and no blockchain transaction is broadcast by this release. The code is unaudited externally and is not affiliated with Robinhood.
 
 ## Why this exists
 
@@ -110,7 +110,7 @@ See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 
 Recurring transfer strategies are stored in Upstash Redis and evaluated by a protected Vercel Cron route once per day. Before every call, the runner checks the onchain role, target allowlist, active/pause state, native-asset policy, approval boundary, contract balance, and exact agent nonce, then performs an RPC simulation. Confirmed, blocked, and failed attempts appear on `/activity` with explorer receipts.
 
-The legacy dedicated signer key and `CRON_SECRET` are testnet-only server secrets. Mainnet never reads `AGENT_PRIVATE_KEY`; it uses a `SecureAgentSigner` interface for a separately operated non-exportable KMS/MPC/HSM key and fails closed when that configuration is missing. `ENABLE_MAINNET_AUTONOMY` remains a separate kill switch.
+The legacy dedicated signer key and `CRON_SECRET` are testnet-only server secrets. Mainnet never reads `AGENT_PRIVATE_KEY`. Its future signer boundary requires a separately operated non-exportable KMS/MPC/HSM identity, exact HTTPS host, key ID, identity attestation, dual-RPC agreement, signer-global nonce locking, fee ceilings, and monitoring. The security-beta compile-time gate remains off even if `ENABLE_MAINNET_AUTONOMY` is changed.
 
 The service directory links to protocols listed by official Robinhood Chain or protocol documentation. It deliberately does not hard-code router targets: the current policy account permits arbitrary calldata to an allowed native-call target, so each DeFi integration needs a selector-limited, token-aware, minimum-output adapter and an independent review.
 
