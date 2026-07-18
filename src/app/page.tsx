@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PolicyPlayground } from "@/components/policy-playground";
+import { LiveMetricsStrip } from "@/components/live-metrics-strip";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -52,14 +53,14 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/85">
-                  <Link href="/playground">Try the simulator <ArrowRight /></Link>
+                  <Link href="/demo">Start guided demo <ArrowRight /></Link>
                 </Button>
                 <Button asChild size="lg" variant="outline">
                   <Link href="/docs"><Braces /> Read the spec</Link>
                 </Button>
               </div>
               <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                {["No seed phrase", "No backend signer", "Mainnet disabled"].map((item) => (
+                {["No seed phrase", "Testnet funds only", "Mainnet disabled"].map((item) => (
                   <span key={item} className="inline-flex items-center gap-2"><Check className="size-4 text-primary" />{item}</span>
                 ))}
               </div>
@@ -72,21 +73,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-b border-grid bg-card/30">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-y divide-border border-x border-grid md:grid-cols-4 md:divide-y-0">
-            {[
-              ["19", "contract tests"],
-              ["24 h", "rolling limits"],
-              ["0", "backend keys"],
-              ["46630", "testnet chain ID"],
-            ].map(([value, label]) => (
-              <div key={label} className="px-5 py-6 text-center">
-                <p className="font-mono text-xl font-semibold text-primary">{value}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <LiveMetricsStrip />
 
         <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
           <div className="max-w-2xl">
@@ -172,9 +159,9 @@ export default function Home() {
           <div className="mx-auto max-w-4xl px-5 py-20 text-center lg:py-28">
             <p className="font-mono text-xs tracking-[0.18em] text-primary uppercase">Build in public</p>
             <h2 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Agents act. Rules hold.</h2>
-            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">Try the working simulator, inspect the policy engine, and help shape safe agent infrastructure on Robinhood Chain.</p>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">Follow a live autonomous testnet execution from policy state to public receipt, then try to break the guardrails yourself.</p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button asChild size="lg" className="bg-primary text-primary-foreground"><Link href="/app">Open testnet console <ArrowRight /></Link></Button>
+              <Button asChild size="lg" className="bg-primary text-primary-foreground"><Link href="/demo">Take the guided tour <ArrowRight /></Link></Button>
               <Button asChild size="lg" variant="outline"><a href={githubUrl}>Star on GitHub</a></Button>
             </div>
           </div>

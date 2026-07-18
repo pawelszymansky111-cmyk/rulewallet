@@ -1,90 +1,69 @@
-# RuleWallet launch kit
+# RuleWallet public testnet launch kit
 
 ## Positioning
 
-**Name:** RuleWallet  
-**Tagline:** Agents act. Rules hold.  
-**One sentence:** RuleWallet gives onchain AI agents scoped authority with spending caps, contract allowlists, human approvals, audit receipts, and instant revocation.
+**Tagline:** Agents act. Rules hold.
 
-RuleWallet should be introduced as original open-source testnet infrastructure. Do not call it an Allowance clone, imply a Robinhood partnership, or mention a token.
+**One sentence:** RuleWallet gives autonomous onchain agents narrow, enforceable authority with spending caps, target allowlists, human thresholds, public receipts, and instant revocation.
+
+RuleWallet is original open-source testnet infrastructure. Never imply a Robinhood partnership, an audit, mainnet readiness, custody certification, or a token.
+
+## Canonical links
+
+- Product: https://rulewallet.vercel.app
+- Guided demo: https://rulewallet.vercel.app/demo
+- Public receipts: https://rulewallet.vercel.app/activity
+- Documentation: https://rulewallet.vercel.app/docs
+- Security model: https://rulewallet.vercel.app/security
+- Repository: https://github.com/pawelszymansky111-cmyk/rulewallet
+- X thread: [`X_LAUNCH_THREAD.md`](X_LAUNCH_THREAD.md)
+- Demo runbook: [`PUBLIC_DEMO.md`](PUBLIC_DEMO.md)
 
 ## X profile
 
-**Display name:** RuleWallet  
-**Handle candidates:** `@RuleWalletDev`, `@UseRuleWallet`, `@RuleWalletHQ` — verify availability before claiming.  
-**Bio:** Policy controls for onchain AI agents. Spending caps, allowlists, approvals, and receipts. Building on Robinhood Chain testnet. Open source.  
-**Website:** use the deployed product URL.  
-**Location:** Internet / Testnet
+**Display name:** RuleWallet
 
-## Pinned launch post
+**Handle candidates:** `@RuleWalletDev`, `@UseRuleWallet`, `@RuleWalletHQ` — verify availability before claiming.
 
-> AI agents need authority to act—but they should never inherit your whole wallet.
->
-> We built RuleWallet: an open-source policy and approval layer for onchain agents.
->
-> • per-action and daily caps  
-> • token + contract allowlists  
-> • human approval thresholds  
-> • explainable decision receipts  
-> • instant revoke
->
-> The interactive testnet demo is live. Try to break a policy, inspect the code, and tell us what fails.
->
-> [demo URL]  
-> https://github.com/pawelszymansky111-cmyk/rulewallet
+**Bio:** Bounded authority for onchain AI agents. Live on Robinhood Chain testnet. Open source. Mainnet disabled.
 
-Attach a 20–30 second recording: safe swap → excessive spend → unknown contract → stale oracle.
+**Website:** https://rulewallet.vercel.app/demo
 
-## Five build-in-public posts
+## Launch assets
 
-### 1. The problem
+- Text-free key visual: `public/social/rulewallet-testnet-launch.png`
+- 1200×630 social export: `public/social/rulewallet-testnet-launch-1200x630.png`
+- Generated Open Graph preview: https://rulewallet.vercel.app/opengraph-image
+- Generated X preview: https://rulewallet.vercel.app/twitter-image
 
-> Giving an AI agent a wallet key is an all-or-nothing permission model. We are building a narrow control plane instead: the agent proposes an action, a deterministic policy decides, and a human steps in only when needed. What rule would you never let an agent bypass?
+The key visual was generated without text or third-party marks. Use the product's generated previews when crisp branded copy is required.
 
-### 2. Product proof
+## 30-second recording
 
-> RuleWallet now evaluates 8 controls locally: agent status, token, contract, transaction cap, daily cap, slippage, oracle freshness, and trading window. Each result includes evidence—not a vague “safe” score. Playground: [URL]
+1. Open `/demo`; show `Policy: enforcing`, the live block, agent nonce, and confirmed receipt count.
+2. Continue to the receipt and open its transaction on the testnet explorer.
+3. Open the simulator; show one allowed request and one blocked unknown target.
+4. End on the line: **Autonomous execution. Bounded onchain.**
 
-### 3. Security honesty
+Do not record wallet secrets, browser notifications, personal tabs, Vercel environment variables, or mainnet balances.
 
-> RuleWallet is testnet software, not audited custody infrastructure. No live signer. No real funds. No token. We published the boundary because security products should state what they do not solve. Threat model: [URL]
+## Community outreach
 
-### 4. Builder request
+> I’m building RuleWallet, an open-source policy account for autonomous onchain agents. The public Robinhood Chain testnet demo now has a dedicated agent role, scheduled execution, hard onchain limits, and explorer-backed receipts. I’m looking for one concrete action your agent needs and one failure the policy must block. Would you try the four-minute demo? https://rulewallet.vercel.app/demo
 
-> Looking for two kinds of feedback: agent builders who need constrained payments, and smart-account/security engineers who can attack our policy model. Repo: [URL]. Open an issue with a scenario that should be blocked.
+Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent developers, and onchain security researchers. Contribute useful feedback before posting a link, and ask for a concrete failure case rather than generic promotion.
 
-### 5. Weekly proof
+## Release checklist
 
-> Week one of RuleWallet: working evaluator, policy builder, decision receipts, docs, threat model, and public repo. Next: one real Robinhood Chain testnet simulation path. Follow the commits, not the promises: https://github.com/pawelszymansky111-cmyk/rulewallet
+- [ ] Production deployment is `READY` and aliased to `rulewallet.vercel.app`.
+- [ ] `/api/health` reports `mainnetEnabled: false`.
+- [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
+- [ ] `/demo`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
+- [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.
+- [ ] GitHub main contains the same verified commit as production.
+- [ ] X profile and every post say testnet; no token or affiliation claim appears.
+- [ ] Private vulnerability reporting is enabled before soliciting security review.
 
-## 30-second demo script
+## Non-negotiable disclosure
 
-1. “An agent wants to swap 45 USDC. Eight rules pass, so RuleWallet allows it.”
-2. Move amount to 150. “The action is valid, but our threshold routes it to a human.”
-3. Move amount above 250. “This is a hard cap, so even a human cannot approve it.”
-4. Select the unknown contract. “Unknown targets fail closed.”
-5. “Every result creates evidence an operator can audit later.”
-
-## Outreach message
-
-> Hey — I’m building RuleWallet, an open-source policy layer for onchain AI agents. The first testnet demo has deterministic spending caps, allowlists, approval thresholds, and per-rule receipts. I’m looking for hard failure scenarios from agent and wallet builders, not generic launch feedback. Would you try the playground or point me to the right person in your community? [URL]
-
-## First communities to approach
-
-- Robinhood Chain developer channels and hackathons
-- account-abstraction and smart-wallet builders
-- MCP and autonomous-agent builders
-- onchain security reviewers
-- open-source fintech and crypto developer groups
-
-Contribute first: answer questions, publish a useful failure case, or fix a small issue before dropping a project link.
-
-## Launch checklist
-
-- Replace every placeholder URL and verify profile handles.
-- Enable GitHub Discussions and private vulnerability reporting.
-- Pin a clear testnet warning in README, app, and X profile.
-- Record the demo at 1080p with no wallet or personal information visible.
-- Open 3–5 concrete starter issues before inviting contributors.
-- Share one technical artifact per post: rule trace, threat-model item, benchmark, or diff.
-- Do not announce a token, partnership, audit, or production readiness.
+RuleWallet is unaudited testnet software. Mainnet and real funds are disabled. There is no token, sale, airdrop, investment product, or affiliation with Robinhood Markets.

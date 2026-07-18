@@ -30,6 +30,7 @@ The repository includes:
 - expiring requests, nonces, emergency pause, and multi-human approvals;
 - 19 Solidity unit, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
 - health checks, security headers, release gates, and incident documentation.
+- a public guided demo, live onchain metrics, and shareable autonomous execution receipts.
 
 ## Quick start
 
@@ -40,6 +41,8 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000), then try `/playground` and `/app`.
+
+For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rulewallet.vercel.app/demo), inspect [live receipts](https://rulewallet.vercel.app/activity), and verify the metrics response at [`/api/public/metrics`](https://rulewallet.vercel.app/api/public/metrics).
 
 Quality checks:
 

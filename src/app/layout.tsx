@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s · RuleWallet",
   },
   description:
-    "Give AI agents scoped authority without exposing your wallet. Simulate, approve, and audit every onchain action.",
+    "Live testnet policy controls for autonomous onchain agents. Verify limits, scheduled execution, and public receipts without real funds.",
   keywords: [
     "AI agents",
     "wallet policy",
@@ -37,14 +37,14 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "RuleWallet — Agents act. Rules hold.",
-    description: "Policy controls and human approvals for onchain AI agents.",
+    description: "A working autonomous testnet agent with onchain limits and public execution receipts.",
     type: "website",
     siteName: "RuleWallet",
   },
   twitter: {
     card: "summary_large_image",
     title: "RuleWallet — Agents act. Rules hold.",
-    description: "Policy controls and human approvals for onchain AI agents.",
+    description: "A working autonomous testnet agent with onchain limits and public execution receipts.",
   },
 };
 

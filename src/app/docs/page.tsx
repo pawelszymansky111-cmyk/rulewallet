@@ -46,9 +46,10 @@ export default function DocsPage() {
       <main>
         <section className="border-b border-grid">
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
-            <Badge variant="outline" className="border-primary/25 text-primary">v0.2 · Testnet production candidate</Badge>
+            <Badge variant="outline" className="border-primary/25 text-primary">Public testnet launch · Live system</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">RuleWallet documentation</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. Wallet connection and contract execution are functional on testnet; the system remains unaudited and mainnet-disabled.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. The deployed testnet contract, scheduled agent, and public receipts are live; the system remains unaudited and mainnet-disabled.</p>
+            <div className="mt-7 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/demo">Start guided demo <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/activity">View live receipts</Link></Button></div>
           </div>
         </section>
 
@@ -107,8 +108,8 @@ export default function DocsPage() {
               <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">05 / MVP boundary</p>
               <h2 className="mt-3 text-2xl font-semibold">What this build does—and does not do.</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Wallet connection and chain switching</p><p>Onchain simulation and explicit testnet signing</p><p>Policy contract, human approvals, and receipts</p><p>Unit, fuzz, reentrancy, and invariant tests</p></CardContent></Card>
-                <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>First signed testnet contract deployment</p><p>Router-specific swap adapters</p><p>Independent audit and formal verification</p><p>Mainnet, real funds, token, sale, or investment product</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Deployed Robinhood Chain testnet policy account</p><p>Scheduled native-transfer strategy with dedicated agent role</p><p>Live onchain metrics and explorer-backed receipts</p><p>Wallet connection, simulation, approvals, pause, and revoke</p><p>Unit, fuzz, reentrancy, and invariant tests</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Router-specific swap adapters</p><p>Independent audit and formal verification</p><p>Multisig production administration and monitored RPC failover</p><p>Mainnet, real funds, token, sale, or investment product</p></CardContent></Card>
               </div>
               <div className="mt-8 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/playground">Open playground <ArrowRight /></Link></Button><Button asChild variant="outline"><a href={githubUrl}><GitBranch /> Inspect source</a></Button></div>
             </section>
