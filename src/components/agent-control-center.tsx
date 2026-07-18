@@ -9,6 +9,7 @@ import {
   CirclePlay,
   Copy,
   ExternalLink,
+  Fuel,
   KeyRound,
   LoaderCircle,
   Network,
@@ -119,6 +120,27 @@ export function AgentControlCenter() {
       });
       await publicClient.waitForTransactionReceipt({ hash });
       setMessage(grant ? "Dedicated agent role granted onchain." : "Dedicated agent role revoked onchain.");
+      await refresh();
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function fundAgentGas() {
+    if (!agent?.address || !walletClient.data || !publicClient || !connection.address) return;
+    setBusy("fund-agent");
+    setError("");
+    try {
+      const hash = await walletClient.data.sendTransaction({
+        account: connection.address,
+        chain: robinhoodTestnet,
+        to: agent.address,
+        value: parseEther("0.0001"),
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      setMessage("Agent gas wallet funded with 0.0001 testnet ETH.");
       await refresh();
     } catch (caught) {
       setError(errorText(caught));
@@ -257,7 +279,7 @@ export function AgentControlCenter() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><KeyRound className="size-4 text-primary" /> Dedicated agent signer</CardTitle><CardDescription>The private key is server-only. This page receives only its public address and status.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          {agent?.address ? <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-grid bg-background/45 p-4"><div><p className="font-mono text-sm">{shortAddress(agent.address)}</p><p className="mt-1 text-xs text-muted-foreground">Gas balance: {agent.balanceEth ?? "0"} testnet ETH</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(agent.address ?? "")}><Copy /> Copy</Button><Button type="button" disabled={Boolean(busy)} variant={agent.roleGranted ? "destructive" : "default"} onClick={() => setAgentRole(!agent.roleGranted)}>{busy.includes("role") ? <LoaderCircle className="animate-spin" /> : agent.roleGranted ? <ShieldAlert /> : <ShieldCheck />}{agent.roleGranted ? "Revoke agent" : "Grant AGENT_ROLE"}</Button></div></div> : <Alert className="border-amber-300/20 bg-amber-300/[0.04]"><ShieldAlert /><AlertTitle>Signer pending</AlertTitle><AlertDescription>The production agent secret has not been configured yet.</AlertDescription></Alert>}
+          {agent?.address ? <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-grid bg-background/45 p-4"><div><p className="font-mono text-sm">{shortAddress(agent.address)}</p><p className="mt-1 text-xs text-muted-foreground">Gas balance: {agent.balanceEth ?? "0"} testnet ETH</p></div><div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(agent.address ?? "")}><Copy /> Copy</Button><Button type="button" variant="outline" disabled={Boolean(busy)} onClick={fundAgentGas}>{busy === "fund-agent" ? <LoaderCircle className="animate-spin" /> : <Fuel />} Fund gas · 0.0001 ETH</Button><Button type="button" disabled={Boolean(busy)} variant={agent.roleGranted ? "destructive" : "default"} onClick={() => setAgentRole(!agent.roleGranted)}>{busy.includes("role") ? <LoaderCircle className="animate-spin" /> : agent.roleGranted ? <ShieldAlert /> : <ShieldCheck />}{agent.roleGranted ? "Revoke agent" : "Grant AGENT_ROLE"}</Button></div></div> : <Alert className="border-amber-300/20 bg-amber-300/[0.04]"><ShieldAlert /><AlertTitle>Signer pending</AlertTitle><AlertDescription>The production agent secret has not been configured yet.</AlertDescription></Alert>}
           <div className="flex flex-wrap gap-2 border-t border-grid pt-4"><Button type="button" variant="destructive" disabled={Boolean(busy)} onClick={() => setContractPaused(true)}><CirclePause /> Emergency pause contract</Button><Button type="button" variant="outline" disabled={Boolean(busy)} onClick={() => setContractPaused(false)}><CirclePlay /> Unpause contract</Button><Button type="button" variant="ghost" onClick={refresh}><RefreshCw /> Refresh</Button></div>
         </CardContent>
       </Card>
