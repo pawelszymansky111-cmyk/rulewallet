@@ -70,7 +70,7 @@ export function GuidedDemo() {
                 ["24h remaining", `${metrics.nativePolicy.remainingRollingEth} testnet ETH`],
                 ["Observed block", Number(metrics.blockNumber).toLocaleString("en-US")],
                 ["Agent role", metrics.agent.roleGranted ? "Granted" : "Not granted"],
-                ["Mainnet", "Hard-disabled"],
+                ["Mainnet autonomy", "Fail-closed"],
               ].map(([label, value]) => <div key={label} className="rounded-xl border border-grid bg-card/40 p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 font-mono text-sm text-primary">{value}</p></div>)}
             </div>
           )}
@@ -91,7 +91,7 @@ export function GuidedDemo() {
 
           {metrics && activeStep === 2 && (
             <div className="space-y-5">
-              <div className="rounded-xl border border-grid bg-card/40 p-5"><p className="font-medium">Suggested failure test</p><ol className="mt-3 space-y-2 text-sm text-muted-foreground"><li>1. Start with the safe 45 USDC request.</li><li>2. Raise it above the approval threshold.</li><li>3. Select an unknown target and watch it fail closed.</li></ol></div>
+              <div className="rounded-xl border border-grid bg-card/40 p-5"><p className="font-medium">Suggested failure test</p><ol className="mt-3 space-y-2 text-sm text-muted-foreground"><li>1. Start with the tiny payroll transfer.</li><li>2. Raise it above the approval threshold.</li><li>3. Select an untrusted recipient and watch it fail closed.</li></ol></div>
               <div className="grid gap-3 sm:grid-cols-2"><Button asChild><Link href="/playground">Open simulator <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/app/agent">Inspect pause and revoke <ArrowRight /></Link></Button></div>
               <p className="text-xs text-muted-foreground">Browsing is public. Wallet signatures are required only for admin mutations.</p>
             </div>

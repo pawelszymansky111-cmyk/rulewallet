@@ -46,6 +46,9 @@ The policy account enforces:
 - Wallet-scoped personal policy-account selection.
 - Admin-verified trusted-address enable and revoke flow.
 - Live onchain metrics and public explorer-backed receipts.
+- Live safety dashboard combining balance, rolling allowance, role state, schedules, and latest execution.
+- Named recipient records and payroll, subscription, contractor, and agent-allowance templates.
+- Typed authenticated-webhook events for execution, approval, failure, and unusual spending.
 - Human approval, emergency pause, agent revoke, and clear blocked states.
 - Policy simulator with allowed, review, and blocked scenarios.
 - Full Next.js application, Foundry contracts, CI, threat model, and incident runbook.
@@ -77,9 +80,9 @@ The server never receives the owner's seed phrase or admin key. Strategy mutatio
 
 ## Two-minute judge demo
 
-1. **0:00–0:30 — Live guardrails:** open `/demo` and show the active policy, testnet balance, rolling allowance, observed block, and granted agent role.
-2. **0:30–1:05 — Verifiable execution:** open the latest receipt and compare its transaction hash with the Robinhood Chain testnet explorer.
-3. **1:05–2:00 — Failure and control:** open `/playground`, exceed a limit or choose an unknown target, then show pause and revoke in `/app/agent`.
+1. **0:00–0:30 — Live guardrails:** open `/app` and show the active policy, testnet balance, rolling allowance, next schedule, and granted agent role.
+2. **0:30–1:05 — Useful automation:** open `/app/agent`, choose a payment template, and show that a trusted recipient and bounded amount are still required.
+3. **1:05–2:00 — Proof and failure:** open the latest receipt, compare its transaction hash with the explorer, then exceed a limit in `/playground` and show pause/revoke.
 
 ## Links
 
@@ -92,7 +95,7 @@ The server never receives the owner's seed phrase or admin key. Strategy mutatio
 
 ## Safety and honest limitations
 
-RuleWallet is unaudited testnet software. Testnet ETH has no real value. Mainnet and real funds are disabled. Generic DeFi router calls remain unsupported because an address allowlist alone cannot constrain selectors, token flow, recipient, or minimum output. Each protocol requires a dedicated audited adapter.
+RuleWallet is experimental and not independently audited. Testnet ETH has no real value. The mainnet implementation remains fail-closed for autonomy until every documented production gate passes; it should not receive real funds during the preview. Generic DeFi router calls remain unsupported because an address allowlist alone cannot constrain selectors, token flow, recipient, or minimum output. Each protocol would require a dedicated independently reviewed adapter.
 
 There is no RuleWallet token, sale, airdrop, investment product, or affiliation with Robinhood Markets.
 

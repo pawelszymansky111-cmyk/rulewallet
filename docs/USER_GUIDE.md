@@ -37,11 +37,19 @@ The ecosystem section is for discovery. Protocol contracts are not one-click ena
 1. Open `/app/agent` with the onchain admin wallet connected.
 2. Grant `AGENT_ROLE` to the displayed dedicated agent address in MetaMask.
 3. Fund that address with only enough testnet ETH to pay gas.
-4. Create a daily or weekly recurring transfer to an already allowlisted target. Sign the short-lived admin message; it does not move funds.
-5. Use **Run now** for a canary execution, then verify its receipt on `/activity`.
-6. Pause a strategy with another admin signature, revoke `AGENT_ROLE`, or emergency-pause the contract at any time.
+4. Choose payroll, subscription, contractor, or agent allowance as a starting template—or enter a custom name, amount, and daily/weekly cadence.
+5. Enter an already allowlisted target and review the prefilled values. Templates never create permission or bypass policy.
+6. Sign the short-lived admin message; it does not move funds.
+7. Use **Run now** for a canary execution, then verify its receipt on `/activity`.
+8. Pause a strategy with another admin signature, revoke `AGENT_ROLE`, or emergency-pause the contract at any time.
 
 The scheduled agent cannot edit policies or targets and refuses amounts above the human-approval threshold.
+
+## Notifications
+
+Open `/app/notifications` to see whether external delivery is configured. In-app receipts always remain available. An operator may configure a server-only authenticated HTTPS adapter to route confirmed execution, approval, failure, and unusual-spending events to email, Telegram, Slack, or an incident platform.
+
+Notification delivery happens only after the receipt is stored. The destination receives no wallet, signer, or policy-management credential. Test the adapter with a deliberately blocked testnet request and compare the event to `/activity`.
 
 ## Human approval
 

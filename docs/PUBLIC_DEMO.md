@@ -4,7 +4,7 @@
 
 1. **0:00–0:20 — Problem:** open `/demo`; explain that agents should receive rules, not an unrestricted wallet key.
 2. **0:20–0:45 — Onboarding:** open `/start`; show wallet/network setup and the valueless-testnet warning.
-3. **0:45–1:20 — Control:** open `/app/agent`; show a trusted recipient, mandatory per-transfer/24-hour limits, an approval threshold, and scheduled testnet transfer.
+3. **0:45–1:20 — Control:** open `/app`; show the live safety dashboard, choose a payment template in `/app/agent`, and point out the trusted-recipient and limit requirements.
 4. **1:20–1:40 — Proof:** run the testnet strategy and open its public Blockscout-backed receipt in `/activity`.
 5. **1:40–2:00 — Safety:** show pause/withdrawal, then `/mainnet`; point out the pinned-factory check, 6-decimal USDG status, visible production gates, and fail-closed autonomy.
 
@@ -18,6 +18,8 @@ The shortest credible RuleWallet demo is read-only, takes two minutes, and never
 - Public activity: https://rulewallet.vercel.app/activity
 - Live metrics JSON: https://rulewallet.vercel.app/api/public/metrics
 - Operator console: https://rulewallet.vercel.app/app/agent
+- Safety dashboard: https://rulewallet.vercel.app/app
+- Notification readiness: https://rulewallet.vercel.app/app/notifications
 - Simulator: https://rulewallet.vercel.app/playground
 - Source: https://github.com/pawelszymansky111-cmyk/rulewallet
 - Contract: `0xddfeae34fa9cdd665bd833ecd5c8c06a4279bd25`
@@ -28,7 +30,7 @@ The shortest credible RuleWallet demo is read-only, takes two minutes, and never
 
 1. **0:00–0:30:** open `/demo` and verify the testnet policy is active, the agent role is granted, and testnet ETH is valueless.
 2. **0:30–1:05:** continue to the latest receipt and compare its transaction hash and block number with the testnet explorer.
-3. **1:05–2:00:** open `/playground`, cross the approval threshold or select an unknown target, then show the pause and revoke controls in `/app/agent`.
+3. **1:05–2:00:** open `/playground`, cross the approval threshold or select an untrusted recipient, then show the pause and revoke controls in `/app/agent`.
 
 ## What is real
 
@@ -40,7 +42,7 @@ The shortest credible RuleWallet demo is read-only, takes two minutes, and never
 
 ## What is deliberately disabled
 
-- Mainnet configuration and real funds.
+- Autonomous mainnet execution; the experimental mainnet interface stays fail-closed until every production gate passes.
 - Arbitrary swaps and generic calldata execution.
 - Agent policy edits, allowlisting, approvals, administration, and unpause authority.
 - Any token, sale, airdrop, investment product, audit claim, or Robinhood affiliation.

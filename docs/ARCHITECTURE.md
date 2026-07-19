@@ -98,6 +98,12 @@ Durable Redis locks use unique ownership tokens and compare-before-delete releas
 - Local address-book labels remain browser-local and are not proof of identity.
 - Onchain events and Blockscout receipts are authoritative; offchain records are a read model only.
 
+## Notification boundary
+
+Testnet execution records are durably stored before notification delivery is attempted. A typed event envelope classifies confirmed execution, approval required, ordinary failure, and unusual-spending policy failures. An optional authenticated HTTPS adapter can route these events to email, Telegram, Slack, or an incident system.
+
+The adapter is observational only. It receives no signing authority, cannot mutate a strategy or approval, and cannot convert a blocked action into an executable one. Endpoint URLs and bearer tokens remain server-only; the browser receives only readiness booleans and supported topic names. Delivery failure does not delete or change the receipt.
+
 ## Deployment boundary
 
 The factory pins chain ID and canonical USDG in immutable state. Personal accounts are deployed with CREATE2 from owner-specific salts, recorded by owner and version hash, and are not proxies. A new version requires a new factory/account deployment and an explicit owner migration.

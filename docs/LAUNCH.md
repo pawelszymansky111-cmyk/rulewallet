@@ -5,6 +5,9 @@
 - [ ] `npm run verify` passes from a clean checkout.
 - [ ] The mandatory current-state mainnet fork confirms canonical USDG is `USDG` with 6 decimals.
 - [ ] `/demo`, `/start`, `/app/agent`, `/activity`, `/docs`, and `/mainnet` render on mobile and desktop.
+- [ ] `/app` shows live balance, limits, role state, next schedule, and recent receipt without demo placeholders.
+- [ ] Payment templates prefill only bounded direct testnet transfers and never bypass trusted-recipient or limit checks.
+- [ ] `/app/notifications` reports the adapter state without exposing endpoint credentials.
 - [ ] `/mainnet` says “Experimental, unaudited mainnet,” rejects incompatible factories, and keeps autonomy fail-closed until every production gate passes.
 - [ ] No seed phrase, private key, signer credential, RPC credential, or Redis credential appears in Git history or build output.
 - [ ] No blockchain transaction was broadcast during release verification.
@@ -39,7 +42,7 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 
 **Handle candidates:** `@RuleWalletDev`, `@UseRuleWallet`, `@RuleWalletHQ` — verify availability before claiming.
 
-**Bio:** Bounded authority for onchain AI agents. Live on Robinhood Chain testnet. Experimental Robinhood Chain mainnet. Open source.
+**Bio:** Give agents a budget. Keep the keys. Programmable spending controls and public receipts for autonomous onchain agents. Live on testnet. Open source.
 
 **Website:** https://rulewallet.vercel.app/demo
 
@@ -49,15 +52,17 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 - 1200×630 social export: `public/social/rulewallet-testnet-launch-1200x630.png`
 - Generated Open Graph preview: https://rulewallet.vercel.app/opengraph-image
 - Generated X preview: https://rulewallet.vercel.app/twitter-image
+- X profile banner (PNG): `public/social/rulewallet-x-banner.png`
+- Editable X banner source: `public/social/rulewallet-x-banner.svg`
 
-The key visual was generated without text or third-party marks. Use the product's generated previews when crisp branded copy is required.
+The new white-and-green preview and banner use the RuleWallet R mark, product UI motifs, and no third-party marks. Use the generated preview for link cards and the 1500×500 PNG for the X profile.
 
 ## Two-minute judge recording
 
 1. Open `/demo`; show `Policy: enforcing`, the live block, agent nonce, and confirmed receipt count.
 2. Continue to the receipt and open its transaction on the testnet explorer.
-3. Open the simulator; show one allowed request and one blocked unknown target.
-4. End on the line: **Give agents authority, not your wallet.**
+3. Open the simulator; show one allowed payment and one blocked untrusted recipient.
+4. End on the line: **Give agents a budget. Keep the keys.**
 
 Do not record wallet secrets, browser notifications, personal tabs, Vercel environment variables, or mainnet balances.
 
@@ -74,10 +79,10 @@ Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent d
 - [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
 - [ ] `/start`, `/demo`, `/hackathon`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
 - [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.
-- [ ] GitHub main contains the same verified commit as production.
+- [ ] The public GitHub branch or merged main commit matches the verified production artifact.
 - [ ] X profile and every post say testnet; no token or affiliation claim appears.
 - [ ] Private vulnerability reporting is enabled before soliciting security review.
 
 ## Non-negotiable disclosure
 
-RuleWallet is unaudited testnet software. Mainnet and real funds are disabled. There is no token, sale, airdrop, investment product, or affiliation with Robinhood Markets.
+RuleWallet is experimental and not independently audited. Testnet assets have no value. Mainnet autonomy remains disabled until every published production gate passes; do not deposit real funds during the preview. There is no token, sale, airdrop, investment product, or affiliation with Robinhood Markets.

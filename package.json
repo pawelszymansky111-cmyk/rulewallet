@@ -16,7 +16,8 @@
     "mainnet:prepare-deployment": "node scripts/prepare-mainnet-deployment.mjs",
     "contracts:artifact:check": "node scripts/check-contract-artifact.mjs",
     "signer:test": "node --test services/aws-kms-signer/handler.node-test.mjs",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run signer:test && npm run contracts:fmt && npm run contracts:test && npm run contracts:test:mainnet-fork && npm run contracts:artifact:check && npm run build"
+    "links:check": "node scripts/check-internal-links.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run signer:test && npm run links:check && npm run contracts:fmt && npm run contracts:test && npm run contracts:test:mainnet-fork && npm run contracts:artifact:check && npm run build"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1090.0",

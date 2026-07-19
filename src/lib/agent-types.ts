@@ -7,6 +7,7 @@ export const strategySchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(3).max(48),
   target: z.string().refine(isAddress, "Invalid EVM target address"),
+  policyAccount: z.string().refine(isAddress, "Invalid RuleWallet policy-account address").optional(),
   amountEth: z.string().regex(/^0\.\d{1,18}$/, "Use a positive decimal ETH amount"),
   cadenceHours: cadenceHoursSchema,
   active: z.boolean(),
@@ -23,6 +24,7 @@ export const executionSchema = z.object({
   strategyId: z.string().uuid(),
   strategyName: z.string(),
   target: z.string().refine(isAddress),
+  policyAccount: z.string().refine(isAddress).optional(),
   amountEth: z.string(),
   trigger: z.enum(["schedule", "manual"]),
   status: z.enum(["confirmed", "blocked", "failed"]),
@@ -35,6 +37,7 @@ export const executionSchema = z.object({
 export type AgentExecution = z.infer<typeof executionSchema>;
 
 const adminActionBase = z.object({
+  policyAccount: z.string().refine(isAddress, "Invalid RuleWallet policy-account address"),
   nonce: z.string().uuid(),
   expiresAt: z.number().int().positive(),
 });
@@ -84,6 +87,9 @@ function stableValue(value: unknown): unknown {
 }
 
 export function buildAdminMessage(payload: AdminAction, contractAddress: string) {
+  if (payload.policyAccount.toLowerCase() !== contractAddress.toLowerCase()) {
+    throw new Error("Signed action policy account does not match the message contract.");
+  }
   return [
     "RuleWallet testnet admin action",
     "Chain ID: 46630",

@@ -37,10 +37,18 @@ These values are bundled into JavaScript and must never contain secrets.
 | `MAINNET_MAX_GAS` | Hard gas limit; absence blocks future autonomy |
 | `MAINNET_MAX_FEE_PER_GAS_WEI` | Hard EIP-1559 max-fee ceiling |
 | `MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI` | Hard priority-fee ceiling |
+| `MAINNET_ALERT_WEBHOOK_URL` / `MAINNET_ALERT_WEBHOOK_TOKEN` | Authenticated mainnet incident delivery; required by the autonomy gate |
+| `TESTNET_NOTIFICATION_WEBHOOK_URL` / `TESTNET_NOTIFICATION_WEBHOOK_TOKEN` | Optional authenticated HTTPS delivery for testnet execution, approval, failure, and unusual-spending events |
 
 If any gate is absent or invalid, `/api/mainnet/status` reports it and strategy activation/execution stays disabled. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet readiness. The remote signer identity is checked live, not inferred from environment variables alone.
 
 The reference signer is in [`services/aws-kms-signer`](../services/aws-kms-signer). Deploy it separately, record its public identity response, grant only its address `AGENT_ROLE`, and keep the Lambda bearer token server-only. A `CRON_SECRET` alone does not satisfy scheduler readiness.
+
+## Testnet notifications
+
+Testnet receipts work without an external notification provider. To deliver the same typed outcomes to email, Telegram, Slack, or an incident system, configure an HTTPS adapter and a bearer token of at least 16 characters. The browser receives only a configured/not-configured status; it never receives the URL or token.
+
+Delivery runs after the execution record is stored. A failed or slow notification endpoint cannot authorize a transfer, change policy, or erase the public receipt. Validate the adapter with a deliberately blocked testnet request before depending on it operationally.
 
 ## Production separation
 

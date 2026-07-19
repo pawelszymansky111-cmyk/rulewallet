@@ -1,8 +1,8 @@
 # RuleWallet
 
-**Give agents authority, not your wallet.**
+**Give agents a budget. Keep the keys.**
 
-RuleWallet is an open-source policy and approval layer for onchain AI agents. It turns broad wallet access into narrow, inspectable authority: spending limits, token and contract allowlists, market constraints, human approvals, audit receipts, and instant revocation.
+RuleWallet is an open-source policy and approval layer for onchain AI agents. It turns broad wallet access into narrow, inspectable authority: direct-payment limits, trusted recipients, human approvals, public receipts, and instant revocation.
 
 > **Status:** V1 is the working public testnet beta. V2 is an experimental Robinhood Chain mainnet release with manual wallet actions and production-gated autonomous transfers. Mainnet autonomy is off by default and fails closed unless the pinned security-beta factory, canonical USDG, durable storage, scheduler, two RPCs, fee ceilings, alerts, and remote AWS KMS identity all verify. The older experimental factory remains incompatible. The code is not independently audited and is not affiliated with Robinhood.
 
@@ -36,7 +36,9 @@ The repository includes:
 - unrestricted owner deposit/withdrawal of available balances, isolated from agent limits;
 - 45 Solidity unit, factory, fork, fuzz, reentrancy, malicious-token, boundary, and invariant tests;
 - health checks, security headers, release gates, and incident documentation.
-- a public guided demo, live onchain metrics, and shareable autonomous execution receipts.
+- a public guided demo, live safety dashboard, and shareable autonomous execution receipts;
+- named recipient records plus payroll, subscription, contractor, and agent-allowance templates;
+- typed execution, approval, failure, and unusual-spending notifications through an optional authenticated HTTPS adapter.
 
 Open `/app/services` to select a policy account owned by the connected wallet, add a labeled recipient, preview the exact `setTargetAllowed` call, and enable or disable it onchain. Labels stay local to the browser; the contract permission is the source of truth.
 
@@ -51,6 +53,8 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000), then try `/playground` and `/app`.
 
 For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rulewallet.vercel.app/demo), inspect [live receipts](https://rulewallet.vercel.app/activity), or open the explicitly experimental [mainnet lab](https://rulewallet.vercel.app/mainnet). The mainnet UI stays in preparation mode until a verified V2 factory address exists.
+
+The console lives at [rulewallet.vercel.app/app](https://rulewallet.vercel.app/app) and opens separately from onboarding. Its live safety dashboard combines policy balance, rolling allowance, role state, next scheduled transfer, and recent execution evidence. Notification readiness is visible at `/app/notifications` without exposing endpoint credentials.
 
 For hackathon review, open the [submission page](https://rulewallet.vercel.app/hackathon), follow the [two-minute judge demo](https://rulewallet.vercel.app/demo), or use the [owner onboarding flow](https://rulewallet.vercel.app/start). Ready-to-paste submission and pitch copy live in [`docs/HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) and [`docs/PITCH_SCRIPT.md`](docs/PITCH_SCRIPT.md).
 
@@ -85,6 +89,8 @@ RH_MAINNET_RPC_FALLBACK_URL=
 ENABLE_MAINNET=true
 ENABLE_MAINNET_AUTONOMY=false
 MAINNET_SIGNER_MODE=disabled
+TESTNET_NOTIFICATION_WEBHOOK_URL=
+TESTNET_NOTIFICATION_WEBHOOK_TOKEN=
 ```
 
 See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
@@ -144,20 +150,21 @@ Verify the resulting address on the Robinhood Chain testnet Blockscout instance,
 
 For experimental mainnet, first read [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/MAINNET_CHECKLIST.md`](docs/MAINNET_CHECKLIST.md). The V2 factory script requires chain `4663` and canonical USDG, but intentionally stops at a no-broadcast simulation unless a human explicitly runs an external hardware-wallet command. Before any signature, review the exact chain, creation bytecode, zero value, constructor arguments, and expected factory state.
 
-## Offchain policy example
+## Payment policy preview
 
 ```json
 {
   "network": "robinhood-chain-testnet",
+  "agent": "payment-operator",
+  "asset": "native-testnet-eth",
   "limits": {
-    "perTransactionUsd": 250,
-    "dailyUsd": 1000
+    "perTransactionEth": "0.001",
+    "rolling24HoursEth": "0.005"
   },
-  "approvalAboveUsd": 100,
-  "allowedTokens": ["USDC", "WETH", "HOOD"],
-  "allowedTargets": ["Uniswap Router", "Robinhood Swap"],
-  "maxSlippageBps": 100,
-  "maxOracleAgeSeconds": 90
+  "approvalAboveEth": "0.0005",
+  "trustedRecipients": ["0x..."],
+  "notifications": ["execution", "approval", "failure", "unusual-spending"],
+  "emergencyPause": true
 }
 ```
 

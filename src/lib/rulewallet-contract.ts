@@ -1,4 +1,5 @@
-import { isAddress, parseAbi, zeroAddress, type Address } from "viem";
+import { isAddress, keccak256, parseAbi, zeroAddress, type Address, type Hex } from "viem";
+import artifact from "@/generated/rulewallet-policy-account.json";
 
 export const ruleWalletAbi = parseAbi([
   "function DEFAULT_ADMIN_ROLE() view returns (bytes32)",
@@ -36,3 +37,21 @@ export const ruleWalletAddress: Address | undefined =
     : undefined;
 
 export const nativeAssetAddress = zeroAddress;
+
+export const ruleWalletRuntimeBytecodeHash = artifact.runtimeBytecodeHash as Hex;
+
+// The public beta account predates the current self-service deployment artifact.
+// Keep its exact observed runtime hash pinned so existing explorer-backed receipts
+// and strategies remain readable without accepting arbitrary contract bytecode.
+export const publicBetaRuntimeBytecodeHash = "0x6820f0ca123c7d2e82b2ed913e3266f6899f955ec89d90da11d3506e230c9dad" as Hex;
+
+export const supportedRuleWalletRuntimeBytecodeHashes = [
+  ruleWalletRuntimeBytecodeHash,
+  publicBetaRuntimeBytecodeHash,
+] as const;
+
+export function hasPinnedRuleWalletRuntime(bytecode: Hex | undefined) {
+  if (!bytecode || bytecode === "0x") return false;
+  const runtimeHash = keccak256(bytecode);
+  return supportedRuleWalletRuntimeBytecodeHashes.some((expected) => expected === runtimeHash);
+}
