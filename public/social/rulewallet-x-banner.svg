@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="500" viewBox="0 0 1500 500" role="img" aria-labelledby="title description">
+  <title id="title">RuleWallet X banner</title>
+  <description id="description">Green and white RuleWallet launch artwork reading Give agents a budget. Keep the keys.</description>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#159447" stroke-opacity=".075"/>
+    </pattern>
+    <radialGradient id="glow" cx="82%" cy="20%" r="46%">
+      <stop offset="0" stop-color="#80e7a5" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#80e7a5" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#174a2a" flood-opacity=".16"/>
+    </filter>
+  </defs>
+  <rect width="1500" height="500" fill="#f7fbf7"/>
+  <rect width="1500" height="500" fill="url(#grid)"/>
+  <rect width="1500" height="500" fill="url(#glow)"/>
+  <rect x="28" y="28" width="1444" height="444" rx="30" fill="#fff" fill-opacity=".72" stroke="#159447" stroke-opacity=".2"/>
+  <g transform="translate(92 78)">
+    <rect width="68" height="68" rx="20" fill="#159447" filter="url(#shadow)"/>
+    <path d="M22 50V18h14c8 0 13 4.5 13 11.5S44 41 36 41H22m14 0 13 9" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="86" y="47" fill="#102219" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" letter-spacing="-1">RuleWallet</text>
+  </g>
+  <text x="92" y="253" fill="#102219" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" letter-spacing="-3">Give agents a budget.</text>
+  <text x="92" y="331" fill="#159447" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" letter-spacing="-3">Keep the keys.</text>
+  <text x="95" y="390" fill="#64756a" font-family="Arial, Helvetica, sans-serif" font-size="24">Trusted recipients  ·  Hard limits  ·  Human approvals  ·  Public receipts</text>
+  <g transform="translate(1128 98) rotate(2 132 140)" filter="url(#shadow)">
+    <rect width="270" height="285" rx="24" fill="#fff" stroke="#159447" stroke-opacity=".3"/>
+    <text x="24" y="42" fill="#102219" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">Policy status</text>
+    <rect x="171" y="22" width="75" height="28" rx="14" fill="#e5f7eb"/>
+    <text x="185" y="41" fill="#159447" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700">ACTIVE</text>
+    <path d="M24 68h222M24 121h222M24 174h222M24 227h222" stroke="#dfeae2"/>
+    <text x="24" y="99" fill="#748179" font-family="Arial, Helvetica, sans-serif" font-size="14">Per transfer</text><text x="167" y="99" fill="#102219" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">0.001 ETH</text>
+    <text x="24" y="152" fill="#748179" font-family="Arial, Helvetica, sans-serif" font-size="14">24h remaining</text><text x="154" y="152" fill="#102219" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">0.0048 ETH</text>
+    <text x="24" y="205" fill="#748179" font-family="Arial, Helvetica, sans-serif" font-size="14">Agent role</text><text x="185" y="205" fill="#159447" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700">Granted</text>
+    <rect x="24" y="245" width="222" height="18" rx="9" fill="#e8f5ec"/><rect x="24" y="245" width="156" height="18" rx="9" fill="#159447"/>
+  </g>
+</svg>

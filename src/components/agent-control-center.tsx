@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { isAddress, parseEther, type Address, type Hash } from "viem";
 import { useConnection, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
@@ -27,9 +28,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useExperienceMode } from "@/components/experience-mode-provider";
+import { usePolicyAccount } from "@/components/policy-account-provider";
 import { buildAdminMessage, type AdminAction, type AgentExecution, type AgentStrategy } from "@/lib/agent-types";
 import { robinhoodTestnet } from "@/lib/chains";
-import { ruleWalletAbi, ruleWalletAddress } from "@/lib/rulewallet-contract";
+import { paymentTemplates } from "@/lib/payment-templates";
+import { ruleWalletAbi } from "@/lib/rulewallet-contract";
 
 type AgentStatus = {
   signerConfigured: boolean;
@@ -60,11 +64,15 @@ async function responseJson<T>(response: Response): Promise<T> {
 }
 
 export function AgentControlCenter() {
+  const { mode } = useExperienceMode();
+  const pro = mode === "pro";
+  const policyAccount = usePolicyAccount();
+  const policyAccountAddress = policyAccount.address;
   const connection = useConnection();
   const publicClient = usePublicClient({ chainId: robinhoodTestnet.id });
   const walletClient = useWalletClient({ chainId: robinhoodTestnet.id });
   const switchChain = useSwitchChain();
-  const [name, setName] = useState("Daily testnet DCA");
+  const [name, setName] = useState("Daily agent allowance");
   const [target, setTarget] = useState("");
   const [amountEth, setAmountEth] = useState("0.0001");
   const [cadenceHours, setCadenceHours] = useState<24 | 168>(24);
@@ -73,16 +81,19 @@ export function AgentControlCenter() {
   const [error, setError] = useState("");
 
   const statusQuery = useQuery({
-    queryKey: ["agent-status"],
-    queryFn: () => fetch("/api/agent/status", { cache: "no-store" }).then((response) => responseJson<AgentStatus>(response)),
+    queryKey: ["agent-status", policyAccountAddress],
+    queryFn: () => fetch(`/api/agent/status?policyAccount=${policyAccountAddress}`, { cache: "no-store" }).then((response) => responseJson<AgentStatus>(response)),
+    enabled: Boolean(policyAccountAddress),
   });
   const strategiesQuery = useQuery({
-    queryKey: ["agent-strategies"],
-    queryFn: () => fetch("/api/agent/strategies", { cache: "no-store" }).then((response) => responseJson<{ strategies: AgentStrategy[] }>(response)),
+    queryKey: ["agent-strategies", policyAccountAddress],
+    queryFn: () => fetch(`/api/agent/strategies?policyAccount=${policyAccountAddress}`, { cache: "no-store" }).then((response) => responseJson<{ strategies: AgentStrategy[] }>(response)),
+    enabled: Boolean(policyAccountAddress),
   });
   const activityQuery = useQuery({
-    queryKey: ["agent-activity"],
-    queryFn: () => fetch("/api/agent/activity", { cache: "no-store" }).then((response) => responseJson<{ executions: AgentExecution[] }>(response)),
+    queryKey: ["agent-activity", policyAccountAddress],
+    queryFn: () => fetch(`/api/agent/activity?policyAccount=${policyAccountAddress}`, { cache: "no-store" }).then((response) => responseJson<{ executions: AgentExecution[] }>(response)),
+    enabled: Boolean(policyAccountAddress),
   });
   const agent = statusQuery.data;
   const strategies = strategiesQuery.data?.strategies ?? [];
@@ -94,26 +105,26 @@ export function AgentControlCenter() {
   }
 
   async function signAdminAction(payload: AdminAction) {
-    if (!walletClient.data || !connection.address || !ruleWalletAddress) {
+    if (!walletClient.data || !connection.address || !policyAccountAddress) {
       throw new Error("Connect the RuleWallet admin in MetaMask.");
     }
     const signature = await walletClient.data.signMessage({
       account: connection.address,
-      message: buildAdminMessage(payload, ruleWalletAddress),
+      message: buildAdminMessage(payload, policyAccountAddress),
     });
     return { payload, signature };
   }
 
   async function setAgentRole(grant: boolean) {
-    if (!agent?.address || !walletClient.data || !publicClient || !connection.address || !ruleWalletAddress) return;
+    if (!agent?.address || !walletClient.data || !publicClient || !connection.address || !policyAccountAddress) return;
     setBusy(grant ? "grant-role" : "revoke-role");
     setError("");
     try {
-      const role = await publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "AGENT_ROLE" });
+      const role = await publicClient.readContract({ address: policyAccountAddress, abi: ruleWalletAbi, functionName: "AGENT_ROLE" });
       const hash = await walletClient.data.writeContract({
         account: connection.address,
         chain: robinhoodTestnet,
-        address: ruleWalletAddress,
+        address: policyAccountAddress,
         abi: ruleWalletAbi,
         functionName: grant ? "grantRole" : "revokeRole",
         args: [role, agent.address],
@@ -150,14 +161,14 @@ export function AgentControlCenter() {
   }
 
   async function setContractPaused(paused: boolean) {
-    if (!walletClient.data || !publicClient || !connection.address || !ruleWalletAddress) return;
+    if (!walletClient.data || !publicClient || !connection.address || !policyAccountAddress) return;
     setBusy(paused ? "pause-contract" : "unpause-contract");
     setError("");
     try {
       const hash: Hash = await walletClient.data.writeContract({
         account: connection.address,
         chain: robinhoodTestnet,
-        address: ruleWalletAddress,
+        address: policyAccountAddress,
         abi: ruleWalletAbi,
         functionName: paused ? "pause" : "unpause",
       });
@@ -180,6 +191,7 @@ export function AgentControlCenter() {
       if (!resolvedTarget || !isAddress(resolvedTarget)) throw new Error("Enter a valid allowlisted target address.");
       const payload: AdminAction = {
         action: "create-strategy",
+        policyAccount: policyAccountAddress!,
         name,
         target: resolvedTarget,
         amountEth,
@@ -208,6 +220,7 @@ export function AgentControlCenter() {
     try {
       const payload: AdminAction = {
         action: "set-strategy-active",
+        policyAccount: policyAccountAddress!,
         strategyId: strategy.id,
         active,
         nonce: crypto.randomUUID(),
@@ -234,6 +247,7 @@ export function AgentControlCenter() {
     try {
       const payload: AdminAction = {
         action: "run-strategy",
+        policyAccount: policyAccountAddress!,
         strategyId: strategy.id,
         nonce: crypto.randomUUID(),
         expiresAt: new Date().getTime() + 5 * 60_000,
@@ -265,8 +279,17 @@ export function AgentControlCenter() {
     return <Button type="button" onClick={() => switchChain.switchChain({ chainId: robinhoodTestnet.id })}><Network /> Switch to chain 46630</Button>;
   }
 
+  if (!policyAccountAddress) {
+    return <Alert className="border-amber-500/25 bg-amber-50"><ShieldAlert /><AlertTitle>Select a policy account first</AlertTitle><AlertDescription>Deploy a personal testnet account or select an existing account before configuring its dedicated agent.</AlertDescription></Alert>;
+  }
+
   return (
     <div className="space-y-6">
+      <Alert className="border-primary/20 bg-primary/[0.04]">
+        <ShieldCheck className="text-primary" />
+        <AlertTitle>{policyAccount.source === "personal" ? "Personal policy account selected" : "Public demo policy account selected"}</AlertTitle>
+        <AlertDescription className="break-all font-mono text-xs">{policyAccountAddress}</AlertDescription>
+      </Alert>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Signer", agent?.signerConfigured ? "Configured" : "Missing"],
@@ -284,8 +307,34 @@ export function AgentControlCenter() {
         </CardContent>
       </Card>
 
+      <Card className="launch-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Sparkles className="size-4 text-primary" /> {pro ? "Strategy presets" : "Start from a payment template"}</CardTitle>
+          <CardDescription>{pro ? "Prefill a bounded fixed-transfer strategy. Recipient trust and all onchain limits are still revalidated." : "Choose a familiar use case, then add a recipient you already verified. Templates never bypass your rules."}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          {paymentTemplates.map((template) => (
+            <button
+              key={template.id}
+              type="button"
+              className="rounded-xl border border-grid bg-background/55 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              onClick={() => {
+                setName(template.name);
+                setAmountEth(template.amountEth);
+                setCadenceHours(template.cadenceHours);
+                setMessage(`${template.name} template loaded. Add an allowlisted recipient and review the amount.`);
+              }}
+            >
+              <div className="flex items-center justify-between gap-3"><span className="font-medium">{template.name}</span><Badge variant="secondary">{template.cadenceHours === 24 ? "Daily" : "Weekly"}</Badge></div>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">{pro ? template.proDescription : template.simpleDescription}</p>
+              <p className="mt-3 font-mono text-xs text-primary">{template.amountEth} testnet ETH</p>
+            </button>
+          ))}
+        </CardContent>
+      </Card>
+
       <Card>
-        <CardHeader><CardTitle>Create recurring transfer</CardTitle><CardDescription>DCA-style testnet funding only. Targets must already be allowlisted and amounts must stay at or below the human-approval threshold.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{pro ? "Create recurring transfer" : "Schedule a repeated payment"}</CardTitle><CardDescription>{pro ? "Direct testnet ETH only. Targets must already be allowlisted and amounts must remain at or below the human-approval threshold." : "RuleWallet sends only the exact test amount on the schedule you choose. The recipient and amount still have to pass every rule."}</CardDescription></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2"><Label htmlFor="strategy-name">Strategy name</Label><Input id="strategy-name" value={name} onChange={(event) => setName(event.target.value)} /></div>
           <div className="space-y-2"><Label htmlFor="strategy-target">Allowlisted target</Label><Input id="strategy-target" className="font-mono" value={target} placeholder={connection.address ?? "0x…"} onChange={(event) => setTarget(event.target.value)} /><p className="text-[11px] text-muted-foreground">Leave empty to use the connected admin address.</p></div>

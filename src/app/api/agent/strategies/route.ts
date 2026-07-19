@@ -4,6 +4,7 @@ import { verifyAdminAction } from "@/lib/agent-auth";
 import { listStrategies, saveStrategy, storageConfigured } from "@/lib/agent-store";
 import { signedAdminActionSchema } from "@/lib/agent-types";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { ruleWalletAddress } from "@/lib/rulewallet-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,10 +14,20 @@ function fail(error: unknown, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!storageConfigured()) return NextResponse.json({ strategies: [], configured: false });
   try {
-    return NextResponse.json({ strategies: await listStrategies(), configured: true });
+    const policyAccount = request.nextUrl.searchParams.get("policyAccount")?.toLowerCase();
+    const strategies = await listStrategies();
+    return NextResponse.json({
+      strategies: policyAccount
+        ? strategies.filter(
+            (strategy) =>
+              (strategy.policyAccount ?? ruleWalletAddress)?.toLowerCase() === policyAccount,
+          )
+        : strategies,
+      configured: true,
+    });
   } catch (error) {
     return fail(error, 503);
   }
@@ -37,6 +48,7 @@ export async function POST(request: NextRequest) {
     const strategy = await saveStrategy({
       id: crypto.randomUUID(),
       name: payload.name,
+      policyAccount: payload.policyAccount,
       target: payload.target,
       amountEth: payload.amountEth,
       cadenceHours: payload.cadenceHours,

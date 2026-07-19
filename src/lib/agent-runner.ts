@@ -16,9 +16,17 @@ import {
 } from "@/lib/agent-store";
 import { getAgentBlockReason } from "@/lib/agent-policy";
 import type { AgentExecution } from "@/lib/agent-types";
-import { nativeAssetAddress, ruleWalletAbi, ruleWalletAddress } from "@/lib/rulewallet-contract";
+import { deliverTestnetNotification } from "@/lib/notification-delivery";
+import { notificationFromExecution } from "@/lib/notification-events";
+import { hasPinnedRuleWalletRuntime, nativeAssetAddress, ruleWalletAbi, ruleWalletAddress } from "@/lib/rulewallet-contract";
 
 type Trigger = "schedule" | "manual";
+
+async function recordExecution(execution: AgentExecution) {
+  const saved = await saveExecution(execution);
+  await deliverTestnetNotification(notificationFromExecution(saved));
+  return saved;
+}
 
 function errorText(error: unknown) {
   if (error instanceof Error) return error.message.split("\n")[0].slice(0, 240);
@@ -31,11 +39,12 @@ async function recordFailure(
   status: "blocked" | "failed",
   reason: string,
 ) {
-  return saveExecution({
+  return recordExecution({
     id: crypto.randomUUID(),
     strategyId: strategy.id,
     strategyName: strategy.name,
     target: strategy.target,
+    policyAccount: strategy.policyAccount ?? ruleWalletAddress,
     amountEth: strategy.amountEth,
     trigger,
     status,
@@ -48,7 +57,8 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
   const strategy = await getStrategy(strategyId);
   if (!strategy) throw new Error("Strategy not found.");
   if (!strategy.active) return recordFailure(strategy, trigger, "blocked", "Strategy is paused.");
-  if (!ruleWalletAddress) return recordFailure(strategy, trigger, "blocked", "Policy contract is not configured.");
+  const policyAccount = strategy.policyAccount ?? ruleWalletAddress;
+  if (!policyAccount) return recordFailure(strategy, trigger, "blocked", "Policy contract is not configured.");
   if (!agentSignerConfigured()) return recordFailure(strategy, trigger, "blocked", "Agent signer is not configured.");
 
   const lock = await claimExecutionLock(strategy.id);
@@ -58,19 +68,23 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
     const account = getAgentAccount();
     const publicClient = getAgentPublicClient();
     const walletClient = getAgentWalletClient();
+    const bytecode = await publicClient.getBytecode({ address: policyAccount });
+    if (!hasPinnedRuleWalletRuntime(bytecode)) {
+      return recordFailure(strategy, trigger, "blocked", "Policy account runtime does not match the pinned RuleWallet testnet release.");
+    }
     const amount = parseEther(strategy.amountEth);
     const [policyActive, paused, allowedTarget, nativePolicy, nonce, balance, agentRole] =
       await Promise.all([
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "policyActive" }),
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "paused" }),
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "allowedTargets", args: [strategy.target] }),
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "assetPolicies", args: [nativeAssetAddress] }),
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "nextNonce", args: [account.address] }),
-        publicClient.getBalance({ address: ruleWalletAddress }),
-        publicClient.readContract({ address: ruleWalletAddress, abi: ruleWalletAbi, functionName: "AGENT_ROLE" }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "policyActive" }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "paused" }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "allowedTargets", args: [strategy.target] }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "assetPolicies", args: [nativeAssetAddress] }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "nextNonce", args: [account.address] }),
+        publicClient.getBalance({ address: policyAccount }),
+        publicClient.readContract({ address: policyAccount, abi: ruleWalletAbi, functionName: "AGENT_ROLE" }),
       ]);
     const hasAgentRole = await publicClient.readContract({
-      address: ruleWalletAddress,
+      address: policyAccount,
       abi: ruleWalletAbi,
       functionName: "hasRole",
       args: [agentRole, account.address],
@@ -92,7 +106,7 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
     const deadline = BigInt(Math.floor(Date.now() / 1_000) + 30 * 60);
     const simulation = await publicClient.simulateContract({
       account,
-      address: ruleWalletAddress,
+      address: policyAccount,
       abi: ruleWalletAbi,
       functionName: "requestNativeCall",
       args: [strategy.target, amount, "0x", 0, deadline, nonce],
@@ -112,6 +126,7 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
       strategyId: strategy.id,
       strategyName: strategy.name,
       target: strategy.target,
+      policyAccount,
       amountEth: strategy.amountEth,
       trigger,
       status: "confirmed",
@@ -119,7 +134,7 @@ export async function executeStrategy(strategyId: string, trigger: Trigger) {
       blockNumber: receipt.blockNumber.toString(),
       createdAt: now.toISOString(),
     };
-    return saveExecution(execution);
+    return recordExecution(execution);
   } catch (error) {
     return recordFailure(strategy, trigger, "failed", errorText(error));
   } finally {

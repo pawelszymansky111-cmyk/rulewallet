@@ -12,6 +12,7 @@ import {
   Plus,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
   UserRound,
   Wallet,
   X,
@@ -26,13 +27,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { robinhoodTestnet } from "@/lib/chains";
+import { paymentTemplates } from "@/lib/payment-templates";
 import {
   addressBookStorageKey,
   parseAddressBook,
   upsertAddressBookEntry,
   type AddressBookEntry,
 } from "@/lib/policy-account";
-import { ruleWalletAbi } from "@/lib/rulewallet-contract";
+import { hasPinnedRuleWalletRuntime, ruleWalletAbi } from "@/lib/rulewallet-contract";
 import { ecosystemServices } from "@/lib/service-catalog";
 import type { EcosystemService } from "@/lib/service-catalog";
 
@@ -165,7 +167,7 @@ export function ServiceDirectory() {
     try {
       const address = getAddress(policyInput);
       const bytecode = await publicClient.getBytecode({ address });
-      if (!bytecode || bytecode === "0x") throw new Error("No contract is deployed at this address.");
+      if (!hasPinnedRuleWalletRuntime(bytecode)) throw new Error("This address is not a pinned RuleWallet testnet policy account.");
       const role = await publicClient.readContract({
         address,
         abi: ruleWalletAbi,
@@ -327,6 +329,22 @@ export function ServiceDirectory() {
         <Card>
           <CardHeader><CardTitle>Add a trusted address</CardTitle><CardDescription>For recipient wallets and canary contracts you personally verify.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
+            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4">
+              <p className="flex items-center gap-2 text-sm font-medium"><Sparkles className="size-4 text-primary" /> Quick labels</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {paymentTemplates.map((template) => (
+                  <Button
+                    key={template.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setLabel(template.suggestedRecipientLabel)}
+                  >
+                    {template.suggestedRecipientLabel}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2"><Label htmlFor="contact-label">Label</Label><Input id="contact-label" value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Treasury, payroll, cold wallet…" /></div>
             <div className="space-y-2"><Label htmlFor="contact-address">EVM address</Label><Input id="contact-address" value={target} onChange={(event) => setTarget(event.target.value)} className="font-mono" placeholder="0x…" /></div>
             {source && <p className="text-xs text-muted-foreground">Service context: {source}</p>}

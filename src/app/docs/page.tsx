@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Braces, GitBranch, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowRight, BellRing, Braces, GitBranch, KeyRound, ShieldCheck } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -16,25 +16,23 @@ export const metadata: Metadata = {
 
 const policyExample = `{
   "network": "robinhood-chain-testnet",
-  "agent": "market-scout",
+  "agent": "payment-operator",
   "limits": {
-    "perTransactionUsd": 250,
-    "dailyUsd": 1000
+    "perTransactionEth": "0.001",
+    "rolling24HoursEth": "0.005"
   },
-  "approvalAboveUsd": 100,
-  "allowedTokens": ["USDC", "WETH", "HOOD"],
-  "maxSlippageBps": 100,
-  "maxOracleAgeSeconds": 90
+  "approvalAboveEth": "0.0005",
+  "trustedRecipients": ["0x..."],
+  "pauseAvailable": true
 }`;
 
-const requestExample = `const decision = evaluatePolicy(policy, {
-  amountUsd: 45,
-  token: "USDC",
-  target: "Uniswap Router",
-  slippageBps: 30,
-  oracleAgeSeconds: 12,
-  spentTodayUsd: 310,
-  marketOpen: true
+const requestExample = `const decision = evaluateTransfer(policy, {
+  asset: "native-eth",
+  amountEth: "0.0001",
+  recipient: "0x...",
+  spentRolling24HoursEth: "0.0012",
+  agentRoleActive: true,
+  policyPaused: false
 });
 
 // { status: "allowed", rules: [...] }`;
@@ -55,7 +53,7 @@ export default function DocsPage() {
 
         <section className="mx-auto grid max-w-7xl gap-10 px-5 py-14 lg:grid-cols-[220px_1fr] lg:px-8 lg:py-20">
           <aside className="h-fit space-y-2 text-sm lg:sticky lg:top-24">
-            {["Model", "Policy object", "Evaluation", "Architecture", "MVP boundary"].map((item) => <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`} className="block rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground">{item}</a>)}
+            {["Model", "Policy object", "Evaluation", "Architecture", "Notifications", "MVP boundary"].map((item) => <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`} className="block rounded-md px-3 py-2 text-muted-foreground hover:bg-muted hover:text-foreground">{item}</a>)}
           </aside>
           <div className="min-w-0 space-y-16">
             <section id="model" className="scroll-mt-24">
@@ -104,8 +102,20 @@ export default function DocsPage() {
               </div>
             </section>
 
+            <section id="notifications" className="scroll-mt-24">
+              <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">05 / Notifications</p>
+              <h2 className="mt-3 text-2xl font-semibold">Alerts observe execution. They never authorize it.</h2>
+              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">After an execution record is durably stored, RuleWallet can deliver a versioned event through an authenticated HTTPS webhook. The event covers confirmed executions, approval requirements, failures, and unusual requests stopped by policy.</p>
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <Card><CardHeader><BellRing className="mb-3 size-5 text-primary" /><CardTitle>Provider-neutral delivery</CardTitle><CardDescription>Route one server-side webhook to email, Telegram, Slack, or an incident platform without exposing credentials to the browser.</CardDescription></CardHeader></Card>
+                <Card><CardHeader><ShieldCheck className="mb-3 size-5 text-primary" /><CardTitle>Fail-safe boundary</CardTitle><CardDescription>A notification outage cannot change policy, create an approval, or convert a blocked request into a transfer.</CardDescription></CardHeader></Card>
+              </div>
+              <pre className="mt-6 overflow-x-auto rounded-xl border border-grid bg-card p-5 font-mono text-xs leading-6 text-muted-foreground"><code>{`TESTNET_NOTIFICATION_WEBHOOK_URL=https://alerts.example.com/rulewallet\nTESTNET_NOTIFICATION_WEBHOOK_TOKEN=<server-only bearer token>`}</code></pre>
+              <Button asChild variant="outline" className="mt-5"><Link href="/app/notifications">Inspect notification readiness <ArrowRight /></Link></Button>
+            </section>
+
             <section id="mvp-boundary" className="scroll-mt-24">
-              <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">05 / MVP boundary</p>
+              <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">06 / MVP boundary</p>
               <h2 className="mt-3 text-2xl font-semibold">What this build does—and does not do.</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Deployed Robinhood Chain testnet V1 demo</p><p>Versioned non-upgradeable V2 factory/accounts</p><p>ETH and canonical USDG agent limits and approvals</p><p>EIP-712 schedules, secure-signer interface, receipts, pause, and owner recovery</p><p>Unit, fork, fuzz, reentrancy, and V1/V2 invariant tests</p></CardContent></Card>

@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { keccak256 } from "viem";
 
 const artifacts = [
   ["RuleWalletPolicyAccount.sol/RuleWalletPolicyAccount.json", "rulewallet-policy-account.json"],
@@ -14,7 +15,11 @@ for (const [forgeName, webName] of artifacts) {
   );
   await writeFile(
     new URL(`../src/generated/${webName}`, import.meta.url),
-    `${JSON.stringify({ abi: forgeArtifact.abi, bytecode: forgeArtifact.bytecode.object })}\n`,
+    `${JSON.stringify({
+      abi: forgeArtifact.abi,
+      bytecode: forgeArtifact.bytecode.object,
+      runtimeBytecodeHash: keccak256(forgeArtifact.deployedBytecode.object),
+    })}\n`,
   );
 }
 

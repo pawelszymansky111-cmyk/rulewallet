@@ -13,6 +13,7 @@
 - owner policies, role assignments, trusted recipients, rolling spend, strategy state, and pending approvals;
 - the exact transaction intent shown before a wallet signature;
 - KMS/MPC/HSM authorization, RPC credentials, durable locks, and confirmation records;
+- notification event contents, webhook credentials, and operational alert destinations;
 - factory/account bytecode, source verification, frontend artifacts, and deployment metadata.
 
 The contract is trusted to enforce policy. Agent output, browser state, RPC responses, backend code, signing infrastructure, recipients, token responses, dependencies, and operators are untrusted or compromiseable.
@@ -34,6 +35,7 @@ The contract is trusted to enforce policy. Agent output, browser state, RPC resp
 | Duplicate scheduler delivery | Token-owned durable lock, idempotency key, onchain nonce/strategy interval | Long outage around lock expiry can produce blocked duplicates |
 | RPC inconsistency/outage | Managed primary and failover, simulation, confirmation tracking, explorer link | Multiple providers can share bad upstream data |
 | Frontend substitutes calldata | Exact chain/to/value/calldata/result preview reused for send; wallet confirmation required | Compromised wallet/host can misrepresent its own UI |
+| Notification endpoint is compromised | Delivery happens after durable recording; authenticated HTTPS adapter has no policy or signer credentials | Public receipt metadata and recipient addresses may be disclosed to the configured destination |
 
 ## V2 invariants
 

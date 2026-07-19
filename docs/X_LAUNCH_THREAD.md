@@ -1,88 +1,101 @@
-# X launch thread
+# RuleWallet X launch copy
 
-1/ We built RuleWallet: a policy wallet for autonomous agents on Robinhood Chain testnet. Give agents bounded authority—not your wallet. 🟢
+## Profile
 
-2/ The beta supports trusted recipients, per-transfer + rolling limits, scheduled transfers, human approvals, emergency pause, owner withdrawal, and public onchain receipts.
+**Display name:** RuleWallet
 
-3/ Simple and Pro modes expose the same controls in different language. The guided demo takes two minutes, and testnet ETH has no value.
+**Bio:** Give agents a budget. Keep the keys. Programmable spending controls and public receipts for autonomous onchain agents. Live on testnet. Open source.
 
-4/ Security-beta work fixed canonical USDG to 6 decimals, revalidates queued authorization at execution, enforces separate roles, and pins factory runtime provenance.
+**Website:** https://rulewallet.vercel.app/demo
 
-5/ Mainnet is experimental and unaudited. Autonomous execution fails closed unless every production gate and a verified non-exportable signer identity pass; there are no swaps, bridges, arbitrary calls, unlimited approvals, or raw mainnet private keys.
+**Banner:** `public/social/rulewallet-x-banner.png`
 
-6/ The review is internal—not an external audit. Try the testnet demo, inspect the code and receipts, and tell us what policy an onchain agent needs next: https://rulewallet.vercel.app/demo
+## Single launch post
 
-Post each numbered section as one X post. Attach `public/social/rulewallet-testnet-launch.png` to post 1 and a short `/demo` recording to post 4.
+AI agents need permission to act—not unlimited access to a wallet.
 
-## 1 / Launch
+RuleWallet gives agents trusted recipients, hard spending limits, human approvals, emergency controls, and public receipts.
 
-AI agents need authority to act. They should not inherit your whole wallet.
-
-RuleWallet is now live on Robinhood Chain testnet: a policy account that gives an autonomous agent narrow, enforceable permissions.
-
-Demo: https://rulewallet.vercel.app/demo
-
-## 2 / The problem
-
-A leaked agent key should not mean unlimited spending.
-
-RuleWallet puts deterministic rules between agent intent and execution: target allowlists, per-transaction caps, rolling 24h limits, approval thresholds, nonces, expiry, pause, and revoke.
-
-## 3 / Working proof
-
-This is a working testnet system, not a landing-page mockup.
-
-✓ deployed policy contract
-✓ dedicated `AGENT_ROLE` signer
-✓ scheduled daily strategy
-✓ live onchain metrics
-✓ confirmed autonomous receipt
-
-Activity: https://rulewallet.vercel.app/activity
-
-## 4 / Try it
-
-The guided demo takes two minutes and needs no wallet or funds.
-
-1. inspect live policy state
-2. verify the autonomous tx
-3. break a rule, then inspect pause and revoke
-
+The autonomous testnet beta is live. Try it in two minutes, no funds required:
 https://rulewallet.vercel.app/demo
 
-## 5 / Security model
+## Eight-post launch thread
 
-The agent cannot edit policies, allowlist a target, approve a request, unpause the contract, or cross the configured human-approval boundary.
+### 1 / Launch
 
-Every scheduled execution re-checks contract state and simulates the exact call before signing.
+We built RuleWallet: programmable spending controls for autonomous onchain agents.
 
-## 6 / Honest boundary
+Give agents a budget. Keep the keys. 🟢
 
-RuleWallet is unaudited testnet software.
+Live testnet demo: https://rulewallet.vercel.app/demo
 
-Mainnet: disabled.
-Real funds: disabled.
-Token or sale: none.
-Robinhood affiliation: none.
+Attach `public/social/rulewallet-x-banner.png`.
 
-The limits are documented because security products should say what they do not solve.
+### 2 / The problem
 
-## 7 / Open source
+An agent should not need your full wallet key to make one recurring payment.
 
-The contract, web app, scheduler, tests, threat model, and incident runbook are open source.
+A compromised model, backend, or agent signer should be limited to one narrow permission—not everything the wallet owns.
 
-We want hard failure cases from agent builders, wallet engineers, and security researchers—not generic launch feedback.
+### 3 / The control layer
 
-https://github.com/pawelszymansky111-cmyk/rulewallet
+RuleWallet enforces:
 
-## 8 / Call to builders
+• trusted recipients
+• per-transfer limits
+• rolling 24h limits
+• human approval thresholds
+• expiry, nonce, pause, and revoke
 
-If your agent needs to pay, trade, rebalance, or subscribe without holding unlimited wallet authority, tell us the narrowest policy it would need.
+The contract decides. The interface explains.
 
-Try the demo, inspect the receipt, and open an issue with one scenario RuleWallet must block.
+### 4 / What works today
 
-## Optional hackathon post
+This is a working Robinhood Chain testnet beta:
 
-RuleWallet is packaged as a complete hackathon submission: problem, architecture, innovation, working proof, two-minute judge flow, roadmap, source, and honest safety boundaries.
+✓ deployed policy account
+✓ dedicated AGENT_ROLE signer
+✓ daily/weekly schedules
+✓ wallet-signed admin actions
+✓ live metrics
+✓ explorer-backed receipts
 
-https://rulewallet.vercel.app/hackathon
+https://rulewallet.vercel.app/activity
+
+### 5 / Product experience
+
+Simple and Pro modes expose the same controls in different language.
+
+Start with a payroll, subscription, contractor, or agent-allowance template. Add a named recipient. Set limits. Schedule a tiny testnet transfer. Watch every result.
+
+### 6 / Safety model
+
+The agent cannot edit policy, trust a recipient, approve its own request, unpause the account, or withdraw owner funds.
+
+Every scheduled execution re-checks current onchain state and simulates the exact call before signing.
+
+### 7 / Honest boundary
+
+RuleWallet is experimental and not independently audited or affiliated with Robinhood.
+
+Mainnet autonomy remains off until the factory, non-exportable signer, dual RPC, durable scheduler, fee ceilings, and monitoring gates all verify.
+
+No token. No sale.
+
+### 8 / Call to builders
+
+Try the two-minute demo and tell us two things:
+
+1. the narrowest payment permission your agent needs
+2. the failure RuleWallet must stop
+
+Code: https://github.com/pawelszymansky111-cmyk/rulewallet
+Demo: https://rulewallet.vercel.app/demo
+
+## Posting checklist
+
+- Confirm the production deployment and `/api/public/metrics` are healthy.
+- Record in a clean browser profile without personal tabs or wallet balances.
+- Say “testnet” in the first post and demo video.
+- Do not claim an audit, Robinhood affiliation, token, airdrop, or mainnet readiness.
+- Reply to the thread with one short demo clip and one explorer-backed receipt.

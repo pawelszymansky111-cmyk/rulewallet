@@ -2,24 +2,20 @@ export type Policy = {
   id: string;
   name: string;
   active: boolean;
-  maxPerTransactionUsd: number;
-  maxPerDayUsd: number;
-  approvalAboveUsd: number;
-  maxSlippageBps: number;
-  maxOracleAgeSeconds: number;
-  allowedTokens: string[];
-  allowedTargets: string[];
-  marketHoursOnly: boolean;
+  agentRoleActive: boolean;
+  maxPerTransactionEth: number;
+  maxRolling24HoursEth: number;
+  approvalAboveEth: number;
+  allowedAssets: string[];
+  trustedRecipients: string[];
 };
 
 export type TransactionRequest = {
-  amountUsd: number;
-  token: string;
-  target: string;
-  slippageBps: number;
-  oracleAgeSeconds: number;
-  spentTodayUsd: number;
-  marketOpen: boolean;
+  amountEth: number;
+  asset: string;
+  recipient: string;
+  spentRolling24HoursEth: number;
+  accountBalanceEth: number;
 };
 
 export type RuleResult = {
@@ -36,75 +32,68 @@ export type PolicyDecision = {
 };
 
 export const demoPolicy: Policy = {
-  id: "pol_rh_trade_01",
-  name: "RH testnet trading agent",
+  id: "pol_testnet_payments_01",
+  name: "Testnet payment agent",
   active: true,
-  maxPerTransactionUsd: 250,
-  maxPerDayUsd: 1_000,
-  approvalAboveUsd: 100,
-  maxSlippageBps: 100,
-  maxOracleAgeSeconds: 90,
-  allowedTokens: ["USDC", "WETH", "HOOD"],
-  allowedTargets: ["Uniswap Router", "Robinhood Swap"],
-  marketHoursOnly: false,
+  agentRoleActive: true,
+  maxPerTransactionEth: 0.001,
+  maxRolling24HoursEth: 0.005,
+  approvalAboveEth: 0.0005,
+  allowedAssets: ["Testnet ETH"],
+  trustedRecipients: ["Payroll wallet", "Contractor wallet"],
 };
+
+function formatEth(value: number) {
+  return `${value.toFixed(4)} testnet ETH`;
+}
 
 export function evaluatePolicy(
   policy: Policy,
   request: TransactionRequest,
 ): PolicyDecision {
+  const projectedSpend = request.spentRolling24HoursEth + request.amountEth;
   const rules: RuleResult[] = [
     {
       id: "active",
-      label: "Policy is active",
+      label: "Account is not paused",
       passed: policy.active,
-      detail: policy.active ? "Emergency pause is off" : "Policy has been paused",
+      detail: policy.active ? "Emergency pause is off" : "The policy account is paused",
     },
     {
-      id: "token",
-      label: "Token is allowed",
-      passed: policy.allowedTokens.includes(request.token),
-      detail: `${request.token} ${policy.allowedTokens.includes(request.token) ? "is" : "is not"} on the allowlist`,
+      id: "agent-role",
+      label: "Agent role is active",
+      passed: policy.agentRoleActive,
+      detail: policy.agentRoleActive ? "The scoped agent still has authority" : "The agent role was revoked",
     },
     {
-      id: "target",
-      label: "Contract is allowed",
-      passed: policy.allowedTargets.includes(request.target),
-      detail: `${request.target} ${policy.allowedTargets.includes(request.target) ? "is" : "is not"} approved`,
+      id: "asset",
+      label: "Asset is supported",
+      passed: policy.allowedAssets.includes(request.asset),
+      detail: `${request.asset} ${policy.allowedAssets.includes(request.asset) ? "is" : "is not"} enabled for this policy`,
+    },
+    {
+      id: "recipient",
+      label: "Recipient is trusted",
+      passed: policy.trustedRecipients.includes(request.recipient),
+      detail: `${request.recipient} ${policy.trustedRecipients.includes(request.recipient) ? "is" : "is not"} on the trusted list`,
     },
     {
       id: "transaction-cap",
-      label: "Per-transaction cap",
-      passed: request.amountUsd <= policy.maxPerTransactionUsd,
-      detail: `$${request.amountUsd} of $${policy.maxPerTransactionUsd} allowed`,
+      label: "Per-transfer limit",
+      passed: request.amountEth <= policy.maxPerTransactionEth,
+      detail: `${formatEth(request.amountEth)} of ${formatEth(policy.maxPerTransactionEth)} allowed`,
     },
     {
-      id: "daily-cap",
-      label: "Daily cap",
-      passed: request.spentTodayUsd + request.amountUsd <= policy.maxPerDayUsd,
-      detail: `$${request.spentTodayUsd + request.amountUsd} projected today`,
+      id: "rolling-cap",
+      label: "Rolling 24-hour limit",
+      passed: projectedSpend <= policy.maxRolling24HoursEth,
+      detail: `${formatEth(projectedSpend)} projected across the last 24 hours`,
     },
     {
-      id: "slippage",
-      label: "Slippage protection",
-      passed: request.slippageBps <= policy.maxSlippageBps,
-      detail: `${(request.slippageBps / 100).toFixed(2)}% of ${(policy.maxSlippageBps / 100).toFixed(2)}% maximum`,
-    },
-    {
-      id: "oracle",
-      label: "Price feed freshness",
-      passed: request.oracleAgeSeconds <= policy.maxOracleAgeSeconds,
-      detail: `${request.oracleAgeSeconds}s old; ${policy.maxOracleAgeSeconds}s maximum`,
-    },
-    {
-      id: "market-hours",
-      label: "Trading window",
-      passed: !policy.marketHoursOnly || request.marketOpen,
-      detail: policy.marketHoursOnly
-        ? request.marketOpen
-          ? "Market window is open"
-          : "Outside the permitted market window"
-        : "No market-hours restriction",
+      id: "balance",
+      label: "Account has enough balance",
+      passed: request.amountEth <= request.accountBalanceEth,
+      detail: `${formatEth(request.accountBalanceEth)} available before gas`,
     },
   ];
 
@@ -118,17 +107,17 @@ export function evaluatePolicy(
     };
   }
 
-  if (request.amountUsd > policy.approvalAboveUsd) {
+  if (request.amountEth > policy.approvalAboveEth) {
     return {
       status: "review",
-      summary: `Rules passed, but amounts above $${policy.approvalAboveUsd} require human approval.`,
+      summary: `Hard rules passed, but transfers above ${formatEth(policy.approvalAboveEth)} require human approval.`,
       rules,
     };
   }
 
   return {
     status: "allowed",
-    summary: "Every rule passed. This request can be signed by the scoped agent key.",
+    summary: "Every rule passed. The scoped agent may execute this exact direct transfer.",
     rules,
   };
 }
