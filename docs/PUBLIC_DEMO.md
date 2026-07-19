@@ -6,7 +6,7 @@
 2. **0:20–0:45 — Onboarding:** open `/start`; show wallet/network setup and the valueless-testnet warning.
 3. **0:45–1:20 — Control:** open `/app/agent`; show a trusted recipient, mandatory per-transfer/24-hour limits, an approval threshold, and scheduled testnet transfer.
 4. **1:20–1:40 — Proof:** run the testnet strategy and open its public Blockscout-backed receipt in `/activity`.
-5. **1:40–2:00 — Safety:** show pause/withdrawal, then `/mainnet`; point out the pinned-factory check, 6-decimal USDG status, visible incomplete gates, and compile-time-disabled autonomy.
+5. **1:40–2:00 — Safety:** show pause/withdrawal, then `/mainnet`; point out the pinned-factory check, 6-decimal USDG status, visible production gates, and fail-closed autonomy.
 
 Use only faucet assets in the live demo. Testnet ETH has no monetary value.
 
@@ -26,7 +26,7 @@ The shortest credible RuleWallet demo is read-only, takes two minutes, and never
 
 ## Two-minute walkthrough
 
-1. **0:00–0:30:** open `/demo` and verify the policy is active, the agent role is granted, and mainnet is disabled.
+1. **0:00–0:30:** open `/demo` and verify the testnet policy is active, the agent role is granted, and testnet ETH is valueless.
 2. **0:30–1:05:** continue to the latest receipt and compare its transaction hash and block number with the testnet explorer.
 3. **1:05–2:00:** open `/playground`, cross the approval threshold or select an unknown target, then show the pause and revoke controls in `/app/agent`.
 

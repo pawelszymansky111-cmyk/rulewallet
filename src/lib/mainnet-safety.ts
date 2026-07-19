@@ -1,16 +1,57 @@
 import { getAddress, isAddress, type Address } from "viem";
 
-// This release is a manual-actions-only preview. Environment variables cannot
-// override this compile-time safety gate.
-export const MAINNET_AUTONOMY_RELEASE_ENABLED = false as const;
+// The codebase supports autonomous mainnet execution, but the live path remains
+// fail-closed unless every runtime gate below is verified. The default
+// environment keeps ENABLE_MAINNET_AUTONOMY=false.
+export const MAINNET_AUTONOMY_RELEASE_ENABLED = true as const;
 
 export type ProductionGate = {
-  id: "release" | "signer" | "nonce" | "rpc" | "monitoring" | "fees";
+  id:
+    | "release"
+    | "factory"
+    | "asset"
+    | "signer"
+    | "storage"
+    | "scheduler"
+    | "nonce"
+    | "rpc"
+    | "monitoring"
+    | "fees";
   ready: boolean;
   message: string;
 };
 
 type Environment = Record<string, string | undefined>;
+
+export type MainnetRuntimeVerification = {
+  factoryVerified?: boolean;
+  canonicalAssetVerified?: boolean;
+  signerIdentityVerified?: boolean;
+};
+
+function isDistinctHttpsRpcPair(primary?: string, fallback?: string) {
+  if (!primary || !fallback || primary === fallback) return false;
+  try {
+    const first = new URL(primary);
+    const second = new URL(fallback);
+    return first.protocol === "https:" && second.protocol === "https:" && first.host !== second.host;
+  } catch {
+    return false;
+  }
+}
+
+function hasPositiveInteger(value?: string) {
+  return Boolean(value && /^\d+$/.test(value) && BigInt(value) > BigInt(0));
+}
+
+function isHttpsEndpoint(value?: string) {
+  if (!value) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 export function validateSecureSignerConfiguration(environment: Environment = process.env) {
   const address = environment.MAINNET_AGENT_ADDRESS;
@@ -49,18 +90,49 @@ export function validateSecureSignerConfiguration(environment: Environment = pro
   } as const;
 }
 
-export function mainnetProductionGates(environment: Environment = process.env): ProductionGate[] {
+export function mainnetProductionGates(
+  environment: Environment = process.env,
+  runtime: MainnetRuntimeVerification = {},
+): ProductionGate[] {
   const signer = validateSecureSignerConfiguration(environment);
-  const rpcReady = Boolean(environment.RH_MAINNET_RPC_URL && environment.RH_MAINNET_RPC_FALLBACK_URL);
-  const feeReady = Boolean(environment.MAINNET_MAX_GAS && environment.MAINNET_MAX_FEE_PER_GAS_WEI && environment.MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI);
+  const rpcReady = isDistinctHttpsRpcPair(
+    environment.RH_MAINNET_RPC_URL,
+    environment.RH_MAINNET_RPC_FALLBACK_URL,
+  );
+  const feeReady = hasPositiveInteger(environment.MAINNET_MAX_GAS)
+    && hasPositiveInteger(environment.MAINNET_MAX_FEE_PER_GAS_WEI)
+    && hasPositiveInteger(environment.MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI);
+  const storageReady = Boolean(
+    (environment.UPSTASH_REDIS_REST_URL && environment.UPSTASH_REDIS_REST_TOKEN)
+      || (environment.KV_REST_API_URL && environment.KV_REST_API_TOKEN),
+  );
+  const monitoringReady = isHttpsEndpoint(environment.MAINNET_ALERT_WEBHOOK_URL)
+    && Boolean(environment.MAINNET_ALERT_WEBHOOK_TOKEN);
+  const schedulerMode = environment.MAINNET_SCHEDULER_MODE;
+  const schedulerReady = Boolean(environment.CRON_SECRET)
+    && (schedulerMode === "vercel-pro-cron" || schedulerMode === "external-durable");
+  const signerReady = signer.verified && runtime.signerIdentityVerified === true;
   return [
-    { id: "release", ready: MAINNET_AUTONOMY_RELEASE_ENABLED, message: "Autonomous execution is compile-time disabled in this release." },
-    { id: "signer", ready: signer.verified, message: signer.verified ? `Verified non-exportable signer identity ${signer.keyId}.` : signer.reason },
-    { id: "nonce", ready: false, message: "Signer-global durable nonce locking is implemented but not production-certified." },
-    { id: "rpc", ready: rpcReady, message: rpcReady ? "Two managed RPC endpoints are configured; agreement is required before signing." : "Two independent managed HTTPS RPC endpoints are required." },
-    { id: "monitoring", ready: Boolean(environment.MAINNET_ALERT_WEBHOOK_URL && environment.MAINNET_ALERT_WEBHOOK_TOKEN), message: "Production alert delivery and escalation must be verified." },
+    { id: "release", ready: MAINNET_AUTONOMY_RELEASE_ENABLED, message: "This build contains the production-gated autonomous execution path." },
+    { id: "factory", ready: runtime.factoryVerified === true, message: runtime.factoryVerified ? "The configured 2.1.0-security-beta factory runtime is pinned and verified." : "Deploy and configure the pinned security-beta factory." },
+    { id: "asset", ready: runtime.canonicalAssetVerified === true, message: runtime.canonicalAssetVerified ? "Canonical Robinhood Chain USDG reports symbol USDG and 6 decimals." : "Canonical USDG metadata verification has not passed." },
+    { id: "signer", ready: signerReady, message: signerReady ? `Remote identity and non-exportable signer attestation verified for ${signer.keyId}.` : signer.verified ? "Signer configuration is valid, but the remote identity attestation handshake has not passed." : signer.reason },
+    { id: "storage", ready: storageReady, message: storageReady ? "Durable strategy, receipt, idempotency, lock, and nonce storage is configured." : "Durable Redis storage is required." },
+    { id: "scheduler", ready: schedulerReady, message: schedulerReady ? `Authenticated ${schedulerMode} mainnet scheduler is explicitly configured.` : "Set CRON_SECRET and MAINNET_SCHEDULER_MODE to vercel-pro-cron or external-durable after the scheduler exists." },
+    { id: "nonce", ready: true, message: "Signer-global durable nonce locking and unresolved-transaction reservation are enforced." },
+    { id: "rpc", ready: rpcReady, message: rpcReady ? "Two independent managed HTTPS RPC hosts are configured; agreement is required before signing." : "Two distinct managed HTTPS RPC hosts are required." },
+    { id: "monitoring", ready: monitoringReady, message: monitoringReady ? "Authenticated HTTPS alert delivery is configured." : "Authenticated HTTPS alert delivery is required." },
     { id: "fees", ready: feeReady, message: feeReady ? "Strict gas and fee ceilings are configured." : "Strict gas and fee ceilings are not configured." },
   ];
+}
+
+export function mainnetAutonomyReady(
+  environment: Environment = process.env,
+  runtime: MainnetRuntimeVerification = {},
+) {
+  return environment.ENABLE_MAINNET === "true"
+    && environment.ENABLE_MAINNET_AUTONOMY === "true"
+    && mainnetProductionGates(environment, runtime).every((gate) => gate.ready);
 }
 
 export function assertWithinMainnetFeeCeilings(input: {

@@ -6,6 +6,7 @@ import {
   type MainnetAgentExecution,
   type MainnetAgentStrategy,
 } from "@/lib/mainnet-agent-types";
+import type { Address, Hash, Hex } from "viem";
 
 const prefix = "rulewallet:mainnet:4663";
 const strategyIdsKey = `${prefix}:strategy-ids`;
@@ -36,6 +37,12 @@ export async function claimMainnetStrategyDigest(digest: string, ttlSeconds: num
   return result === "OK";
 }
 
+export async function claimMainnetAdminNonce(nonce: string, ttlSeconds = 600) {
+  const key = `${prefix}:admin-nonce:${nonce}`;
+  const result = await client().set(key, "claimed", { nx: true, ex: ttlSeconds });
+  return result === "OK";
+}
+
 export async function listMainnetStrategies() {
   const ids = await client().smembers<string[]>(strategyIdsKey);
   if (ids.length === 0) return [];
@@ -58,6 +65,16 @@ export async function saveMainnetStrategy(strategy: MainnetAgentStrategy) {
     client().sadd(strategyIdsKey, parsed.id),
   ]);
   return parsed;
+}
+
+export async function setMainnetStrategyActive(id: string, active: boolean) {
+  const strategy = await getMainnetStrategy(id);
+  if (!strategy) throw new Error("Mainnet strategy not found.");
+  return saveMainnetStrategy({
+    ...strategy,
+    active,
+    nextRunAt: active ? new Date().toISOString() : strategy.nextRunAt,
+  });
 }
 
 export async function listMainnetExecutions(limit = 50) {
@@ -93,11 +110,22 @@ function pendingSignerKey(signerAddress: string) {
   return `${prefix}:pending:signer:${signerAddress.toLowerCase()}`;
 }
 
+export type PendingMainnetSignerTransaction = {
+  transactionHash: Hash;
+  nonce: number;
+  strategyId: string;
+  submittedAt: string;
+  signerAddress: Address;
+  to: Address;
+  data: Hex;
+  value: "0";
+};
+
 export async function getMainnetPendingSignerTransaction(signerAddress: string) {
-  return client().get<{ transactionHash: string; nonce: number; strategyId: string; submittedAt: string }>(pendingSignerKey(signerAddress));
+  return client().get<PendingMainnetSignerTransaction>(pendingSignerKey(signerAddress));
 }
 
-export async function saveMainnetPendingSignerTransaction(signerAddress: string, value: { transactionHash: string; nonce: number; strategyId: string; submittedAt: string }) {
+export async function saveMainnetPendingSignerTransaction(signerAddress: string, value: PendingMainnetSignerTransaction) {
   await client().set(pendingSignerKey(signerAddress), value);
 }
 

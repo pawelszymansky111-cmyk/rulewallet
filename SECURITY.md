@@ -4,7 +4,7 @@
 
 RuleWallet is unaudited testnet software. It includes a real policy contract and wallet-connected transaction flow, but it is not certified for mainnet or real funds. Do not deposit valuable assets.
 
-Mainnet is disabled in code and configuration. No RuleWallet contributor will ask for a seed phrase, private key, keystore file, remote-control session, or funds.
+Mainnet is experimental and unaudited. Autonomous execution fails closed unless every production gate and a verified non-exportable signer identity pass. No RuleWallet contributor will ask for a seed phrase, private key, keystore file, remote-control session, or funds.
 
 ## Reporting a vulnerability
 

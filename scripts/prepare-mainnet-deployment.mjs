@@ -26,7 +26,7 @@ console.log(JSON.stringify({
   calldataHash: keccak256(calldata),
   expectedResult: {
     contract: "RuleWalletFactory",
-    version: "2.0.0-experimental",
+    version: "2.1.0-security-beta",
     deploymentChainId: String(chainId),
     canonicalStablecoin: canonicalUsdg,
   },

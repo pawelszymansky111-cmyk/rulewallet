@@ -1,11 +1,10 @@
 import "server-only";
-import { encodeFunctionData, getAddress, type Hex } from "viem";
+import { encodeFunctionData, getAddress, parseAbi, type Hex } from "viem";
 import { getIndependentMainnetPublicClients, getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
   claimMainnetExecutionLock,
   getMainnetStrategy,
   listMainnetStrategies,
-  listMainnetExecutions,
   releaseMainnetExecutionLock,
   claimMainnetSignerLock,
   saveMainnetExecution,
@@ -15,12 +14,28 @@ import {
   clearMainnetPendingSignerTransaction,
 } from "@/lib/mainnet-agent-store";
 import type { MainnetAgentStrategy, MainnetAgentExecution } from "@/lib/mainnet-agent-types";
-import { ruleWalletV2Abi } from "@/lib/mainnet-registry";
+import {
+  mainnetFactoryAddress,
+  ROBINHOOD_MAINNET_USDG,
+  ruleWalletFactoryAbi,
+  ruleWalletV2Abi,
+} from "@/lib/mainnet-registry";
 import { sendMainnetAlert } from "@/lib/mainnet-monitoring";
 import { getMainnetAgentSigner, mainnetSignerStatus } from "@/lib/secure-agent-signer";
 import { getServerEnvironment } from "@/lib/server-env";
-import { assertRpcAgreement, assertWithinMainnetFeeCeilings, MAINNET_AUTONOMY_RELEASE_ENABLED } from "@/lib/mainnet-safety";
+import {
+  assertRpcAgreement,
+  assertWithinMainnetFeeCeilings,
+  mainnetAutonomyReady,
+  mainnetProductionGates,
+} from "@/lib/mainnet-safety";
+import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
 import { keccak256 } from "viem";
+
+const erc20MetadataAbi = parseAbi([
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+]);
 
 function errorText(error: unknown) {
   return error instanceof Error ? error.message.split("\n")[0].slice(0, 400) : "Unknown mainnet execution error";
@@ -44,6 +59,7 @@ async function record(
   strategy: MainnetAgentStrategy,
   status: "blocked" | "failed",
   reason: string,
+  trigger: "schedule" | "manual" = "schedule",
 ): Promise<MainnetAgentExecution> {
   const execution = await saveMainnetExecution({
     id: crypto.randomUUID(),
@@ -53,7 +69,7 @@ async function record(
     asset: strategy.asset,
     recipient: strategy.recipient,
     amount: strategy.amount,
-    trigger: "schedule",
+    trigger,
     status,
     reason,
     createdAt: new Date().toISOString(),
@@ -69,57 +85,83 @@ async function record(
   return execution;
 }
 
-export async function executeMainnetStrategy(strategyId: string) {
+export async function executeMainnetStrategy(
+  strategyId: string,
+  trigger: "schedule" | "manual" = "schedule",
+) {
   const strategy = await getMainnetStrategy(strategyId);
   if (!strategy) throw new Error("Mainnet strategy not found.");
-  if (!strategy.active) return record(strategy, "blocked", "Strategy is inactive.");
-
-  if (!MAINNET_AUTONOMY_RELEASE_ENABLED) {
-    return record(strategy, "blocked", "Autonomous mainnet execution is compile-time disabled; this release supports manual preview actions only.");
-  }
+  if (!strategy.active) return record(strategy, "blocked", "Strategy is inactive.", trigger);
 
   const environment = getServerEnvironment();
   const signerStatus = mainnetSignerStatus();
   if (environment.ENABLE_MAINNET !== "true" || environment.ENABLE_MAINNET_AUTONOMY !== "true") {
-    return record(strategy, "blocked", "Autonomous mainnet execution is disabled by environment policy.");
+    return record(strategy, "blocked", "Autonomous mainnet execution is disabled by environment policy.", trigger);
   }
   if (!signerStatus.configured || !signerStatus.address) {
-    return record(strategy, "blocked", signerStatus.reason ?? "Secure signer is not configured.");
+    return record(strategy, "blocked", signerStatus.reason ?? "Secure signer is not configured.", trigger);
+  }
+
+  const client = getMainnetPublicClient();
+  const signer = getMainnetAgentSigner();
+  const [signerIdentity, factoryVerification, usdgSymbol, usdgDecimals] = await Promise.all([
+    signer.verifyIdentity().catch(() => undefined),
+    mainnetFactoryAddress
+      ? verifyPinnedMainnetFactory(client, mainnetFactoryAddress).catch(() => undefined)
+      : Promise.resolve(undefined),
+    client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "symbol" }).catch(() => undefined),
+    client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "decimals" }).catch(() => undefined),
+  ]);
+  const runtimeVerification = {
+    signerIdentityVerified: Boolean(signerIdentity),
+    factoryVerified: factoryVerification?.verified ?? false,
+    canonicalAssetVerified: usdgSymbol === "USDG" && usdgDecimals === 6,
+  };
+  if (!mainnetAutonomyReady(environment, runtimeVerification)) {
+    const incomplete = mainnetProductionGates(environment, runtimeVerification)
+      .filter((gate) => !gate.ready)
+      .map((gate) => gate.id)
+      .join(", ");
+    return record(strategy, "blocked", `Production autonomy gates are incomplete: ${incomplete}.`, trigger);
   }
 
   const lock = await claimMainnetExecutionLock(strategy.id);
-  if (!lock) return record(strategy, "blocked", "A durable execution lock is already held.");
+  if (!lock) return record(strategy, "blocked", "A durable execution lock is already held.", trigger);
 
   const signerLock = await claimMainnetSignerLock(signerStatus.address);
   if (!signerLock) {
     await releaseMainnetExecutionLock(lock);
-    return record(strategy, "blocked", "The signer-global durable nonce lock is already held.");
+    return record(strategy, "blocked", "The signer-global durable nonce lock is already held.", trigger);
   }
 
   try {
     const existingPending = await getMainnetPendingSignerTransaction(signerStatus.address);
-    if (existingPending) return record(strategy, "blocked", `Signer nonce ${existingPending.nonce} is still reserved by pending transaction ${existingPending.transactionHash}.`);
-    const client = getMainnetPublicClient();
+    if (existingPending) return record(strategy, "blocked", `Signer nonce ${existingPending.nonce} is still reserved by pending transaction ${existingPending.transactionHash}.`, trigger);
     const independentClients = getIndependentMainnetPublicClients();
-    const signer = getMainnetAgentSigner();
     const typedStrategy = strategyTuple(strategy);
     const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
-    if (BigInt(strategy.expiry) <= nowSeconds) return record(strategy, "blocked", "Strategy signature expired.");
+    if (BigInt(strategy.expiry) <= nowSeconds) return record(strategy, "blocked", "Strategy signature expired.", trigger);
+    if (!mainnetFactoryAddress) return record(strategy, "blocked", "Verified mainnet factory is not configured.", trigger);
 
-    const [agentRole, policyActive, paused, trusted, policy, digest] = await Promise.all([
+    const [agentRole, policyActive, paused, trusted, policy, digest, expectedVersion, accountVersion, accountStablecoin] = await Promise.all([
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "AGENT_ROLE" }),
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "policyActive" }),
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "paused" }),
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "trustedRecipients", args: [strategy.recipient] }),
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "assetPolicies", args: [strategy.asset] }),
       client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "strategyDigest", args: [typedStrategy] }),
+      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
+      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [strategy.account] }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "canonicalStablecoin" }),
     ]);
     const hasAgentRole = await client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [agentRole, signer.address] });
-    if (!policyActive) return record(strategy, "blocked", "Onchain policy is inactive.");
-    if (paused) return record(strategy, "blocked", "Policy account is paused.");
-    if (!trusted) return record(strategy, "blocked", "Recipient is no longer trusted.");
-    if (!policy[0]) return record(strategy, "blocked", "Asset policy is disabled.");
-    if (!hasAgentRole) return record(strategy, "blocked", "Secure signer does not hold AGENT_ROLE.");
+    if (accountVersion !== expectedVersion || accountStablecoin !== ROBINHOOD_MAINNET_USDG) return record(strategy, "blocked", "Account provenance or canonical USDG binding is invalid.", trigger);
+    if (strategy.digest && digest.toLowerCase() !== strategy.digest.toLowerCase()) return record(strategy, "blocked", "Stored and onchain EIP-712 strategy digests disagree.", trigger);
+    if (!policyActive) return record(strategy, "blocked", "Onchain policy is inactive.", trigger);
+    if (paused) return record(strategy, "blocked", "Policy account is paused.", trigger);
+    if (!trusted) return record(strategy, "blocked", "Recipient is no longer trusted.", trigger);
+    if (!policy[0]) return record(strategy, "blocked", "Asset policy is disabled.", trigger);
+    if (!hasAgentRole) return record(strategy, "blocked", "Secure signer does not hold AGENT_ROLE.", trigger);
 
     const requestDeadline = BigInt(Math.floor(Date.now() / 1000) + 30 * 60);
     const simulation = await client.simulateContract({
@@ -145,7 +187,8 @@ export async function executeMainnetStrategy(strategyId: string) {
       nonce: await rpc.getTransactionCount({ address: signer.address, blockTag: "pending" }),
       codeHash: keccak256(await rpc.getCode({ address: strategy.account }) ?? "0x"),
     })));
-    assertRpcAgreement(agreement);
+    const agreed = assertRpcAgreement(agreement);
+    if (agreed.chainId !== 4663 || agreed.nonce !== nonce) throw new Error("Primary and independent RPC nonce observations disagree.");
     const gas = estimatedGas * BigInt(120) / BigInt(100);
     assertWithinMainnetFeeCeilings({ gas, maxFeePerGas: fees.maxFeePerGas, maxPriorityFeePerGas: fees.maxPriorityFeePerGas });
 
@@ -168,11 +211,15 @@ export async function executeMainnetStrategy(strategyId: string) {
       nonce,
       strategyId: strategy.id,
       submittedAt: new Date().toISOString(),
+      signerAddress: signer.address,
+      to: strategy.account,
+      data,
+      value: "0",
     });
     await saveMainnetExecution({
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
-      amount: strategy.amount, trigger: "schedule", status: "pending",
+      amount: strategy.amount, trigger, status: "pending",
       reason: `Submitted with signer-global nonce ${nonce}; awaiting 3 confirmations.`,
       transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
     });
@@ -190,7 +237,7 @@ export async function executeMainnetStrategy(strategyId: string) {
         return saveMainnetExecution({
           id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
           account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
-          amount: strategy.amount, trigger: "schedule", status: "timed_out",
+          amount: strategy.amount, trigger, status: "timed_out",
           reason: "Confirmation timed out. The nonce remains reserved and late confirmation must be reconciled before retrying.",
           transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
         });
@@ -219,13 +266,13 @@ export async function executeMainnetStrategy(strategyId: string) {
     return saveMainnetExecution({
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
-      amount: strategy.amount, trigger: "schedule", status: replacementReason ? "replaced" : "confirmed",
+      amount: strategy.amount, trigger, status: replacementReason ? "replaced" : "confirmed",
       reason: replacementReason ? `Transaction ${replacementReason}; replacement intent was revalidated and confirmed.` : simulation.result === BigInt(0) ? "Policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
       transactionHash: finalHash, blockNumber: receipt.blockNumber.toString(), confirmations: 3,
       createdAt: now.toISOString(),
     });
   } catch (error) {
-    return record(strategy, "failed", errorText(error));
+    return record(strategy, "failed", errorText(error), trigger);
   } finally {
     await releaseMainnetExecutionLock(signerLock);
     await releaseMainnetExecutionLock(lock);
@@ -243,23 +290,56 @@ export async function runDueMainnetStrategies() {
 
 // Monitoring-only reconciliation. It never signs or submits a transaction.
 export async function reconcileLateMainnetConfirmations() {
+  const signerStatus = mainnetSignerStatus();
+  if (!signerStatus.configured || !signerStatus.address) return [];
+  const pending = await getMainnetPendingSignerTransaction(signerStatus.address);
+  if (!pending) return [];
   const client = getMainnetPublicClient();
-  const timedOut = (await listMainnetExecutions(100)).filter((execution) => execution.status === "timed_out" && execution.transactionHash);
-  const reconciled: MainnetAgentExecution[] = [];
-  for (const execution of timedOut) {
-    const receipt = await client.getTransactionReceipt({ hash: execution.transactionHash! }).catch(() => undefined);
-    if (!receipt || receipt.status !== "success") continue;
-    const late = await saveMainnetExecution({
-      ...execution,
-      id: crypto.randomUUID(),
-      status: "late_confirmed",
-      reason: "A previously timed-out transaction confirmed late. Retries remain blocked pending operator reconciliation.",
-      blockNumber: receipt.blockNumber.toString(),
-      confirmations: 0,
-      createdAt: new Date().toISOString(),
-    });
-    await sendMainnetAlert({ severity: "critical", code: "LATE_MAINNET_CONFIRMATION", summary: late.reason!, account: late.account, strategyId: late.strategyId, transactionHash: late.transactionHash, occurredAt: late.createdAt }).catch(() => false);
-    reconciled.push(late);
+  const receipt = await client.getTransactionReceipt({ hash: pending.transactionHash }).catch(() => undefined);
+  if (!receipt) return [];
+  const strategy = await getMainnetStrategy(pending.strategyId);
+  if (!strategy) {
+    await sendMainnetAlert({ severity: "critical", code: "ORPHANED_PENDING_TRANSACTION", summary: "A pending signer transaction has no stored strategy.", transactionHash: pending.transactionHash, occurredAt: new Date().toISOString() }).catch(() => false);
+    return [];
   }
-  return reconciled;
+  const transaction = await client.getTransaction({ hash: pending.transactionHash }).catch(() => undefined);
+  if (!transaction
+    || transaction.from !== pending.signerAddress
+    || !transaction.to
+    || getAddress(transaction.to) !== getAddress(pending.to)
+    || transaction.input.toLowerCase() !== pending.data.toLowerCase()
+    || transaction.value !== BigInt(0)
+    || transaction.nonce !== pending.nonce) {
+    await sendMainnetAlert({ severity: "critical", code: "LATE_TRANSACTION_MISMATCH", summary: "Late transaction data did not match the reserved signer intent.", account: strategy.account, strategyId: strategy.id, transactionHash: pending.transactionHash, occurredAt: new Date().toISOString() }).catch(() => false);
+    return [];
+  }
+  const now = new Date();
+  const late = await saveMainnetExecution({
+    id: crypto.randomUUID(),
+    strategyId: strategy.id,
+    strategyName: strategy.name,
+    account: strategy.account,
+    asset: strategy.asset,
+    recipient: strategy.recipient,
+    amount: strategy.amount,
+    trigger: "schedule",
+    status: receipt.status === "success" ? "late_confirmed" : "failed",
+    reason: receipt.status === "success"
+      ? "A previously timed-out transaction was revalidated and confirmed late. The signer nonce reservation was cleared."
+      : "A previously timed-out transaction was revalidated and reverted onchain.",
+    transactionHash: pending.transactionHash,
+    blockNumber: receipt.blockNumber.toString(),
+    confirmations: 0,
+    createdAt: now.toISOString(),
+  });
+  await clearMainnetPendingSignerTransaction(signerStatus.address, pending.transactionHash);
+  if (receipt.status === "success") {
+    await saveMainnetStrategy({
+      ...strategy,
+      lastRunAt: now.toISOString(),
+      nextRunAt: new Date(now.getTime() + strategy.intervalSeconds * 1000).toISOString(),
+    });
+  }
+  await sendMainnetAlert({ severity: "critical", code: "LATE_MAINNET_CONFIRMATION", summary: late.reason!, account: late.account, strategyId: late.strategyId, transactionHash: late.transactionHash, occurredAt: late.createdAt }).catch(() => false);
+  return [late];
 }

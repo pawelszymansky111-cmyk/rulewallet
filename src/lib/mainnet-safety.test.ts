@@ -3,6 +3,7 @@ import {
   MAINNET_AUTONOMY_RELEASE_ENABLED,
   assertRpcAgreement,
   assertWithinMainnetFeeCeilings,
+  mainnetAutonomyReady,
   mainnetProductionGates,
   validateSecureSignerConfiguration,
 } from "./mainnet-safety";
@@ -18,10 +19,45 @@ const signerEnvironment = {
 };
 
 describe("mainnet production safety gates", () => {
-  it("cannot enable autonomy through environment configuration", () => {
-    expect(MAINNET_AUTONOMY_RELEASE_ENABLED).toBe(false);
-    const release = mainnetProductionGates({ ...signerEnvironment, ENABLE_MAINNET_AUTONOMY: "true" }).find((gate) => gate.id === "release");
-    expect(release?.ready).toBe(false);
+  it("supports autonomy but cannot enable it without every runtime gate", () => {
+    expect(MAINNET_AUTONOMY_RELEASE_ENABLED).toBe(true);
+    expect(mainnetAutonomyReady({
+      ...signerEnvironment,
+      ENABLE_MAINNET: "true",
+      ENABLE_MAINNET_AUTONOMY: "true",
+    })).toBe(false);
+  });
+
+  it("enables autonomy only when every configured and live gate passes", () => {
+    const environment = {
+      ...signerEnvironment,
+      ENABLE_MAINNET: "true",
+      ENABLE_MAINNET_AUTONOMY: "true",
+      RH_MAINNET_RPC_URL: "https://primary-rpc.example/v2/key",
+      RH_MAINNET_RPC_FALLBACK_URL: "https://secondary-rpc.example/v2/key",
+      UPSTASH_REDIS_REST_URL: "https://redis.example",
+      UPSTASH_REDIS_REST_TOKEN: "redis-token",
+      CRON_SECRET: "cron-secret-at-least-sixteen",
+      MAINNET_SCHEDULER_MODE: "external-durable",
+      MAINNET_ALERT_WEBHOOK_URL: "https://alerts.example/hook",
+      MAINNET_ALERT_WEBHOOK_TOKEN: "alert-token-at-least-sixteen",
+      MAINNET_MAX_GAS: "500000",
+      MAINNET_MAX_FEE_PER_GAS_WEI: "1000000000",
+      MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI: "100000000",
+    };
+    const runtime = {
+      factoryVerified: true,
+      canonicalAssetVerified: true,
+      signerIdentityVerified: true,
+    };
+    expect(mainnetProductionGates(environment, runtime).every((gate) => gate.ready)).toBe(true);
+    expect(mainnetAutonomyReady(environment, runtime)).toBe(true);
+  });
+
+  it("does not treat a secret alone as proof that a production scheduler exists", () => {
+    const scheduler = mainnetProductionGates({ CRON_SECRET: "cron-secret-at-least-sixteen" })
+      .find((gate) => gate.id === "scheduler");
+    expect(scheduler?.ready).toBe(false);
   });
 
   it("requires HTTPS and an exact signer host identity", () => {

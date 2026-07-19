@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getAddress, zeroAddress } from "viem";
 import {
+  buildMainnetAdminMessage,
   createMainnetStrategySchema,
+  mainnetAdminActionSchema,
   strategyTypedData,
 } from "./mainnet-agent-types";
 import { ROBINHOOD_MAINNET_USDG } from "./mainnet-registry";
@@ -42,5 +44,21 @@ describe("mainnet signed strategy", () => {
 
   it("rejects intervals shorter than five minutes", () => {
     expect(() => createMainnetStrategySchema.parse({ ...input(), intervalSeconds: 299 })).toThrow();
+  });
+
+  it("binds scheduler mutations to chain, account, strategy, nonce, and expiry", () => {
+    const action = mainnetAdminActionSchema.parse({
+      action: "set-strategy-active",
+      strategyId: "11111111-1111-4111-8111-111111111111",
+      account,
+      active: false,
+      nonce: "22222222-2222-4222-8222-222222222222",
+      expiresAt: 2_000_000_000_000,
+    });
+    const message = buildMainnetAdminMessage(action);
+    expect(message).toContain("Chain ID: 4663");
+    expect(message).toContain(`Policy account: ${account}`);
+    expect(message).toContain("Active: false");
+    expect(message).toContain(action.nonce);
   });
 });
