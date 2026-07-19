@@ -80,10 +80,11 @@ No platform-wide maximum balance or owner withdrawal limit exists. Agent policie
 3. Read the authenticated identity endpoint and record its public signer address, KMS key ID, and `sha256:` public-key attestation.
 4. Add the personal account to the signer allowlist and grant only that signer address `AGENT_ROLE`.
 5. Configure the matching Vercel variables from [`ENVIRONMENT.md`](ENVIRONMENT.md), durable Redis, authenticated HTTPS alerts, and `CRON_SECRET`.
-6. Keep `ENABLE_MAINNET_AUTONOMY=false` while `/api/mainnet/status` reports any incomplete gate.
-7. Run one restrictive canary with an allowlisted recipient and small owner-configured limits. Only then set `ENABLE_MAINNET_AUTONOMY=true` and redeploy the same reviewed commit.
+6. Configure a five-minute Vercel Pro Cron or a durable external scheduler that calls `GET /api/cron/mainnet-agent` with `Authorization: Bearer <CRON_SECRET>`. Only then set `MAINNET_SCHEDULER_MODE=vercel-pro-cron` or `external-durable`.
+7. Keep `ENABLE_MAINNET_AUTONOMY=false` while `/api/mainnet/status` reports any incomplete gate.
+8. Run one restrictive canary with an allowlisted recipient and small owner-configured limits. Only then set `ENABLE_MAINNET_AUTONOMY=true` and redeploy the same reviewed commit.
 
-The production Cron route runs every five minutes. If the Vercel plan does not support that cadence, use an authenticated external scheduler or a plan that does; do not expose the Cron route without `CRON_SECRET`.
+The repository's `vercel.json` schedules only the daily testnet job so it remains deployable on Vercel Hobby. Mainnet must use a five-minute Vercel Pro Cron or an authenticated durable external scheduler. Do not claim the scheduler gate is ready or expose the route without `CRON_SECRET`.
 
 ## Rollback and containment
 

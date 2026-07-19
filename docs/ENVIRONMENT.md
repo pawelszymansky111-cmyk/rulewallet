@@ -24,6 +24,7 @@ These values are bundled into JavaScript and must never contain secrets.
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Supported Vercel Marketplace aliases |
 | `AGENT_PRIVATE_KEY` | Legacy dedicated testnet-only agent signer; never read by mainnet code |
 | `CRON_SECRET` | Vercel Cron authentication secret |
+| `MAINNET_SCHEDULER_MODE` | `vercel-pro-cron` or `external-durable`; leave unset until that scheduler is actually configured |
 | `ENABLE_MAINNET` | Enables server-side mainnet status/read features |
 | `ENABLE_MAINNET_AUTONOMY` | Defaults to `false`; set to `true` only after every displayed production gate passes |
 | `MAINNET_SIGNER_MODE` | `disabled` or `external-kms` |
@@ -39,7 +40,7 @@ These values are bundled into JavaScript and must never contain secrets.
 
 If any gate is absent or invalid, `/api/mainnet/status` reports it and strategy activation/execution stays disabled. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet readiness. The remote signer identity is checked live, not inferred from environment variables alone.
 
-The reference signer is in [`services/aws-kms-signer`](../services/aws-kms-signer). Deploy it separately, record its public identity response, grant only its address `AGENT_ROLE`, and keep the Lambda bearer token server-only.
+The reference signer is in [`services/aws-kms-signer`](../services/aws-kms-signer). Deploy it separately, record its public identity response, grant only its address `AGENT_ROLE`, and keep the Lambda bearer token server-only. A `CRON_SECRET` alone does not satisfy scheduler readiness.
 
 ## Production separation
 

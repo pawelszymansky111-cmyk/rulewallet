@@ -108,6 +108,9 @@ export function mainnetProductionGates(
   );
   const monitoringReady = isHttpsEndpoint(environment.MAINNET_ALERT_WEBHOOK_URL)
     && Boolean(environment.MAINNET_ALERT_WEBHOOK_TOKEN);
+  const schedulerMode = environment.MAINNET_SCHEDULER_MODE;
+  const schedulerReady = Boolean(environment.CRON_SECRET)
+    && (schedulerMode === "vercel-pro-cron" || schedulerMode === "external-durable");
   const signerReady = signer.verified && runtime.signerIdentityVerified === true;
   return [
     { id: "release", ready: MAINNET_AUTONOMY_RELEASE_ENABLED, message: "This build contains the production-gated autonomous execution path." },
@@ -115,7 +118,7 @@ export function mainnetProductionGates(
     { id: "asset", ready: runtime.canonicalAssetVerified === true, message: runtime.canonicalAssetVerified ? "Canonical Robinhood Chain USDG reports symbol USDG and 6 decimals." : "Canonical USDG metadata verification has not passed." },
     { id: "signer", ready: signerReady, message: signerReady ? `Remote identity and non-exportable signer attestation verified for ${signer.keyId}.` : signer.verified ? "Signer configuration is valid, but the remote identity attestation handshake has not passed." : signer.reason },
     { id: "storage", ready: storageReady, message: storageReady ? "Durable strategy, receipt, idempotency, lock, and nonce storage is configured." : "Durable Redis storage is required." },
-    { id: "scheduler", ready: Boolean(environment.CRON_SECRET), message: environment.CRON_SECRET ? "Authenticated mainnet scheduler endpoint is configured." : "CRON_SECRET is required for the scheduler." },
+    { id: "scheduler", ready: schedulerReady, message: schedulerReady ? `Authenticated ${schedulerMode} mainnet scheduler is explicitly configured.` : "Set CRON_SECRET and MAINNET_SCHEDULER_MODE to vercel-pro-cron or external-durable after the scheduler exists." },
     { id: "nonce", ready: true, message: "Signer-global durable nonce locking and unresolved-transaction reservation are enforced." },
     { id: "rpc", ready: rpcReady, message: rpcReady ? "Two independent managed HTTPS RPC hosts are configured; agreement is required before signing." : "Two distinct managed HTTPS RPC hosts are required." },
     { id: "monitoring", ready: monitoringReady, message: monitoringReady ? "Authenticated HTTPS alert delivery is configured." : "Authenticated HTTPS alert delivery is required." },

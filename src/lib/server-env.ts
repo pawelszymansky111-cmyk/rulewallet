@@ -25,6 +25,7 @@ const serverEnvironmentSchema = z.object({
   KV_REST_API_URL: z.url().optional(),
   KV_REST_API_TOKEN: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(16).optional(),
+  MAINNET_SCHEDULER_MODE: z.enum(["vercel-pro-cron", "external-durable"]).optional(),
   VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
 });
@@ -59,6 +60,7 @@ export function getServerEnvironment(): ServerEnvironment {
       KV_REST_API_URL: process.env.KV_REST_API_URL || undefined,
       KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN || undefined,
       CRON_SECRET: process.env.CRON_SECRET || undefined,
+      MAINNET_SCHEDULER_MODE: process.env.MAINNET_SCHEDULER_MODE || undefined,
       VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
       VERCEL_ENV: process.env.VERCEL_ENV,
     });

@@ -38,6 +38,7 @@ describe("mainnet production safety gates", () => {
       UPSTASH_REDIS_REST_URL: "https://redis.example",
       UPSTASH_REDIS_REST_TOKEN: "redis-token",
       CRON_SECRET: "cron-secret-at-least-sixteen",
+      MAINNET_SCHEDULER_MODE: "external-durable",
       MAINNET_ALERT_WEBHOOK_URL: "https://alerts.example/hook",
       MAINNET_ALERT_WEBHOOK_TOKEN: "alert-token-at-least-sixteen",
       MAINNET_MAX_GAS: "500000",
@@ -51,6 +52,12 @@ describe("mainnet production safety gates", () => {
     };
     expect(mainnetProductionGates(environment, runtime).every((gate) => gate.ready)).toBe(true);
     expect(mainnetAutonomyReady(environment, runtime)).toBe(true);
+  });
+
+  it("does not treat a secret alone as proof that a production scheduler exists", () => {
+    const scheduler = mainnetProductionGates({ CRON_SECRET: "cron-secret-at-least-sixteen" })
+      .find((gate) => gate.id === "scheduler");
+    expect(scheduler?.ready).toBe(false);
   });
 
   it("requires HTTPS and an exact signer host identity", () => {
