@@ -1,7 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, KeyRound, LoaderCircle, RefreshCw, ShieldX, Wallet } from "lucide-react";
+import {
+  CheckCircle2,
+  CirclePause,
+  CirclePlay,
+  ExternalLink,
+  KeyRound,
+  LoaderCircle,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+  ShieldX,
+  Wallet,
+} from "lucide-react";
 import {
   encodeFunctionData,
   getAddress,
@@ -20,8 +32,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { robinhoodMainnet } from "@/lib/chains";
-import type { MainnetAgentExecution, PublicMainnetAgentStrategy } from "@/lib/mainnet-agent-types";
-import { strategyTypes } from "@/lib/mainnet-agent-types";
+import type {
+  MainnetAdminAction,
+  MainnetAgentExecution,
+  PublicMainnetAgentStrategy,
+} from "@/lib/mainnet-agent-types";
+import { buildMainnetAdminMessage, strategyTypes } from "@/lib/mainnet-agent-types";
 import {
   ROBINHOOD_MAINNET_USDG,
   formatMainnetAssetUnits,
@@ -85,6 +101,7 @@ export function MainnetStrategyPanel() {
   const [error, setError] = useState("");
   const [lastHash, setLastHash] = useState<Hash>();
   const [autonomyEnabled, setAutonomyEnabled] = useState(false);
+  const [productionGates, setProductionGates] = useState<Array<{ id: string; ready: boolean; message: string }>>([]);
 
   const storageKey = useMemo(
     () => connection.address ? `rulewallet:policy-account:v2:4663:${connection.address.toLowerCase()}` : undefined,
@@ -94,13 +111,12 @@ export function MainnetStrategyPanel() {
 
   const refresh = useCallback(async () => {
     const statusResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
-    const status = statusResponse.ok ? await statusResponse.json() as { autonomyEnabled?: boolean } : undefined;
+    const status = statusResponse.ok ? await statusResponse.json() as {
+      autonomyEnabled?: boolean;
+      productionGates?: Array<{ id: string; ready: boolean; message: string }>;
+    } : undefined;
     setAutonomyEnabled(status?.autonomyEnabled === true);
-    if (!status?.autonomyEnabled) {
-      setStrategies([]);
-      setExecutions([]);
-      return;
-    }
+    setProductionGates(status?.productionGates ?? []);
     const [strategyResponse, activityResponse] = await Promise.all([
       fetch("/api/mainnet/strategies", { cache: "no-store" }),
       fetch("/api/mainnet/activity", { cache: "no-store" }),
@@ -111,14 +127,15 @@ export function MainnetStrategyPanel() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      if (storageKey && !account) {
+      setAccount((current) => {
+        if (current || !storageKey) return current;
         const saved = window.localStorage.getItem(storageKey);
-        if (saved && isAddress(saved)) setAccount(getAddress(saved));
-      }
+        return saved && isAddress(saved) ? getAddress(saved) : current;
+      });
       void refresh();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [account, refresh, storageKey]);
+  }, [refresh, storageKey]);
 
   function prepareStrategy() {
     setError(""); setMessage(""); setPreview(undefined);
@@ -164,7 +181,7 @@ export function MainnetStrategyPanel() {
     if (!preview || !walletClient.data || !connection.address) return;
     setBusy("sign"); setError(""); setMessage("Review the EIP-712 authorization in your wallet.");
     try {
-      if (!autonomyEnabled) throw new Error("Mainnet strategy storage and execution are disabled in this manual-only release.");
+      if (!autonomyEnabled) throw new Error("Complete every production gate before activating a mainnet strategy.");
       const signature = await walletClient.data.signTypedData({ account: connection.address, ...preview.typedData });
       const response = await fetch("/api/mainnet/strategies", {
         method: "POST",
@@ -173,9 +190,66 @@ export function MainnetStrategyPanel() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Strategy storage rejected the signature.");
-      setMessage("Owner signature verified and strategy stored. Execution remains disabled unless the secure signer and autonomy gates are configured.");
+      setMessage("Owner signature verified. The strategy is active and eligible for the protected scheduler.");
       setPreview(undefined);
       setNonce((current) => (BigInt(current) + BigInt(1)).toString());
+      await refresh();
+    } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
+  }
+
+  async function signAdminAction(payload: MainnetAdminAction) {
+    if (!walletClient.data || !connection.address) throw new Error("Connect the account owner wallet on chain 4663.");
+    const signature = await walletClient.data.signMessage({
+      account: connection.address,
+      message: buildMainnetAdminMessage(payload),
+    });
+    return { payload, signature };
+  }
+
+  async function setStrategyActive(strategy: PublicMainnetAgentStrategy, active: boolean) {
+    setBusy(`toggle-${strategy.id}`); setError(""); setMessage("");
+    try {
+      const payload: MainnetAdminAction = {
+        action: "set-strategy-active",
+        strategyId: strategy.id,
+        account: strategy.account,
+        active,
+        nonce: crypto.randomUUID(),
+        expiresAt: new Date().getTime() + 5 * 60_000,
+      };
+      const envelope = await signAdminAction(payload);
+      const response = await fetch(`/api/mainnet/strategies/${strategy.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Strategy update failed.");
+      setMessage(active ? "Strategy resumed and scheduled." : "Strategy paused before its next run.");
+      await refresh();
+    } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
+  }
+
+  async function runNow(strategy: PublicMainnetAgentStrategy) {
+    setBusy(`run-${strategy.id}`); setError(""); setMessage("");
+    try {
+      if (!autonomyEnabled) throw new Error("All production gates must pass before the secure signer can run a strategy.");
+      const payload: MainnetAdminAction = {
+        action: "run-strategy",
+        strategyId: strategy.id,
+        account: strategy.account,
+        nonce: crypto.randomUUID(),
+        expiresAt: new Date().getTime() + 5 * 60_000,
+      };
+      const envelope = await signAdminAction(payload);
+      const response = await fetch(`/api/mainnet/strategies/${strategy.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      });
+      const result = await response.json() as { error?: string; execution?: MainnetAgentExecution };
+      if (!response.ok) throw new Error(result.error ?? "Strategy execution failed.");
+      setMessage(result.execution?.reason ?? "Protected mainnet execution completed.");
       await refresh();
     } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
   }
@@ -216,7 +290,12 @@ export function MainnetStrategyPanel() {
 
   return (
     <div className="space-y-6">
-      <Alert className="border-amber-500/30 bg-amber-50 text-amber-950"><ShieldX /><AlertTitle>Authorization preview only</AlertTitle><AlertDescription>Strategy data can be inspected and owner-signed, but this release cannot run autonomous mainnet transfers. The compile-time release gate remains disabled.</AlertDescription></Alert>
+      <Alert className={autonomyEnabled ? "border-primary/25 bg-primary/[0.05]" : "border-amber-500/30 bg-amber-50 text-amber-950"}>
+        {autonomyEnabled ? <ShieldCheck /> : <ShieldX />}
+        <AlertTitle>{autonomyEnabled ? "Protected mainnet autonomy is ready" : "Autonomy is installed but fail-closed"}</AlertTitle>
+        <AlertDescription>{autonomyEnabled ? "The verified non-exportable signer may execute exact owner-signed strategies. Every transfer remains bounded by recipients, limits, approvals, expiry, pause, and execution caps." : "Preview strategies now. Signing, storage, and execution unlock only when every production gate below passes."}</AlertDescription>
+      </Alert>
+      {!autonomyEnabled && productionGates.length > 0 && <Card><CardHeader><CardTitle>Required production gates</CardTitle><CardDescription>There is no admin override. All checks must pass simultaneously.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{productionGates.map((gate) => <div key={gate.id} className="rounded-lg border border-grid p-3 text-sm"><p className={gate.ready ? "font-medium text-primary" : "font-medium text-amber-800"}>{gate.ready ? "Ready" : "Incomplete"} · {gate.id}</p><p className="mt-1 text-muted-foreground">{gate.message}</p></div>)}</CardContent></Card>}
       <Card>
         <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><KeyRound className="size-4 text-primary" /> EIP-712 scheduled strategy</CardTitle><CardDescription className="mt-1">An owner signature authorizes an exact recurring transfer. It never changes policy and cannot bypass limits, recipients, approvals, pause, expiry, or execution caps.</CardDescription></div><Button variant="outline" size="sm" onClick={refresh}><RefreshCw /> Refresh</Button></div></CardHeader>
         <CardContent className="space-y-4">
@@ -226,12 +305,12 @@ export function MainnetStrategyPanel() {
         </CardContent>
       </Card>
 
-      {preview && <Card className="border-primary/25"><CardHeader><CardTitle>Exact EIP-712 preview</CardTitle><CardDescription>This preview grants no authority by itself. Strategy signing and storage remain disabled while the mainnet autonomy release gate is closed.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Account", preview.body.account], ["Asset", preview.body.asset], ["Recipient", preview.body.recipient], ["Amount", `${formatMainnetAssetUnits(BigInt(preview.body.amount), asset)} ${asset}`], ["Nonce", preview.body.nonce], ["Expiry", new Date(Number(preview.body.expiry) * 1000).toISOString()], ["Interval", `${preview.body.intervalSeconds}s`], ["Executions", String(preview.body.maxExecutions)], ["Digest", preview.digest]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[150px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signAndStore} disabled={!autonomyEnabled || busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Signing disabled in preview</Button><Button variant="outline" onClick={() => setPreview(undefined)}>Cancel</Button></div></CardContent></Card>}
+      {preview && <Card className="border-primary/25"><CardHeader><CardTitle>Exact EIP-712 preview</CardTitle><CardDescription>This owner signature authorizes only the displayed recurring transfer and never changes onchain policy.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Account", preview.body.account], ["Asset", preview.body.asset], ["Recipient", preview.body.recipient], ["Amount", `${formatMainnetAssetUnits(BigInt(preview.body.amount), asset)} ${asset}`], ["Nonce", preview.body.nonce], ["Expiry", new Date(Number(preview.body.expiry) * 1000).toISOString()], ["Interval", `${preview.body.intervalSeconds}s`], ["Executions", String(preview.body.maxExecutions)], ["Digest", preview.digest]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[150px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signAndStore} disabled={!autonomyEnabled || busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} {autonomyEnabled ? "Sign and activate strategy" : "Complete production gates first"}</Button><Button variant="outline" onClick={() => setPreview(undefined)}>Cancel</Button></div></CardContent></Card>}
 
       {revokePreview && <Card className="border-red-400/25"><CardHeader><CardTitle>Exact revocation transaction</CardTitle><CardDescription>Chain 4663 · contract {revokePreview.strategy.account} · value 0 ETH</CardDescription></CardHeader><CardContent className="space-y-3"><p className="break-all font-mono text-xs">Digest: {revokePreview.digest}</p><p className="break-all font-mono text-xs">Calldata: {revokePreview.data}</p><p className="text-sm text-muted-foreground">Expected result: this strategy digest becomes permanently revoked onchain.</p><div className="flex gap-2"><Button variant="destructive" onClick={signRevoke} disabled={busy === "revoke"}>{busy === "revoke" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Sign revocation</Button><Button variant="outline" onClick={() => setRevokePreview(undefined)}>Cancel</Button></div></CardContent></Card>}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card><CardHeader><CardTitle>Stored strategies</CardTitle><CardDescription>Signatures are server-side; public output excludes them.</CardDescription></CardHeader><CardContent className="space-y-3">{strategies.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet strategies stored, or durable storage is not configured.</p> : strategies.map((strategy) => <div key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="text-sm font-medium">{strategy.name} <Badge variant="outline">{strategy.active ? "Active" : "Inactive"}</Badge></p><p className="mt-1 text-xs text-muted-foreground">{formatMainnetAssetUnits(BigInt(strategy.amount), strategy.asset === ROBINHOOD_MAINNET_USDG ? "USDG" : "ETH")} · {short(strategy.recipient)} · next {new Date(strategy.nextRunAt).toLocaleString()}</p></div><Button variant="outline" size="sm" onClick={() => prepareRevoke(strategy)}>Revoke onchain</Button></div>)}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Stored strategies</CardTitle><CardDescription>Signatures stay server-side; public output excludes them. Pausing affects scheduling, while revocation permanently disables the signed authorization onchain.</CardDescription></CardHeader><CardContent className="space-y-3">{strategies.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet strategies stored, or durable storage is not configured.</p> : strategies.map((strategy) => <div key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="text-sm font-medium">{strategy.name} <Badge variant="outline">{strategy.active ? "Active" : "Paused"}</Badge></p><p className="mt-1 text-xs text-muted-foreground">{formatMainnetAssetUnits(BigInt(strategy.amount), strategy.asset === ROBINHOOD_MAINNET_USDG ? "USDG" : "ETH")} · {short(strategy.recipient)} · next {new Date(strategy.nextRunAt).toLocaleString()}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={!autonomyEnabled || !strategy.active || Boolean(busy)} onClick={() => runNow(strategy)}>{busy === `run-${strategy.id}` ? <LoaderCircle className="animate-spin" /> : <Play />} Run now</Button><Button variant="outline" size="sm" disabled={Boolean(busy)} onClick={() => setStrategyActive(strategy, !strategy.active)}>{busy === `toggle-${strategy.id}` ? <LoaderCircle className="animate-spin" /> : strategy.active ? <CirclePause /> : <CirclePlay />}{strategy.active ? "Pause" : "Resume"}</Button><Button variant="outline" size="sm" onClick={() => prepareRevoke(strategy)}>Revoke onchain</Button></div></div>)}</CardContent></Card>
         <Card><CardHeader><CardTitle>Public mainnet receipts</CardTitle><CardDescription>Confirmed, blocked, and failed execution attempts.</CardDescription></CardHeader><CardContent className="space-y-3">{executions.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet execution receipts yet.</p> : executions.slice(0, 10).map((execution) => <div key={execution.id} className="flex items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="flex items-center gap-2 text-sm font-medium">{execution.status === "confirmed" && <CheckCircle2 className="size-4 text-primary" />}{execution.strategyName}</p><p className="mt-1 text-xs text-muted-foreground">{execution.reason ?? execution.status}</p></div>{execution.transactionHash && <Button asChild variant="ghost" size="icon"><a href={`${explorer}/tx/${execution.transactionHash}`} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink /></a></Button>}</div>)}</CardContent></Card>
       </div>
 

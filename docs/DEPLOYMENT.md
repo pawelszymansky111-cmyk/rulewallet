@@ -1,16 +1,16 @@
 # Deployment and rollback
 
-> Security-beta rule: deploy the frontend normally, but do not deploy the `2.1.0-security-beta` mainnet factory or broadcast any chain transaction as part of an application release. The existing older factory is intentionally reported as incompatible. A future factory deployment requires a separately reviewed hardware-wallet signature.
+> Mainnet rule: application releases never broadcast contract or fund-moving transactions. The existing older factory is incompatible. Deploying the `2.1.0-security-beta` factory and every personal account requires a separately reviewed connected-wallet or hardware-wallet signature.
 
 ## Web release
 
 1. Run `npm run verify` from a clean commit.
 2. Deploy a preview and verify `/`, `/start`, `/mainnet`, `/api/health`, and `/api/mainnet/status`.
-3. Confirm mainnet autonomy is `false` unless every signer/monitoring gate is complete.
+3. Confirm mainnet autonomy is `false` unless every factory, asset, signer, storage, scheduler, nonce, RPC, monitoring, and fee gate is complete.
 4. Promote the exact verified artifact; do not rebuild a different commit.
 5. Keep mainnet factory/account variables empty until their source and constructor arguments are verified on Blockscout.
 
-## Mainnet factory: prepare only
+## Mainnet factory
 
 The repository does not broadcast a factory deployment automatically. The only mainnet script pins chain `4663` and canonical USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` and never reads a private key.
 
@@ -46,7 +46,7 @@ forge script script/DeployRuleWalletV2Mainnet.s.sol:DeployRuleWalletV2Mainnet \
   --ledger
 ```
 
-RuleWallet/Codex must stop before that signature. Never replace `--ledger` with a pasted seed phrase or a committed raw key.
+RuleWallet/Codex must stop before that signature and show the exact transaction. Never replace `--ledger` with a pasted seed phrase or a committed raw key.
 
 ## Verify on Blockscout
 
@@ -72,6 +72,18 @@ Compare runtime bytecode, compiler `0.8.24`, optimizer settings, constructor arg
 `/mainnet` requires four distinct owner/guardian/agent/approver addresses. It first simulates factory deployment and displays exact chain, factory, value, calldata, predicted account, and result. The connected owner signs in the wallet. Each recipient, asset policy, pause/unpause, deposit, and withdrawal is then a separate simulated wallet transaction.
 
 No platform-wide maximum balance or owner withdrawal limit exists. Agent policies remain mandatory and bounded.
+
+## Autonomous signer and scheduler
+
+1. Deploy [`services/aws-kms-signer`](../services/aws-kms-signer) in a separate AWS account or security boundary.
+2. Use two managed Robinhood Chain RPC URLs from different hosts and explicit signer-side fee ceilings.
+3. Read the authenticated identity endpoint and record its public signer address, KMS key ID, and `sha256:` public-key attestation.
+4. Add the personal account to the signer allowlist and grant only that signer address `AGENT_ROLE`.
+5. Configure the matching Vercel variables from [`ENVIRONMENT.md`](ENVIRONMENT.md), durable Redis, authenticated HTTPS alerts, and `CRON_SECRET`.
+6. Keep `ENABLE_MAINNET_AUTONOMY=false` while `/api/mainnet/status` reports any incomplete gate.
+7. Run one restrictive canary with an allowlisted recipient and small owner-configured limits. Only then set `ENABLE_MAINNET_AUTONOMY=true` and redeploy the same reviewed commit.
+
+The production Cron route runs every five minutes. If the Vercel plan does not support that cadence, use an authenticated external scheduler or a plan that does; do not expose the Cron route without `CRON_SECRET`.
 
 ## Rollback and containment
 

@@ -25,7 +25,7 @@ These values are bundled into JavaScript and must never contain secrets.
 | `AGENT_PRIVATE_KEY` | Legacy dedicated testnet-only agent signer; never read by mainnet code |
 | `CRON_SECRET` | Vercel Cron authentication secret |
 | `ENABLE_MAINNET` | Enables server-side mainnet status/read features |
-| `ENABLE_MAINNET_AUTONOMY` | Must remain `false`; the security-beta compile-time gate also prevents execution |
+| `ENABLE_MAINNET_AUTONOMY` | Defaults to `false`; set to `true` only after every displayed production gate passes |
 | `MAINNET_SIGNER_MODE` | `disabled` or `external-kms` |
 | `MAINNET_AGENT_ADDRESS` | Public address of the non-exportable mainnet agent key |
 | `MAINNET_SIGNER_ENDPOINT` | Private KMS/MPC/HSM signing-service endpoint |
@@ -37,7 +37,9 @@ These values are bundled into JavaScript and must never contain secrets.
 | `MAINNET_MAX_FEE_PER_GAS_WEI` | Hard EIP-1559 max-fee ceiling |
 | `MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI` | Hard priority-fee ceiling |
 
-If any gate is absent or invalid, `/api/mainnet/status` reports it. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet readiness. In this release, all mainnet autonomy remains disabled regardless of configuration.
+If any gate is absent or invalid, `/api/mainnet/status` reports it and strategy activation/execution stays disabled. A raw `AGENT_PRIVATE_KEY` can never satisfy mainnet readiness. The remote signer identity is checked live, not inferred from environment variables alone.
+
+The reference signer is in [`services/aws-kms-signer`](../services/aws-kms-signer). Deploy it separately, record its public identity response, grant only its address `AGENT_ROLE`, and keep the Lambda bearer token server-only.
 
 ## Production separation
 

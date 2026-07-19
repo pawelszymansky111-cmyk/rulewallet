@@ -1,6 +1,6 @@
 # RuleWallet — hackathon submission
 
-**Current release:** a complete autonomous Robinhood Chain testnet beta plus an experimental mainnet preview for manual actions only. The security-beta fixes canonical 6-decimal USDG handling, stale queued authorization, role/approval separation, pinned factory provenance, and fail-closed production automation gates. This is an internal security review, not an external audit.
+**Current release:** a complete autonomous Robinhood Chain testnet beta plus an experimental Robinhood Chain mainnet implementation. Mainnet autonomy is fail-closed and activates only after the pinned factory, canonical asset, durable infrastructure, monitoring, and verified non-exportable signer gates all pass. The security-beta fixes canonical 6-decimal USDG handling, stale queued authorization, role/approval separation, and factory provenance. This is an internal security review, not an external audit.
 
 ## Submission title
 

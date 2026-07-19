@@ -5,7 +5,7 @@
 - [ ] `npm run verify` passes from a clean checkout.
 - [ ] The mandatory current-state mainnet fork confirms canonical USDG is `USDG` with 6 decimals.
 - [ ] `/demo`, `/start`, `/app/agent`, `/activity`, `/docs`, and `/mainnet` render on mobile and desktop.
-- [ ] `/mainnet` says “Experimental preview — manual actions only,” reports the old factory as incompatible, and reports autonomy disabled.
+- [ ] `/mainnet` says “Experimental, unaudited mainnet,” rejects incompatible factories, and keeps autonomy fail-closed until every production gate passes.
 - [ ] No seed phrase, private key, signer credential, RPC credential, or Redis credential appears in Git history or build output.
 - [ ] No blockchain transaction was broadcast during release verification.
 - [ ] Publish the hackathon copy and X thread only after the production deployment health check passes.
@@ -39,7 +39,7 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 
 **Handle candidates:** `@RuleWalletDev`, `@UseRuleWallet`, `@RuleWalletHQ` — verify availability before claiming.
 
-**Bio:** Bounded authority for onchain AI agents. Live on Robinhood Chain testnet. Open source. Mainnet disabled.
+**Bio:** Bounded authority for onchain AI agents. Live on Robinhood Chain testnet. Experimental Robinhood Chain mainnet. Open source.
 
 **Website:** https://rulewallet.vercel.app/demo
 
@@ -70,7 +70,7 @@ Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent d
 ## Release checklist
 
 - [ ] Production deployment is `READY` and aliased to `rulewallet.vercel.app`.
-- [ ] `/api/health` reports `mainnetEnabled: false`.
+- [ ] `/api/mainnet/status` reports the verified factory, canonical 6-decimal USDG, signer identity, and every production gate accurately.
 - [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
 - [ ] `/start`, `/demo`, `/hackathon`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
 - [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.

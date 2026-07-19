@@ -54,7 +54,7 @@ export default function SecurityPage() {
               <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Open risks</p>
               <h2 className="mt-3 text-2xl font-semibold">Not solved by a policy UI</h2>
               <div className="mt-6 divide-y divide-border border-y border-grid">
-                {["Smart-contract vulnerabilities in allowed targets", "Compromised approval devices or operator accounts", "Incorrect asset pricing or simulation infrastructure", "Cross-chain bridge and sequencer failure", "Implementation bugs in a future signer", "Legal, tax, and compliance obligations"].map((item) => <p key={item} className="py-3 text-sm text-muted-foreground">{item}</p>)}
+                {["Smart-contract vulnerabilities in allowed targets", "Compromised approval devices or operator accounts", "Incorrect asset pricing or simulation infrastructure", "Cross-chain bridge and sequencer failure", "KMS signer implementation or configuration bugs", "Legal, tax, and compliance obligations"].map((item) => <p key={item} className="py-3 text-sm text-muted-foreground">{item}</p>)}
               </div>
             </section>
           </div>

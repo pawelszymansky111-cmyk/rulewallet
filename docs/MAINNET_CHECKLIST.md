@@ -20,7 +20,9 @@ The code and UI may be published before contracts are deployed. Every unchecked 
 - [x] Mainnet UI simulates and displays chain, contract, value, calldata, and expected result before wallet signing.
 - [x] Canonical USDG is enforced as 6 decimals in construction and display paths.
 - [x] Pinned factory runtime hash and account provenance checks reject getter-only spoof contracts.
-- [x] Mainnet scheduler removed from production Cron; compile-time autonomy gate is closed.
+- [x] Authenticated mainnet scheduler, owner-signed pause/resume/run-now controls, and live production gates are implemented.
+- [x] AWS KMS signer service enforces non-exportable signing, account/selector allowlists, dual-RPC nonce checks, independent fee ceilings, and DynamoDB idempotency.
+- [x] Timed-out transactions retain their nonce reservation until exact late-confirmation reconciliation.
 
 ## Required before the first contract signature
 
@@ -48,7 +50,8 @@ The code and UI may be published before contracts are deployed. Every unchecked 
 - [ ] Alerts cover role/policy/recipient changes, failures, nonce conflicts, pause, withdrawals, and unusual spend.
 - [ ] Guardian pause and owner recovery rehearsed with separate hardware wallets.
 - [ ] Small-value canary runs under deliberately restrictive limits.
-- [ ] A separately audited future release changes the compile-time autonomy gate; `ENABLE_MAINNET_AUTONOMY` remains `false` in this release.
+- [ ] `/api/mainnet/status` reports every production gate ready from the exact release deployment.
+- [ ] `ENABLE_MAINNET_AUTONOMY` remains `false` through signer setup and becomes `true` only for the reviewed canary.
 
 ## Ongoing release gates
 

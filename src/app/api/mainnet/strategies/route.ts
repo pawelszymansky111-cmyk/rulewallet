@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashTypedData, verifyTypedData, zeroAddress, type Hex } from "viem";
+import { hashTypedData, parseAbi, verifyTypedData, zeroAddress, type Hex } from "viem";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
@@ -15,9 +15,17 @@ import {
   ruleWalletV2Abi,
 } from "@/lib/mainnet-registry";
 import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
+import { getServerEnvironment } from "@/lib/server-env";
+import { mainnetAutonomyReady } from "@/lib/mainnet-safety";
+import { mainnetSignerStatus, verifyMainnetSignerIdentity } from "@/lib/secure-agent-signer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const erc20MetadataAbi = parseAbi([
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+]);
 
 function clientKey(request: NextRequest) {
   return request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-forwarded-for")?.split(",")[0] ?? "anonymous";
@@ -54,27 +62,55 @@ export async function POST(request: NextRequest) {
     if (!signatureValid) return NextResponse.json({ error: "Invalid EIP-712 owner signature." }, { status: 401 });
 
     const client = getMainnetPublicClient();
+    const environment = getServerEnvironment();
+    const signer = mainnetSignerStatus();
     if (!mainnetFactoryAddress) {
       return NextResponse.json({ error: "Verified V2 factory is not configured." }, { status: 503 });
     }
-    const factoryVerification = await verifyPinnedMainnetFactory(client, mainnetFactoryAddress);
+    const [factoryVerification, signerIdentity, usdgSymbol, usdgDecimals] = await Promise.all([
+      verifyPinnedMainnetFactory(client, mainnetFactoryAddress),
+      signer.configured ? verifyMainnetSignerIdentity().catch(() => undefined) : Promise.resolve(undefined),
+      client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "symbol" }).catch(() => undefined),
+      client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "decimals" }).catch(() => undefined),
+    ]);
     if (!factoryVerification.verified) {
       return NextResponse.json({ error: "Pinned security-beta factory bytecode is not deployed or verified." }, { status: 503 });
     }
-    const [code, ownerRole, canonicalStablecoin, expectedVersion, accountVersion] = await Promise.all([
+    if (!mainnetAutonomyReady(environment, {
+      factoryVerified: true,
+      canonicalAssetVerified: usdgSymbol === "USDG" && usdgDecimals === 6,
+      signerIdentityVerified: Boolean(signerIdentity),
+    })) {
+      return NextResponse.json({ error: "Mainnet autonomy is not fully configured; strategy storage is fail-closed." }, { status: 503 });
+    }
+    if (!signer.address) return NextResponse.json({ error: "Verified mainnet agent signer is unavailable." }, { status: 503 });
+
+    const [code, ownerRole, agentRole, canonicalStablecoin, expectedVersion, accountVersion, trusted, policy, onchainDigest] = await Promise.all([
       client.getCode({ address: input.account }),
       client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "OWNER_ROLE" }),
+      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "AGENT_ROLE" }),
       client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "canonicalStablecoin" }),
       client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
       client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [input.account] }),
+      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "trustedRecipients", args: [input.recipient] }),
+      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "assetPolicies", args: [input.asset] }),
+      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "strategyDigest", args: [typedData.message] }),
     ]);
     if (!code || code === "0x") return NextResponse.json({ error: "No V2 account code at that address." }, { status: 400 });
     if (canonicalStablecoin !== ROBINHOOD_MAINNET_USDG) return NextResponse.json({ error: "Account canonical USDG does not match the official registry." }, { status: 400 });
     if (accountVersion !== expectedVersion) return NextResponse.json({ error: "Account was not deployed by the configured V2 factory/version." }, { status: 400 });
     const isOwner = await client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [ownerRole, input.owner] });
     if (!isOwner) return NextResponse.json({ error: "Signer does not hold OWNER_ROLE on this account." }, { status: 403 });
+    const signerHasAgentRole = await client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [agentRole, signer.address] });
+    if (!signerHasAgentRole) return NextResponse.json({ error: "The verified secure signer does not hold AGENT_ROLE on this account." }, { status: 400 });
+    if (!trusted) return NextResponse.json({ error: "Recipient is not currently trusted onchain." }, { status: 400 });
+    if (!policy[0]) return NextResponse.json({ error: "The selected asset policy is disabled." }, { status: 400 });
+    if (BigInt(input.amount) > policy[1]) return NextResponse.json({ error: "Strategy amount exceeds the onchain per-transaction limit." }, { status: 400 });
 
     const digest = hashTypedData(typedData);
+    if (onchainDigest.toLowerCase() !== digest.toLowerCase()) {
+      return NextResponse.json({ error: "Frontend and contract EIP-712 digests disagree." }, { status: 400 });
+    }
     const ttlSeconds = Number(BigInt(input.expiry) - BigInt(Math.floor(Date.now() / 1000)));
     if (!await claimMainnetStrategyDigest(digest, ttlSeconds)) {
       return NextResponse.json({ error: "This exact EIP-712 strategy has already been stored." }, { status: 409 });

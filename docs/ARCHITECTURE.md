@@ -2,7 +2,7 @@
 
 ## Security-beta boundary
 
-The public product is the Robinhood Chain testnet beta. Mainnet is an experimental manual preview. Canonical USDG uses 6 base-unit decimals. A mainnet account is trusted only when the configured factory's complete immutable-linked runtime hash matches the pinned `2.1.0-security-beta` hash and that exact factory records the account version. Autonomous mainnet execution is compile-time disabled.
+The public product includes the Robinhood Chain testnet beta and an experimental, production-gated mainnet path. Canonical USDG uses 6 base-unit decimals. A mainnet account is trusted only when the configured factory's complete immutable-linked runtime hash matches the pinned `2.1.0-security-beta` hash and that exact factory records the account version. Autonomous execution is supported in code but remains off unless every live gate passes.
 
 ## Release boundary
 
@@ -13,7 +13,7 @@ RuleWallet now has two isolated environments:
 | Robinhood Chain testnet | `46630` | Existing `RuleWalletPolicyAccount` V1 and scheduled demo agent | Valueless test ETH only |
 | Robinhood Chain mainnet | `4663` | Experimental factory-deployed `RuleWalletPolicyAccountV2` | Real assets; unaudited and high risk |
 
-V1 is preserved for the public testnet demo. V2 is non-upgradeable, has a narrower transfer-only surface, and is not deployed by this repository release. No backend or administrator can override V2 policy checks.
+V1 is preserved for the public testnet demo. V2 is non-upgradeable and has a narrower transfer-only surface. Factory and account deployment require explicit connected-wallet signatures; no release script broadcasts them. No backend or administrator can override V2 policy checks.
 
 ## Mainnet flow
 
@@ -76,17 +76,18 @@ V1 and V2 retain the current hour plus the previous 24 hourly buckets. This deli
 
 Testnet retains its dedicated, server-only demo EOA for backwards compatibility. `AGENT_PRIVATE_KEY` is explicitly testnet-only.
 
-Mainnet uses the `SecureAgentSigner` interface. Its adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service and accepts no raw private key. The security-beta release gate is compile-time disabled. A future audited release would still fail closed unless all of these are true:
+Mainnet uses the `SecureAgentSigner` interface. Its adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service and accepts no raw private key. The included AWS service uses a non-exportable KMS secp256k1 key and DynamoDB idempotency. Execution fails closed unless all of these are true:
 
-- a separately reviewed code change enables the compile-time release gate and `ENABLE_MAINNET_AUTONOMY=true`;
+- the release supports autonomy and both `ENABLE_MAINNET=true` and `ENABLE_MAINNET_AUTONOMY=true`;
 - `MAINNET_SIGNER_MODE=external-kms`;
-- the configured public signer address, key ID, and signer identity attestation are verified;
+- the remote public signer address, key ID, public-key attestation, non-exportability flag, chain, zero-value policy, and allowed selector are verified;
 - signer endpoint is HTTPS, matches the exact allowed hostname, and has a runtime credential;
-- two managed RPC endpoints agree and strict gas/fee ceilings pass;
+- two independent managed HTTPS RPC hosts agree and strict gas/fee ceilings pass;
+- durable Redis storage, authenticated Cron, and HTTPS alert delivery are configured;
 - the agent has `AGENT_ROLE` on the selected account;
 - the exact call simulates successfully under current onchain policy.
 
-Durable Redis locks use unique ownership tokens and compare-before-delete release. A signer-global lock serializes nonce allocation across strategies, and a submitted nonce remains durably reserved across timeout until reconciliation. Pending, replaced, timed-out, and late-confirmed states are recorded. Confirmation tracking and public receipts use Blockscout transaction hashes.
+Durable Redis locks use unique ownership tokens and compare-before-delete release. A signer-global lock serializes nonce allocation across strategies, and a submitted nonce remains durably reserved across timeout until exact calldata, signer, recipient, value, and nonce are reconciled. Pending, replaced, timed-out, reverted, and late-confirmed states are recorded. Confirmation tracking and public receipts use Blockscout transaction hashes.
 
 ## RPC and data
 

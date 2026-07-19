@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Experimental mainnet preview",
+  title: "Experimental mainnet",
   description:
-    "Experimental, unaudited RuleWallet V2 onboarding for Robinhood Chain mainnet.",
+    "Experimental, unaudited RuleWallet V2 accounts and production-gated autonomy on Robinhood Chain mainnet.",
 };
 
 export default function MainnetPage() {
@@ -26,15 +26,15 @@ export default function MainnetPage() {
               variant="outline"
               className="border-red-500/30 bg-red-50 text-red-800"
             >
-              Experimental preview · manual actions only
+              Experimental mainnet · production-gated autonomy
             </Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-              Robinhood Chain mainnet preview
+              Robinhood Chain mainnet
             </h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">
               Deploy a personal V2 policy account, configure bounded agent
-              authority, and inspect every owner-signed transaction before it
-              reaches your wallet.
+              authority, and run exact owner-signed strategies through a
+              verified non-exportable signer when every production gate passes.
             </p>
           </div>
           <div className="flex gap-2">

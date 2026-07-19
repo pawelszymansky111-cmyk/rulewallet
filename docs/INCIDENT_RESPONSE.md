@@ -2,7 +2,7 @@
 
 ## Security-beta containment
 
-Mainnet autonomy is compile-time disabled and has no production Cron schedule. If status ever reports otherwise, treat it as a critical release-integrity incident: take the deployment offline, revoke signer workload identity, preserve logs, compare the deployed commit and runtime hashes, and do not resume from an environment-variable change alone.
+Mainnet autonomy is supported but defaults off and requires every runtime gate. If it becomes enabled unexpectedly, treat that as a critical release-integrity incident: set `ENABLE_MAINNET_AUTONOMY=false`, disable the Cron route, revoke signer access, preserve logs, compare the deployed commit/runtime hashes and remote signer attestation, and do not resume from an environment-variable change alone.
 
 ## Severity
 

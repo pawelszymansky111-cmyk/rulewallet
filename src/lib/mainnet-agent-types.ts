@@ -64,6 +64,45 @@ export const createMainnetStrategySchema = z.object({
 
 export type CreateMainnetStrategy = z.infer<typeof createMainnetStrategySchema>;
 
+export const mainnetAdminActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("set-strategy-active"),
+    strategyId: z.string().uuid(),
+    account: addressSchema,
+    active: z.boolean(),
+    nonce: z.string().uuid(),
+    expiresAt: z.number().int().positive(),
+  }),
+  z.object({
+    action: z.literal("run-strategy"),
+    strategyId: z.string().uuid(),
+    account: addressSchema,
+    nonce: z.string().uuid(),
+    expiresAt: z.number().int().positive(),
+  }),
+]);
+
+export type MainnetAdminAction = z.infer<typeof mainnetAdminActionSchema>;
+
+export const signedMainnetAdminActionSchema = z.object({
+  payload: mainnetAdminActionSchema,
+  signature: z.string().regex(/^0x[a-fA-F0-9]{130}$/),
+});
+
+export function buildMainnetAdminMessage(action: MainnetAdminAction) {
+  return [
+    "RuleWallet mainnet scheduler authorization",
+    "Chain ID: 4663",
+    `Policy account: ${action.account}`,
+    `Action: ${action.action}`,
+    `Strategy ID: ${action.strategyId}`,
+    ...(action.action === "set-strategy-active" ? [`Active: ${String(action.active)}`] : []),
+    `Nonce: ${action.nonce}`,
+    `Expires at: ${action.expiresAt}`,
+    "This signature cannot move funds or change onchain policy.",
+  ].join("\n");
+}
+
 export const strategyTypes = {
   Strategy: [
     { name: "chainId", type: "uint256" },

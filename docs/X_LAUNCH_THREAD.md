@@ -8,7 +8,7 @@
 
 4/ Security-beta work fixed canonical USDG to 6 decimals, revalidates queued authorization at execution, enforces separate roles, and pins factory runtime provenance.
 
-5/ Mainnet is only an experimental manual preview. Autonomous execution is compile-time disabled; no swaps, bridges, arbitrary calls, unlimited approvals, or raw mainnet private keys.
+5/ Mainnet is experimental and unaudited. Autonomous execution fails closed unless every production gate and a verified non-exportable signer identity pass; there are no swaps, bridges, arbitrary calls, unlimited approvals, or raw mainnet private keys.
 
 6/ The review is internal—not an external audit. Try the testnet demo, inspect the code and receipts, and tell us what policy an onchain agent needs next: https://rulewallet.vercel.app/demo
 
