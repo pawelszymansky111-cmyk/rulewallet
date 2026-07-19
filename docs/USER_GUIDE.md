@@ -22,7 +22,7 @@ Amounts below the configured approval threshold execute immediately if all hard 
 ## Personal policy account and trusted addresses
 
 1. Deploy your own contract at `/app/deploy`, or open `/app/services` and enter an existing RuleWallet policy-account address.
-2. Select **Verify and use**. RuleWallet checks that code exists and that the connected wallet holds `DEFAULT_ADMIN_ROLE`.
+2. Select **Verify and use**. RuleWallet checks the pinned testnet runtime bytecode and confirms that the connected wallet holds `DEFAULT_ADMIN_ROLE`.
 3. Enter a private local label and the full EVM recipient address.
 4. Select **Preview permission** and verify the chain, policy account, target, detected wallet/contract type, permission, and scope.
 5. Sign `setTargetAllowed(target, true)` in your wallet.
@@ -44,6 +44,17 @@ The ecosystem section is for discovery. Protocol contracts are not one-click ena
 8. Pause a strategy with another admin signature, revoke `AGENT_ROLE`, or emergency-pause the contract at any time.
 
 The scheduled agent cannot edit policies or targets and refuses amounts above the human-approval threshold.
+
+## Owner funds and recovery
+
+1. Open `/app`, connect the account owner, and confirm the selected policy account.
+2. Enter a small faucet-ETH amount under **Owner funds** and simulate the direct deposit before signing it in the wallet.
+3. To recover funds, first use the guardian or owner pause control in `/app/agent`.
+4. Return to **Owner funds**, enter the amount and recovery recipient, and simulate `emergencyWithdrawNative`.
+5. Sign only after the preview shows chain `46630`, the intended policy account, amount, and recipient.
+6. Open the resulting explorer receipt and unpause only after the incident or recovery is resolved.
+
+Deposits do not grant the agent additional authority. Owner recovery remains separate from agent limits, requires `DEFAULT_ADMIN_ROLE`, and is available only while the account is paused.
 
 ## Notifications
 

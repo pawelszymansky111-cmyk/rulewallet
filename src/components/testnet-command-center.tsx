@@ -5,7 +5,9 @@ import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
+  ArrowDownToLine,
   ArrowUpRight,
+  ArrowUpFromLine,
   Check,
   ExternalLink,
   FileSignature,
@@ -39,6 +41,7 @@ import {
 type ContractSnapshot = {
   active: boolean;
   paused: boolean;
+  balance: bigint;
   nonce: bigint;
   rollingSpent: bigint;
   minimumApprovals: number;
@@ -57,6 +60,12 @@ type PreparedCall = {
   deadline: bigint;
   nonce: bigint;
   requiresApproval: boolean;
+};
+
+type PreparedOwnerFunds = {
+  kind: "deposit" | "withdraw";
+  amount: bigint;
+  recipient: `0x${string}`;
 };
 
 function errorMessage(error: unknown) {
@@ -85,6 +94,9 @@ export function TestnetCommandCenter() {
   const [hash, setHash] = useState<Hash>();
   const [receipt, setReceipt] = useState<TransactionReceipt>();
   const [approvalRequestId, setApprovalRequestId] = useState("");
+  const [ownerFundsAmount, setOwnerFundsAmount] = useState("0.0001");
+  const [withdrawalRecipient, setWithdrawalRecipient] = useState("");
+  const [preparedOwnerFunds, setPreparedOwnerFunds] = useState<PreparedOwnerFunds>();
 
   const isTestnet = connection.chainId === robinhoodTestnet.id;
   const explorerUrl = hash
@@ -95,7 +107,7 @@ export function TestnetCommandCenter() {
     if (!publicClient || !policyAccountAddress || !connection.address) return;
     setStatus("reading");
     try {
-      const [active, paused, nonce, rollingSpent, minimumApprovals, nativePolicy] =
+      const [active, paused, balance, nonce, rollingSpent, minimumApprovals, nativePolicy] =
         await Promise.all([
           publicClient.readContract({
             address: policyAccountAddress,
@@ -107,6 +119,7 @@ export function TestnetCommandCenter() {
             abi: ruleWalletAbi,
             functionName: "paused",
           }),
+          publicClient.getBalance({ address: policyAccountAddress }),
           publicClient.readContract({
             address: policyAccountAddress,
             abi: ruleWalletAbi,
@@ -134,6 +147,7 @@ export function TestnetCommandCenter() {
       setSnapshot({
         active,
         paused,
+        balance,
         nonce,
         rollingSpent,
         minimumApprovals,
@@ -331,6 +345,101 @@ export function TestnetCommandCenter() {
           ? "Human approval recorded onchain."
           : "Approved request executed onchain.",
       );
+      await refreshContract();
+    } catch (error) {
+      setStatus("error");
+      setMessage(errorMessage(error));
+    }
+  }
+
+  async function prepareOwnerFunds(kind: "deposit" | "withdraw") {
+    if (!publicClient || !policyAccountAddress || !connection.address) return;
+    setPreparedOwnerFunds(undefined);
+    setHash(undefined);
+    setReceipt(undefined);
+    setMessage("");
+
+    let value: bigint;
+    try {
+      value = parseEther(ownerFundsAmount);
+      if (value <= 0) throw new Error("zero");
+    } catch {
+      setStatus("error");
+      setMessage("Enter a positive testnet ETH amount.");
+      return;
+    }
+
+    const recipient = withdrawalRecipient || connection.address;
+    if (!isAddress(recipient)) {
+      setStatus("error");
+      setMessage("Enter a valid withdrawal recipient.");
+      return;
+    }
+    if (kind === "withdraw" && !snapshot?.paused) {
+      setStatus("error");
+      setMessage("Pause the policy account before using emergency owner recovery.");
+      return;
+    }
+
+    setStatus("simulating");
+    try {
+      if (kind === "deposit") {
+        await publicClient.call({
+          account: connection.address,
+          to: policyAccountAddress,
+          value,
+          data: "0x",
+        });
+      } else {
+        await publicClient.simulateContract({
+          account: connection.address,
+          address: policyAccountAddress,
+          abi: ruleWalletAbi,
+          functionName: "emergencyWithdrawNative",
+          args: [recipient, value],
+        });
+      }
+      setPreparedOwnerFunds({ kind, amount: value, recipient });
+      setStatus("idle");
+      setMessage(
+        kind === "deposit"
+          ? "Deposit simulation passed. Your wallet will send testnet ETH directly to the policy account."
+          : "Paused owner-recovery simulation passed. Review the recipient before signing.",
+      );
+    } catch (error) {
+      setStatus("error");
+      setMessage(errorMessage(error));
+    }
+  }
+
+  async function signOwnerFunds() {
+    if (!preparedOwnerFunds || !walletClient.data || !publicClient || !policyAccountAddress || !connection.address) return;
+    setStatus("signing");
+    setMessage("Confirm the exact testnet owner-funds transaction in your wallet.");
+    try {
+      const transactionHash = preparedOwnerFunds.kind === "deposit"
+        ? await walletClient.data.sendTransaction({
+            account: connection.address,
+            chain: robinhoodTestnet,
+            to: policyAccountAddress,
+            value: preparedOwnerFunds.amount,
+            data: "0x",
+          })
+        : await walletClient.data.writeContract({
+            account: connection.address,
+            chain: robinhoodTestnet,
+            address: policyAccountAddress,
+            abi: ruleWalletAbi,
+            functionName: "emergencyWithdrawNative",
+            args: [preparedOwnerFunds.recipient, preparedOwnerFunds.amount],
+          });
+      setHash(transactionHash);
+      setStatus("confirming");
+      const confirmedReceipt = await publicClient.waitForTransactionReceipt({ hash: transactionHash });
+      setReceipt(confirmedReceipt);
+      setStatus("confirmed");
+      setMessage(preparedOwnerFunds.kind === "deposit" ? "Testnet deposit confirmed." : "Paused owner recovery confirmed.");
+      setPreparedOwnerFunds(undefined);
       await refreshContract();
     } catch (error) {
       setStatus("error");
@@ -564,6 +673,52 @@ export function TestnetCommandCenter() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Owner funds</CardTitle>
+              <CardDescription className="mt-1">
+                Deposit testnet ETH directly. Owner recovery requires the account to be paused and a separate wallet signature.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-primary/25 text-primary">
+              Balance {snapshot ? formatEther(snapshot.balance) : "—"} testnet ETH
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="owner-funds-amount">Amount in testnet ETH</Label>
+              <Input id="owner-funds-amount" value={ownerFundsAmount} onChange={(event) => { setOwnerFundsAmount(event.target.value); setPreparedOwnerFunds(undefined); }} inputMode="decimal" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="withdrawal-recipient">Recovery recipient</Label>
+              <Input id="withdrawal-recipient" value={withdrawalRecipient} onChange={(event) => { setWithdrawalRecipient(event.target.value); setPreparedOwnerFunds(undefined); }} placeholder={connection.address ?? "0x… owner wallet"} className="font-mono" />
+              <p className="text-[11px] text-muted-foreground">Leave empty to recover to the connected owner wallet.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => prepareOwnerFunds("deposit")} disabled={status === "simulating" || status === "signing" || status === "confirming"}><ArrowDownToLine /> Simulate deposit</Button>
+            <Button type="button" variant="outline" onClick={() => prepareOwnerFunds("withdraw")} disabled={status === "simulating" || status === "signing" || status === "confirming"}><ArrowUpFromLine /> Simulate paused recovery</Button>
+            <Button asChild type="button" variant="ghost"><Link href="/app/agent">Open pause controls <ArrowUpRight /></Link></Button>
+          </div>
+
+          {preparedOwnerFunds && (
+            <div className="space-y-4 rounded-xl border border-primary/15 bg-primary/[0.025] p-4">
+              <div className="grid gap-3 font-mono text-xs sm:grid-cols-2">
+                <div><p className="text-muted-foreground">Action</p><p className="mt-1">{preparedOwnerFunds.kind === "deposit" ? "Direct deposit" : "Paused owner recovery"}</p></div>
+                <div><p className="text-muted-foreground">Amount</p><p className="mt-1">{formatEther(preparedOwnerFunds.amount)} testnet ETH</p></div>
+                <div><p className="text-muted-foreground">Contract</p><p className="mt-1 break-all">{policyAccountAddress}</p></div>
+                <div><p className="text-muted-foreground">Recipient</p><p className="mt-1 break-all">{preparedOwnerFunds.kind === "deposit" ? policyAccountAddress : preparedOwnerFunds.recipient}</p></div>
+              </div>
+              <Button type="button" onClick={signOwnerFunds} disabled={status === "signing" || status === "confirming"}><FileSignature /> Sign exact {preparedOwnerFunds.kind}</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {message && (
         <Alert

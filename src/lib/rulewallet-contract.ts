@@ -23,6 +23,7 @@ export const ruleWalletAbi = parseAbi([
   "function executeApprovedRequest(uint256 requestId)",
   "function pause()",
   "function unpause()",
+  "function emergencyWithdrawNative(address recipient, uint256 amount)",
   "event RequestCreated(uint256 indexed requestId, uint8 indexed kind, address indexed agent, address target, address asset, uint256 amount, uint256 expiresAt, uint16 declaredSlippageBps)",
   "event RequestApproved(uint256 indexed requestId, address indexed approver, uint256 approvals)",
   "event RequestExecuted(uint256 indexed requestId, uint8 indexed kind, address indexed actor, address target, address asset, uint256 amount, bytes32 dataHash)",

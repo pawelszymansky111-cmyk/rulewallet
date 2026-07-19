@@ -56,6 +56,8 @@ For the deployed public flow, start at [rulewallet.vercel.app/demo](https://rule
 
 The console lives at [rulewallet.vercel.app/app](https://rulewallet.vercel.app/app) and opens separately from onboarding. Its live safety dashboard combines policy balance, rolling allowance, role state, next scheduled transfer, and recent execution evidence. Notification readiness is visible at `/app/notifications` without exposing endpoint credentials.
 
+The testnet command center also provides exact-simulation owner funding and paused recovery. Deposits send faucet ETH directly to the selected policy account; recovery uses a separately wallet-signed `emergencyWithdrawNative` call and remains unavailable until the account is paused.
+
 For hackathon review, open the [submission page](https://rulewallet.vercel.app/hackathon), follow the [two-minute judge demo](https://rulewallet.vercel.app/demo), or use the [owner onboarding flow](https://rulewallet.vercel.app/start). Ready-to-paste submission and pitch copy live in [`docs/HACKATHON_SUBMISSION.md`](docs/HACKATHON_SUBMISSION.md) and [`docs/PITCH_SCRIPT.md`](docs/PITCH_SCRIPT.md).
 
 Quality checks:
