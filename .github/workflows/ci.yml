@@ -18,10 +18,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run test:e2e
 
   contracts:
     runs-on: ubuntu-latest
@@ -38,4 +40,6 @@ jobs:
       - run: cd contracts && forge install foundry-rs/forge-std@v1.16.2 --no-git --shallow
       - run: npm run contracts:fmt
       - run: npm run contracts:test
+      - name: Mandatory current-state Robinhood Chain mainnet fork
+        run: npm run contracts:test:mainnet-fork
       - run: npm run contracts:artifact:check

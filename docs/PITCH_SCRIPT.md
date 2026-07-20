@@ -1,23 +1,23 @@
-# RuleWallet pitch script
+# RuleWallet pitch
 
-## 30-second version
+## 30 seconds
 
-AI agents need wallets to act, but a normal wallet key gives them unlimited authority. RuleWallet replaces that risk with a policy account on Robinhood Chain testnet. The owner defines trusted recipients, per-transaction and rolling limits, approval thresholds, and emergency controls. A separate agent signer can act only inside those rules, every call is simulated first, and every result has a public receipt. Agents act; rules hold.
+AI agents need permission to pay, but they should not own your wallet. RuleWallet is a spending command center where users create passkey or external-wallet accounts and set trusted merchants, transaction and period budgets, categories, time windows, approvals, pause, and revoke. A separate agent can act automatically only inside those onchain rules, and every result has a receipt. Tell the agent what to buy; keep the keys and the limits.
 
-## 90-second version
+## 90 seconds
 
-An autonomous agent that can pay, trade, or rebalance is useful—but a normal wallet key gives it authority over everything. Prompt instructions do not fix that security problem.
+Booking a flight, paying a subscription, or settling an invoice makes an AI agent useful. Giving that agent a normal private key makes one mistake catastrophic. Prompt rules cannot fix that.
 
-RuleWallet is an onchain policy account for AI agents. The owner keeps the admin wallet, while a separate agent key receives only a narrow role. The contract enforces trusted targets, per-transaction caps, rolling 24-hour limits, human approval thresholds, nonces, expiry, pause, and revoke.
+RuleWallet V3 creates a personal, non-upgradeable account and a paired policy registry on Robinhood Chain. The owner can connect MetaMask or create a passkey-backed wallet. The agent gets a separate role that can request only ETH or canonical USDG payments.
 
-This is a working Robinhood Chain testnet product. A scheduled strategy is stored in Redis. Before execution, the runner re-reads the contract, verifies the agent role and policy, checks the balance and nonce, then simulates the exact call. Only then does the scoped agent sign. Confirmed and blocked attempts appear as public receipts with explorer evidence.
+Every request is rechecked onchain against the exact merchant, asset, category, amount, rolling 24-hour spend, daily/weekly/monthly budgets, merchant count, expiry, and UTC schedule. A merchant may be approved for confirmation-free payments, but never outside those limits. High-risk actions go to an independent approval inbox. A guardian can pause immediately, and the owner can revoke the agent or strategy.
 
-The key idea is that the frontend and AI are not the source of authority—the contract is. If the model, backend, or agent key is compromised, the hard policy still applies.
+The product models the whole commerce lifecycle: intent, provider quote, cart, policy decision, approval, payment receipt, provider confirmation, and reconciliation. Duffel test inventory and Ticketmaster discovery show real provider data without pretending a search is a completed purchase.
 
-For this MVP, mainnet and real funds are deliberately disabled. The contracts are unaudited, and generic DeFi routers require dedicated selector-limited adapters. The next step is audited integrations and multisig production administration.
+Mainnet automation has no raw-key path. It requires a non-exportable signer plus verified factory bytecode, dual RPC agreement, durable nonce locks, fee ceilings, scheduler, monitoring, and the current onchain policy. Missing one gate blocks execution.
 
-RuleWallet gives agents enough authority to be useful, without giving them the whole wallet.
+RuleWallet gives agents enough authority to be useful—without giving them the whole wallet.
 
 ## Closing line
 
-**Give agents authority, not your wallet.**
+**Tell the agent what to buy. Keep the keys and the limits.**

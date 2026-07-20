@@ -1,4 +1,5 @@
 import "server-only";
+import { signedWebhookHeaders, webhookSigningSecretConfigured } from "@/lib/signed-webhook";
 
 export type MainnetAlert = {
   severity: "critical" | "high" | "medium";
@@ -11,18 +12,28 @@ export type MainnetAlert = {
 };
 
 export function mainnetAlertsConfigured() {
-  return Boolean(process.env.MAINNET_ALERT_WEBHOOK_URL && process.env.MAINNET_ALERT_WEBHOOK_TOKEN);
+  return Boolean(
+    process.env.MAINNET_ALERT_WEBHOOK_URL
+      && process.env.MAINNET_ALERT_WEBHOOK_TOKEN
+      && webhookSigningSecretConfigured(process.env.MAINNET_ALERT_WEBHOOK_SIGNING_SECRET),
+  );
 }
 
 export async function sendMainnetAlert(alert: MainnetAlert) {
   if (!mainnetAlertsConfigured()) return false;
+  const body = JSON.stringify(alert);
   const response = await fetch(process.env.MAINNET_ALERT_WEBHOOK_URL!, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${process.env.MAINNET_ALERT_WEBHOOK_TOKEN}`,
       "Content-Type": "application/json",
+      ...signedWebhookHeaders({
+        body,
+        deliveryId: crypto.randomUUID(),
+        secret: process.env.MAINNET_ALERT_WEBHOOK_SIGNING_SECRET!,
+      }),
     },
-    body: JSON.stringify(alert),
+    body,
     cache: "no-store",
     signal: AbortSignal.timeout(8_000),
   });

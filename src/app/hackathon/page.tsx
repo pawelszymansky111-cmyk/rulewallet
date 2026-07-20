@@ -4,14 +4,11 @@ import {
   ArrowRight,
   Bot,
   Check,
-  Code2,
   Eye,
   Fingerprint,
   Gauge,
-  GitBranch,
   LockKeyhole,
   Network,
-  Pause,
   Radio,
   Route,
   ShieldCheck,
@@ -25,8 +22,6 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const githubUrl = process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/pawelszymansky111-cmyk/rulewallet";
 
 export const metadata: Metadata = {
   title: "Hackathon submission",
@@ -43,7 +38,7 @@ const innovations = [
 const demoSteps = [
   { time: "0:00–0:30", title: "Inspect live guardrails", text: "See policy state, rolling allowance, agent role, contract balance, and the observed testnet block." },
   { time: "0:30–1:05", title: "Verify autonomous execution", text: "Open the latest public receipt and compare its transaction hash with the Robinhood Chain testnet explorer." },
-  { time: "1:05–2:00", title: "Try to break the rules", text: "Cross a limit or select an unknown target in the simulator, then inspect the operator pause and revoke controls." },
+  { time: "1:05–2:00", title: "Try to break the rules", text: "Cross a limit or select an untrusted recipient in the simulator, then inspect the operator pause and revoke controls." },
 ] as const;
 
 export default function HackathonPage() {
@@ -60,14 +55,13 @@ export default function HackathonPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg"><Link href="/demo"><Timer /> Run the 2-minute demo</Link></Button>
                 <Button asChild size="lg" variant="outline"><Link href="/start"><Wallet /> Build your testnet wallet</Link></Button>
-                <Button asChild size="lg" variant="ghost"><a href={githubUrl}><GitBranch /> Source code</a></Button>
               </div>
             </div>
             <Card className="border-primary/20 bg-primary/[0.035]">
               <CardHeader><CardTitle>Submission snapshot</CardTitle><CardDescription>What judges can verify without trusting our claims.</CardDescription></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {["Deployed policy contract", "Dedicated scoped agent signer", "Scheduled recurring strategy", "Onchain simulation and enforcement", "Public explorer-backed receipts", "Open tests and threat model"].map((item) => <p key={item} className="flex items-center gap-2"><Check className="size-4 shrink-0 text-primary" />{item}</p>)}
-                <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-50 p-4 text-xs leading-5 text-amber-800"><strong className="text-amber-900">Safety boundary:</strong> testnet ETH has no value. The contracts are unaudited, mainnet is disabled, and real funds must never be deposited.</div>
+                <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-50 p-4 text-xs leading-5 text-amber-800"><strong className="text-amber-900">Safety boundary:</strong> testnet ETH has no value. The contracts are unaudited. Mainnet is a separate experimental release whose autonomy fails closed until every production gate passes.</div>
               </CardContent>
             </Card>
           </div>
@@ -115,7 +109,7 @@ export default function HackathonPage() {
           <div className="max-w-2xl"><p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">Roadmap</p><h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">From testnet proof to production infrastructure.</h2></div>
           <div className="mt-10 grid gap-4 md:grid-cols-3">
             <Card className="border-primary/20"><CardHeader><Badge className="w-fit bg-primary/10 text-primary">Now</Badge><CardTitle>Hackathon MVP</CardTitle><CardDescription className="leading-6">Personal policy accounts, trusted addresses, scheduled transfers, live metrics, receipts, approvals, pause, and revoke.</CardDescription></CardHeader></Card>
-            <Card><CardHeader><Badge variant="outline" className="w-fit">Next</Badge><CardTitle>Audited adapters</CardTitle><CardDescription className="leading-6">Selector-limited integrations for swaps, lending, bridges, and tokenized assets with verified output constraints.</CardDescription></CardHeader></Card>
+            <Card><CardHeader><Badge variant="outline" className="w-fit">Next</Badge><CardTitle>Production hardening</CardTitle><CardDescription className="leading-6">Independent audits, stronger signer custody, monitored canary deployments, and notification delivery integrations.</CardDescription></CardHeader></Card>
             <Card><CardHeader><Badge variant="outline" className="w-fit">Later</Badge><CardTitle>Mainnet gates</CardTitle><CardDescription className="leading-6">Independent audits, multisig administration, monitored RPC failover, canary limits, incident drills, and explicit deployment approval.</CardDescription></CardHeader></Card>
           </div>
         </section>
@@ -125,7 +119,7 @@ export default function HackathonPage() {
             <LockKeyhole className="mx-auto size-7 text-primary" />
             <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight">Inspect it. Break it. Verify it.</h2>
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-muted-foreground">No pitch deck is required to prove the core flow. The contract, automation, receipts, tests, and failure boundaries are public.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button><Button asChild size="lg" variant="outline"><a href={githubUrl}><Code2 /> Review the code</a></Button><Button asChild size="lg" variant="ghost"><Link href="/security"><Pause /> Security model</Link></Button></div>
+            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button></div>
           </div>
         </section>
       </main>

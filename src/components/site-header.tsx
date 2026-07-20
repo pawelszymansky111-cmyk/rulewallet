@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Code2, ExternalLink, Menu } from "lucide-react";
+import { ExternalLink, Menu } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExperienceModeToggle } from "@/components/experience-mode-toggle";
 import { useExperienceMode } from "@/components/experience-mode-provider";
@@ -9,17 +9,15 @@ import { Button } from "@/components/ui/button";
 import { WalletControl } from "@/components/wallet-control";
 
 const navigation = [
-  { href: "/start", simple: "Get started", pro: "Start" },
+  { href: "/command", simple: "Command center", pro: "Command center" },
+  { href: "/start", simple: "How it works", pro: "Onboarding" },
   { href: "/demo", simple: "Try demo", pro: "Demo" },
   { href: "/activity", simple: "What happened", pro: "Activity" },
-  { href: "/mainnet", simple: "Real funds", pro: "Mainnet lab" },
+  { href: "/approvals", simple: "Approvals", pro: "Approval queue" },
   { href: "/docs", simple: "Learn", pro: "Docs" },
-  { href: "/security", simple: "Safety", pro: "Security" },
 ] as const;
 
-const githubUrl =
-  process.env.NEXT_PUBLIC_GITHUB_URL ??
-  "https://github.com/pawelszymansky111-cmyk/rulewallet";
+const xUrl = process.env.NEXT_PUBLIC_X_URL ?? "https://x.com/rulewallet";
 
 export function SiteHeader() {
   const { mode } = useExperienceMode();
@@ -44,15 +42,8 @@ export function SiteHeader() {
         </nav>
         <div className="flex items-center gap-2">
           <ExperienceModeToggle className="hidden sm:flex" />
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            className="hidden sm:inline-flex"
-          >
-            <a href={githubUrl} aria-label="GitHub repository">
-              <Code2 />
-            </a>
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <a href={xUrl} target="_blank" rel="noreferrer" aria-label="RuleWallet on X">X</a>
           </Button>
           <WalletControl compact />
           <details className="group relative lg:hidden">
@@ -89,6 +80,14 @@ export function SiteHeader() {
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-primary hover:bg-primary/10"
               >
                 Open console <ExternalLink className="size-3" />
+              </a>
+              <a
+                href={xUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                RuleWallet on X
               </a>
             </nav>
           </details>

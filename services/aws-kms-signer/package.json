@@ -1,0 +1,11 @@
+{
+  "name": "rulewallet-aws-kms-signer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.883.0",
+    "@aws-sdk/client-kms": "^3.883.0",
+    "viem": "2.55.2"
+  }
+}

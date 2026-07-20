@@ -49,9 +49,9 @@ export function MainnetSimpleMode() {
             : "Stop and read this before using real funds"}
         </AlertTitle>
         <AlertDescription className="text-red-800">
-          This environment uses real assets. The contracts are experimental and
-          unaudited. Use the public testnet demo unless you understand every
-          role and wallet prompt.
+          This experimental release uses real assets and has not been independently audited.
+          Owner actions require wallet signatures; autonomous transfers stay locked unless
+          every production gate and the remote non-exportable signer identity pass.
         </AlertDescription>
       </Alert>
       <div className="grid gap-4 md:grid-cols-2">

@@ -24,30 +24,32 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "RuleWallet — Policy controls for AI agents",
+    default: "RuleWallet — Give agents a budget. Keep the keys.",
     template: "%s · RuleWallet",
   },
   description:
-    "Policy controls for bounded onchain agents, with a live testnet demo and an explicitly experimental Robinhood Chain mainnet release.",
+    "Programmable spending controls for autonomous onchain agents: trusted recipients, hard limits, human approvals, emergency controls, and public receipts.",
   keywords: [
     "AI agents",
     "wallet policy",
     "onchain permissions",
     "Robinhood Chain",
     "agent payments",
+    "recurring crypto payments",
+    "autonomous agent wallet",
   ],
   openGraph: {
-    title: "RuleWallet — Agents act. Rules hold.",
+    title: "RuleWallet — Give agents a budget. Keep the keys.",
     description:
-      "A working autonomous testnet agent with onchain limits and public execution receipts.",
+      "Programmable spending controls for autonomous agents, live on Robinhood Chain testnet.",
     type: "website",
     siteName: "RuleWallet",
   },
   twitter: {
     card: "summary_large_image",
-    title: "RuleWallet — Agents act. Rules hold.",
+    title: "RuleWallet — Give agents a budget. Keep the keys.",
     description:
-      "A working autonomous testnet agent with onchain limits and public execution receipts.",
+      "Trusted recipients, hard limits, human approvals, emergency controls, and public receipts.",
   },
 };
 

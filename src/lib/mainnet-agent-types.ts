@@ -14,11 +14,14 @@ export const mainnetStrategySchema = z.object({
   asset: addressSchema,
   recipient: addressSchema,
   amount: uintString,
+  category: z.number().int().min(0).max(255),
+  intentHash: z.string().refine(isHash),
   nonce: uintString,
   expiry: uintString,
   intervalSeconds: z.number().int().min(300).max(31_536_000),
   maxExecutions: z.number().int().min(1).max(10_000),
   signature: z.string().regex(/^0x[a-fA-F0-9]{130}$/),
+  digest: z.string().refine(isHash).optional(),
   active: z.boolean(),
   createdAt: z.iso.datetime(),
   nextRunAt: z.iso.datetime(),
@@ -37,7 +40,7 @@ export const mainnetExecutionSchema = z.object({
   recipient: addressSchema,
   amount: uintString,
   trigger: z.enum(["schedule", "manual"]),
-  status: z.enum(["confirmed", "blocked", "failed"]),
+  status: z.enum(["pending", "confirmed", "replaced", "timed_out", "late_confirmed", "blocked", "failed"]),
   reason: z.string().max(400).optional(),
   transactionHash: z.string().refine(isHash).optional(),
   blockNumber: uintString.optional(),
@@ -54,6 +57,8 @@ export const createMainnetStrategySchema = z.object({
   asset: addressSchema,
   recipient: addressSchema,
   amount: uintString,
+  category: z.number().int().min(0).max(255),
+  intentHash: z.string().refine(isHash),
   nonce: uintString,
   expiry: uintString,
   intervalSeconds: z.number().int().min(300).max(31_536_000),
@@ -63,6 +68,45 @@ export const createMainnetStrategySchema = z.object({
 
 export type CreateMainnetStrategy = z.infer<typeof createMainnetStrategySchema>;
 
+export const mainnetAdminActionSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("set-strategy-active"),
+    strategyId: z.string().uuid(),
+    account: addressSchema,
+    active: z.boolean(),
+    nonce: z.string().uuid(),
+    expiresAt: z.number().int().positive(),
+  }),
+  z.object({
+    action: z.literal("run-strategy"),
+    strategyId: z.string().uuid(),
+    account: addressSchema,
+    nonce: z.string().uuid(),
+    expiresAt: z.number().int().positive(),
+  }),
+]);
+
+export type MainnetAdminAction = z.infer<typeof mainnetAdminActionSchema>;
+
+export const signedMainnetAdminActionSchema = z.object({
+  payload: mainnetAdminActionSchema,
+  signature: z.string().regex(/^0x[a-fA-F0-9]{130}$/),
+});
+
+export function buildMainnetAdminMessage(action: MainnetAdminAction) {
+  return [
+    "RuleWallet mainnet scheduler authorization",
+    "Chain ID: 4663",
+    `Policy account: ${action.account}`,
+    `Action: ${action.action}`,
+    `Strategy ID: ${action.strategyId}`,
+    ...(action.action === "set-strategy-active" ? [`Active: ${String(action.active)}`] : []),
+    `Nonce: ${action.nonce}`,
+    `Expires at: ${action.expiresAt}`,
+    "This signature cannot move funds or change onchain policy.",
+  ].join("\n");
+}
+
 export const strategyTypes = {
   Strategy: [
     { name: "chainId", type: "uint256" },
@@ -70,6 +114,8 @@ export const strategyTypes = {
     { name: "asset", type: "address" },
     { name: "recipient", type: "address" },
     { name: "amount", type: "uint128" },
+    { name: "category", type: "uint8" },
+    { name: "intentHash", type: "bytes32" },
     { name: "nonce", type: "uint64" },
     { name: "expiry", type: "uint64" },
     { name: "intervalSeconds", type: "uint32" },
@@ -84,7 +130,7 @@ export function strategyTypedData(strategy: CreateMainnetStrategy) {
   return {
     domain: {
       name: "RuleWallet",
-      version: "2",
+      version: "3",
       chainId: ROBINHOOD_MAINNET_CHAIN_ID,
       verifyingContract: strategy.account as Address,
     },
@@ -96,6 +142,8 @@ export function strategyTypedData(strategy: CreateMainnetStrategy) {
       asset: strategy.asset as Address,
       recipient: strategy.recipient as Address,
       amount: BigInt(strategy.amount),
+      category: strategy.category,
+      intentHash: strategy.intentHash as `0x${string}`,
       nonce: BigInt(strategy.nonce),
       expiry: BigInt(strategy.expiry),
       intervalSeconds: strategy.intervalSeconds,

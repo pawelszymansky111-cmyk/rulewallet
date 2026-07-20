@@ -73,6 +73,7 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         bool executed;
         bool cancelled;
         bytes32 strategyDigest;
+        uint64 strategyExpiry;
     }
 
     error ZeroAddress();
@@ -103,6 +104,10 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
     error StrategyExhausted(bytes32 digest);
     error StrategyNotReady(bytes32 digest, uint256 nextExecutionAt);
     error StrategyNonceConflict(address owner, uint64 nonce, bytes32 expected, bytes32 supplied);
+    error OperationalRoleCollision(address account, bytes32 requestedRole);
+    error DuplicateApprover(address approver);
+    error ApprovalThresholdExceedsActiveApprovers(uint256 threshold, uint256 activeApprovers);
+    error RequestAgentNoLongerAuthorized(uint256 requestId, address agent);
 
     event FundsReceived(address indexed sender, uint256 amount);
     event PolicyStatusChanged(bool active, address indexed actor);
@@ -141,12 +146,14 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
     uint8 public minimumApprovals;
     uint64 public maxRequestLifetime = 24 hours;
     uint256 public nextRequestId = 1;
+    uint256 public activeApproverCount;
 
     mapping(address asset => AssetPolicy policy) public assetPolicies;
     mapping(address recipient => bool trusted) public trustedRecipients;
     mapping(address agent => uint256 nonce) public nextAgentNonce;
     mapping(uint256 requestId => ExecutionRequest request) private _requests;
     mapping(uint256 requestId => mapping(address approver => bool approved)) public hasApproved;
+    mapping(uint256 requestId => address[] approvers) private _requestApprovers;
     mapping(address asset => mapping(uint256 hourBucket => uint256 amount)) private _hourlySpend;
     mapping(bytes32 digest => StrategyState state) public strategyStates;
     mapping(address owner => mapping(uint64 nonce => bytes32 digest)) public strategyDigestByNonce;
@@ -167,12 +174,17 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
             revert InvalidApprovalThreshold();
         }
 
+        _requireDistinctOperationalRole(initialOwner, OWNER_ROLE);
+        _requireDistinctOperationalRole(initialGuardian, GUARDIAN_ROLE);
+        _requireDistinctOperationalRole(initialAgent, AGENT_ROLE);
+
         canonicalStablecoin = canonicalStablecoinAddress;
         _grantRole(OWNER_ROLE, initialOwner);
         _grantRole(GUARDIAN_ROLE, initialGuardian);
         _grantRole(AGENT_ROLE, initialAgent);
         for (uint256 i; i < initialApprovers.length; ++i) {
             if (initialApprovers[i] == address(0)) revert ZeroAddress();
+            _requireDistinctOperationalRole(initialApprovers[i], APPROVER_ROLE);
             _grantRole(APPROVER_ROLE, initialApprovers[i]);
         }
         minimumApprovals = initialMinimumApprovals;
@@ -247,6 +259,9 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
 
     function setMinimumApprovals(uint8 newThreshold) external onlyRole(OWNER_ROLE) {
         if (newThreshold == 0) revert InvalidApprovalThreshold();
+        if (newThreshold > activeApproverCount) {
+            revert ApprovalThresholdExceedsActiveApprovers(newThreshold, activeApproverCount);
+        }
         uint8 previous = minimumApprovals;
         minimumApprovals = newThreshold;
         emit ApprovalThresholdChanged(previous, newThreshold);
@@ -255,6 +270,13 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
     function setMaxRequestLifetime(uint64 newLifetime) external onlyRole(OWNER_ROLE) {
         if (newLifetime < 5 minutes || newLifetime > 7 days) revert InvalidDeadline(newLifetime);
         maxRequestLifetime = newLifetime;
+    }
+
+    function grantRole(bytes32 role, address account) public override {
+        if (role == OWNER_ROLE || role == AGENT_ROLE || role == APPROVER_ROLE || role == GUARDIAN_ROLE) {
+            _requireDistinctOperationalRole(account, role);
+        }
+        super.grantRole(role, account);
     }
 
     function pause() external onlyRole(GUARDIAN_ROLE) {
@@ -274,7 +296,7 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         nonReentrant
         returns (uint256 requestId)
     {
-        requestId = _requestTransfer(recipient, address(0), amount, deadline, nonce, bytes32(0));
+        requestId = _requestTransfer(recipient, address(0), amount, deadline, nonce, bytes32(0), 0);
     }
 
     function requestTokenTransfer(address recipient, uint128 amount, uint64 deadline, uint256 nonce)
@@ -284,7 +306,7 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         nonReentrant
         returns (uint256 requestId)
     {
-        requestId = _requestTransfer(recipient, canonicalStablecoin, amount, deadline, nonce, bytes32(0));
+        requestId = _requestTransfer(recipient, canonicalStablecoin, amount, deadline, nonce, bytes32(0), 0);
     }
 
     function executeSignedStrategy(Strategy calldata strategy, bytes calldata ownerSignature, uint64 requestDeadline)
@@ -322,9 +344,7 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
 
         state.lastExecutedAt = uint64(block.timestamp);
         state.executions += 1;
-        requestId = _requestTransfer(
-            strategy.recipient, strategy.asset, strategy.amount, requestDeadline, nextAgentNonce[msg.sender], digest
-        );
+        requestId = _requestSignedStrategyTransfer(strategy, requestDeadline, digest);
     }
 
     function revokeStrategy(bytes32 digest) external onlyRole(OWNER_ROLE) {
@@ -336,14 +356,23 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         ExecutionRequest storage pending = _pendingRequest(requestId);
         if (hasApproved[requestId][msg.sender]) revert ApprovalAlreadyRecorded(requestId, msg.sender);
         hasApproved[requestId][msg.sender] = true;
+        _requestApprovers[requestId].push(msg.sender);
         pending.approvals += 1;
         emit RequestApproved(requestId, msg.sender, pending.approvals);
     }
 
     function executeApprovedRequest(uint256 requestId) external whenNotPaused nonReentrant {
         ExecutionRequest storage pending = _pendingRequest(requestId);
-        if (pending.approvals < minimumApprovals) {
-            revert InsufficientApprovals(requestId, pending.approvals, minimumApprovals);
+        if (!hasRole(AGENT_ROLE, pending.agent)) {
+            revert RequestAgentNoLongerAuthorized(requestId, pending.agent);
+        }
+        if (pending.strategyDigest != bytes32(0)) {
+            if (strategyStates[pending.strategyDigest].revoked) revert StrategyIsRevoked(pending.strategyDigest);
+            if (pending.strategyExpiry < block.timestamp) revert StrategyExpired(pending.strategyDigest);
+        }
+        uint256 activeApprovals = _activeApprovalCount(requestId);
+        if (activeApprovals < minimumApprovals) {
+            revert InsufficientApprovals(requestId, activeApprovals, minimumApprovals);
         }
         _validatePolicyAndLimits(pending.recipient, pending.asset, pending.amount);
         pending.executed = true;
@@ -392,7 +421,8 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         uint128 amount,
         uint64 deadline,
         uint256 nonce,
-        bytes32 signedStrategyDigest
+        bytes32 signedStrategyDigest,
+        uint64 signedStrategyExpiry
     ) private returns (uint256 requestId) {
         uint256 expectedNonce = nextAgentNonce[msg.sender];
         if (nonce != expectedNonce) revert InvalidNonce(msg.sender, nonce, expectedNonce);
@@ -430,7 +460,8 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
             approvals: 0,
             executed: false,
             cancelled: false,
-            strategyDigest: signedStrategyDigest
+            strategyDigest: signedStrategyDigest,
+            strategyExpiry: signedStrategyExpiry
         });
         emit RequestCreated(
             requestId,
@@ -441,6 +472,21 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
             amount,
             deadline,
             signedStrategyDigest
+        );
+    }
+
+    function _requestSignedStrategyTransfer(Strategy calldata strategy, uint64 requestDeadline, bytes32 digest)
+        private
+        returns (uint256 requestId)
+    {
+        requestId = _requestTransfer(
+            strategy.recipient,
+            strategy.asset,
+            strategy.amount,
+            requestDeadline,
+            nextAgentNonce[msg.sender],
+            digest,
+            strategy.expiry
         );
     }
 
@@ -486,5 +532,37 @@ contract RuleWalletPolicyAccountV2 is AccessControlDefaultAdminRules, EIP712, Pa
         uint256 available = IERC20(asset).balanceOf(address(this));
         if (amount > available) revert InsufficientBalance(asset, amount, available);
         IERC20(asset).safeTransfer(recipient, amount);
+    }
+
+    function _activeApprovalCount(uint256 requestId) private view returns (uint256 count) {
+        address[] storage approvers = _requestApprovers[requestId];
+        for (uint256 i; i < approvers.length; ++i) {
+            if (hasRole(APPROVER_ROLE, approvers[i])) ++count;
+        }
+    }
+
+    function _requireDistinctOperationalRole(address account, bytes32 requestedRole) private view {
+        if (
+            hasRole(OWNER_ROLE, account) || hasRole(AGENT_ROLE, account) || hasRole(APPROVER_ROLE, account)
+                || hasRole(GUARDIAN_ROLE, account)
+        ) {
+            if (requestedRole == APPROVER_ROLE && hasRole(APPROVER_ROLE, account)) {
+                revert DuplicateApprover(account);
+            }
+            revert OperationalRoleCollision(account, requestedRole);
+        }
+    }
+
+    function _grantRole(bytes32 role, address account) internal override returns (bool granted) {
+        granted = super._grantRole(role, account);
+        if (granted && role == APPROVER_ROLE) ++activeApproverCount;
+    }
+
+    function _revokeRole(bytes32 role, address account) internal override returns (bool revoked) {
+        if (role == APPROVER_ROLE && hasRole(role, account) && activeApproverCount - 1 < minimumApprovals) {
+            revert ApprovalThresholdExceedsActiveApprovers(minimumApprovals, activeApproverCount - 1);
+        }
+        revoked = super._revokeRole(role, account);
+        if (revoked && role == APPROVER_ROLE) --activeApproverCount;
     }
 }

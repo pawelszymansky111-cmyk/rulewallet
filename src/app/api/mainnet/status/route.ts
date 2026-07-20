@@ -1,71 +1,47 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, fallback, http } from "viem";
-import { robinhoodMainnet } from "@/lib/chains";
-import {
-  mainnetFactoryAddress,
-  ROBINHOOD_MAINNET_USDG,
-  RULEWALLET_V2_VERSION,
-  ruleWalletFactoryAbi,
-} from "@/lib/mainnet-registry";
-import { mainnetSignerStatus } from "@/lib/secure-agent-signer";
 import { mainnetAlertsConfigured } from "@/lib/mainnet-monitoring";
+import { verifyMainnetRuntime } from "@/lib/mainnet-runtime-verification";
 import { getServerEnvironment } from "@/lib/server-env";
+import { mainnetAutonomyReady, mainnetProductionGates } from "@/lib/mainnet-safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const environment = getServerEnvironment();
-  const rpcUrls = [
-    environment.RH_MAINNET_RPC_URL,
-    environment.RH_MAINNET_RPC_FALLBACK_URL,
-    robinhoodMainnet.rpcUrls.default.http[0],
-  ].filter((value): value is string => Boolean(value));
-  const client = createPublicClient({
-    chain: robinhoodMainnet,
-    transport: fallback(rpcUrls.map((url) => http(url))),
-  });
-  const [blockNumber, factoryCode, factoryChainId, factoryUsdg, factoryVersion] = await Promise.all([
-    client.getBlockNumber().catch(() => undefined),
-    mainnetFactoryAddress
-      ? client.getCode({ address: mainnetFactoryAddress }).catch(() => undefined)
-      : Promise.resolve(undefined),
-    mainnetFactoryAddress
-      ? client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "deploymentChainId" }).catch(() => undefined)
-      : Promise.resolve(undefined),
-    mainnetFactoryAddress
-      ? client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "canonicalStablecoin" }).catch(() => undefined)
-      : Promise.resolve(undefined),
-    mainnetFactoryAddress
-      ? client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION" }).catch(() => undefined)
-      : Promise.resolve(undefined),
-  ]);
-  const signer = mainnetSignerStatus();
-  const autonomyEnabled = environment.ENABLE_MAINNET_AUTONOMY === "true" && signer.configured;
+  const runtime = await verifyMainnetRuntime();
+  const { runtimeVerification } = runtime;
+  const productionGates = mainnetProductionGates(environment, runtimeVerification);
+  const autonomyEnabled = mainnetAutonomyReady(environment, runtimeVerification);
 
   return NextResponse.json(
     {
       experimental: true,
       unaudited: true,
-      chainId: robinhoodMainnet.id,
-      latestBlock: blockNumber?.toString(),
+      chainId: runtime.chainId,
+      latestBlock: runtime.blockNumber?.toString(),
       mainnetUiEnabled: environment.ENABLE_MAINNET === "true",
-      factoryAddress: mainnetFactoryAddress,
-      factoryVerifiedOnchain: Boolean(
-        factoryCode && factoryCode !== "0x" && factoryChainId === BigInt(4663)
-          && factoryUsdg === ROBINHOOD_MAINNET_USDG && factoryVersion === RULEWALLET_V2_VERSION,
-      ),
+      factoryVersion: "3.1.0-commerce-beta",
+      factoryAddress: runtime.factoryAddress,
+      factoryVerifiedOnchain: runtime.factoryVerification?.verified ?? false,
+      factoryRuntimeCodeHash: runtime.factoryVerification?.factoryRuntimeHash,
+      accountDeployerRuntimeCodeHash: runtime.factoryVerification?.accountDeployerRuntimeHash,
+      registryDeployerRuntimeCodeHash: runtime.factoryVerification?.registryDeployerRuntimeHash,
+      canonicalUsdgVerified: runtime.canonicalUsdgVerified,
+      canonicalUsdgDecimals: runtime.canonicalUsdgDecimals,
       autonomyEnabled,
       alertsConfigured: mainnetAlertsConfigured(),
+      productionGates,
       signer: {
-        configured: signer.configured,
-        mode: signer.mode,
-        address: signer.address,
-        reason: signer.reason,
+        configured: runtime.signer.configured,
+        mode: runtime.signer.mode,
+        address: runtime.signer.address,
+        identityVerified: Boolean(runtime.signerIdentity),
+        reason: runtime.signer.reason ?? (runtime.signer.configured && !runtime.signerIdentity ? "Remote signer identity attestation failed." : undefined),
       },
       executionGuard: autonomyEnabled
-        ? "Secure signer configured; policy simulation remains mandatory."
-        : "Autonomous mainnet execution is disabled.",
+        ? "Autonomous execution is enabled and all production gates are currently passing."
+        : "Autonomous execution remains disabled until every production gate passes.",
     },
     { headers: { "Cache-Control": "no-store" } },
   );

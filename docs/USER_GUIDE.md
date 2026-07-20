@@ -1,57 +1,59 @@
-# User guide
+# RuleWallet V3 user guide
 
-## Connect safely
+## 1. Create or connect a wallet
 
-1. Open the RuleWallet deployment from a trusted bookmark.
-2. Connect an injected wallet or WalletConnect session.
-3. Switch to **Robinhood Chain Testnet (46630)**.
-4. Confirm the header and banner both say testnet.
-5. Never enter a seed phrase in the site.
+Open `/command`. If Privy is configured, sign in with passkey/email and choose **Create wallet with recovery**; otherwise connect an EVM wallet. The app creates the address and immediately opens Privy's isolated recovery flow. **Set recovery method** and **Export securely** remain available later, and RuleWallet cannot read the recovery secret or exported key. Do not fund a new embedded wallet until recovery finishes. For low-value beta role separation you may create additional embedded addresses; for serious use choose independently recovered/hardware owner, guardian, and approver wallets.
 
-## Agent execution
+## 2. Create a named policy account
 
-1. The connected agent wallet must hold `AGENT_ROLE`.
-2. Enter an allowlisted target and testnet ETH amount.
-3. Select **Simulate onchain**.
-4. Read the chain, policy address, target, value, calldata, nonce, expiry, and approval path.
-5. Select **Sign exact testnet call** only if every field matches your intent.
-6. Verify the resulting hash on the Robinhood Chain testnet explorer.
+Choose testnet first. Enter a name and distinct guardian, agent, and approver addresses. Select **Simulate exact deployment**. Review chain, pinned factory, predicted account, zero value, roles, and calldata. Only then select **Sign deployment in wallet**.
 
-Amounts below the configured approval threshold execute immediately if all hard rules pass. Larger amounts create a pending request.
+If the V3 factory/token is missing or fails exact runtime verification, deployment stays disabled and `/app/operator` shows the operator setup.
 
-## Personal policy account and trusted addresses
+## 3. Add spending rules
 
-1. Deploy your own contract at `/app/deploy`, or open `/app/services` and enter an existing RuleWallet policy-account address.
-2. Select **Verify and use**. RuleWallet checks that code exists and that the connected wallet holds `DEFAULT_ADMIN_ROLE`.
-3. Enter a private local label and the full EVM recipient address.
-4. Select **Preview permission** and verify the chain, policy account, target, detected wallet/contract type, permission, and scope.
-5. Sign `setTargetAllowed(target, true)` in your wallet.
-6. Disable the address at any time with another simulated, explicit wallet transaction.
+In **Spending rules**, enter the new V3 account and merchant/provider payment address. Configure:
 
-Labels are stored only in the current browser and are not identity verification. The onchain `allowedTargets` mapping is authoritative. Always verify a recipient address through a second trusted channel.
+- ETH or six-decimal USDG;
+- merchant category and expiry;
+- whether payments inside every rule may skip confirmation;
+- per-transaction and rolling 24-hour caps;
+- daily, weekly, and 30-day asset/category caps;
+- merchant daily amount and transactions per day;
+- weekday bitmap and UTC-minute window.
 
-The ecosystem section is for discovery. Protocol contracts are not one-click enabled because the current policy account cannot restrict arbitrary router calldata. A service becomes automation-ready only after RuleWallet ships and audits a dedicated adapter that constrains selectors, assets, recipients, and minimum output.
+Prepare and sign the asset, merchant, merchant/asset, category, and time steps separately. Activate only after each readback matches. Every preview shows exact chain, target, gas, calldata, and expected result.
 
-## Scheduled strategies
+Each merchant also has two explicit owner-signed controls. **Pause automatic merchant payments** keeps the merchant available only through fresh human approval. **Revoke merchant** removes trust entirely and blocks every new agent payment until the owner enables it again. Both actions are simulated and show exact calldata before the wallet opens.
 
-1. Open `/app/agent` with the onchain admin wallet connected.
-2. Grant `AGENT_ROLE` to the displayed dedicated agent address in MetaMask.
-3. Fund that address with only enough testnet ETH to pay gas.
-4. Create a daily or weekly recurring transfer to an already allowlisted target. Sign the short-lived admin message; it does not move funds.
-5. Use **Run now** for a canary execution, then verify its receipt on `/activity`.
-6. Pause a strategy with another admin signature, revoke `AGENT_ROLE`, or emergency-pause the contract at any time.
+## 4. Ask RuleWallet
 
-The scheduled agent cannot edit policies or targets and refuses amounts above the human-approval threshold.
+Choose a provider and describe the purchase. Duffel can return official test-mode flight offers and Stays availability when its test token and relevant product access are configured. Ticketmaster can return official discovery results and a hosted checkout link. Other adapters are clearly marked demo/disabled.
 
-## Human approval
+Creating a cart runs an explanatory policy decision and, when needed, creates an approval request. No provider search/cart action alone moves funds.
 
-1. Connect an independent wallet with `APPROVER_ROLE`.
-2. Obtain the request ID from the `RequestCreated` explorer event.
-3. Enter the request ID and record an approval.
-4. After the threshold is reached, execute the approved request.
+For an approved mainnet direct-payment order, **Prepare exact payment authorization** opens a one-execution EIP-712 strategy prefilled with the exact account, recipient, asset, amount, category, and cart intent hash. The protected runner writes `payment-pending`, confirmed, replaced, timed-out, late-confirmed, blocked, and failed outcomes back to the matching private order. A timeout stays pending until reconciliation, so RuleWallet never retries an ambiguous payment blindly. Hosted provider checkouts are never marked paid from an onchain receipt.
 
-Execution rechecks active policy, allowlists, transaction limit, rolling spend, slippage metadata, expiry, pause state, and asset balance. Approval cannot override a failed hard rule.
+## 5. Approve an exception
 
-## Emergency
+Open `/approvals` from the independent approver/owner context. Review order, account, merchant, exact amount, reason, nonce, and five-minute expiry. The EIP-712 signature is bound to that decision and single-use. Onchain payment requests still require the active approver role and recheck every hard policy at execution.
 
-The guardian may pause immediately. Only the delayed default admin can unpause or recover assets, and recovery is available only while paused. Follow the incident runbook before taking recovery actions.
+## 6. Scheduled payments
+
+On `/mainnet`, enter a verified V3 account, trusted merchant, exact asset/amount, category, commerce intent, nonce, expiry, interval, and maximum executions. Preview the EIP-712 digest. Mainnet strategy activation remains unavailable until `/api/mainnet/status` reports every non-exportable-signer and production gate ready.
+
+Pause the offchain schedule when temporarily unnecessary. Revoke the digest onchain to disable it permanently.
+
+## 7. Emergency and recovery
+
+- Guardian or owner: simulate and sign `pause()` immediately.
+- Owner: revoke the agent role and affected strategies.
+- Owner: verify chain, account, asset, amount, recovery recipient, and calldata before a withdrawal.
+- Owner recovery: grant the replacement owner role, start the delayed default-admin transfer, accept from the replacement after two days, then revoke the former owner. Each step is simulated and signed separately.
+- Owner only: unpause after the incident runbook's recovery gates pass.
+
+Frontend rollback cannot reverse a blockchain payment. Follow [`INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md).
+
+## 8. Verify receipts
+
+Open `/activity` and the linked Blockscout transaction. A provider order also needs provider-side confirmation; a chain receipt alone proves only the blockchain transfer.

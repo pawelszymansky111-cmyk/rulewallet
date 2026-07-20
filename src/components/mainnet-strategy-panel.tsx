@@ -1,14 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ExternalLink, KeyRound, LoaderCircle, RefreshCw, ShieldX, Wallet } from "lucide-react";
+import {
+  CheckCircle2,
+  CirclePause,
+  CirclePlay,
+  ExternalLink,
+  KeyRound,
+  LoaderCircle,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+  ShieldX,
+  Wallet,
+} from "lucide-react";
 import {
   encodeFunctionData,
-  formatUnits,
   getAddress,
   hashTypedData,
   isAddress,
-  parseUnits,
+  isHash,
+  keccak256,
+  stringToHex,
   zeroAddress,
   type Address,
   type Hash,
@@ -22,9 +35,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { robinhoodMainnet } from "@/lib/chains";
-import type { MainnetAgentExecution, PublicMainnetAgentStrategy } from "@/lib/mainnet-agent-types";
-import { strategyTypes } from "@/lib/mainnet-agent-types";
-import { ROBINHOOD_MAINNET_USDG, ruleWalletV2Abi } from "@/lib/mainnet-registry";
+import type {
+  MainnetAdminAction,
+  MainnetAgentExecution,
+  PublicMainnetAgentStrategy,
+} from "@/lib/mainnet-agent-types";
+import { buildMainnetAdminMessage, strategyTypes } from "@/lib/mainnet-agent-types";
+import {
+  ROBINHOOD_MAINNET_USDG,
+  formatMainnetAssetUnits,
+  parseMainnetAssetUnits,
+  ruleWalletV3Abi,
+} from "@/lib/mainnet-registry";
 
 type StrategyPreview = {
   body: {
@@ -34,6 +56,8 @@ type StrategyPreview = {
     asset: Address;
     recipient: Address;
     amount: string;
+    category: number;
+    intentHash: Hash;
     nonce: string;
     expiry: string;
     intervalSeconds: number;
@@ -45,6 +69,7 @@ type StrategyPreview = {
     primaryType: "Strategy";
     message: {
       chainId: bigint; account: Address; asset: Address; recipient: Address; amount: bigint;
+      category: number; intentHash: Hash;
       nonce: bigint; expiry: bigint; intervalSeconds: number; maxExecutions: number;
     };
   };
@@ -60,19 +85,33 @@ function short(value: string) {
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
-export function MainnetStrategyPanel() {
+export type MainnetStrategyInitialIntent = {
+  name?: string;
+  account?: string;
+  recipient?: string;
+  amount?: string;
+  asset?: "ETH" | "USDG";
+  category?: string;
+  intentHash?: string;
+  maxExecutions?: string;
+};
+
+export function MainnetStrategyPanel({ initialIntent = {} }: { initialIntent?: MainnetStrategyInitialIntent }) {
   const connection = useConnection();
   const publicClient = usePublicClient({ chainId: robinhoodMainnet.id });
   const walletClient = useWalletClient({ chainId: robinhoodMainnet.id });
-  const [account, setAccount] = useState("");
-  const [name, setName] = useState("Bounded daily transfer");
-  const [asset, setAsset] = useState<"ETH" | "USDG">("ETH");
-  const [recipient, setRecipient] = useState("");
-  const [amount, setAmount] = useState("0.001");
+  const [account, setAccount] = useState(initialIntent.account ?? "");
+  const [name, setName] = useState(initialIntent.name ?? "Bounded daily transfer");
+  const [asset, setAsset] = useState<"ETH" | "USDG">(initialIntent.asset ?? "ETH");
+  const [recipient, setRecipient] = useState(initialIntent.recipient ?? "");
+  const [amount, setAmount] = useState(initialIntent.amount ?? "0.001");
+  const [category, setCategory] = useState(initialIntent.category ?? "6");
+  const [intent, setIntent] = useState("Recurring trusted merchant payment");
+  const [intentHashInput, setIntentHashInput] = useState(initialIntent.intentHash ?? "");
   const [nonce, setNonce] = useState("1");
   const [expiryDays, setExpiryDays] = useState("30");
   const [intervalHours, setIntervalHours] = useState("24");
-  const [maxExecutions, setMaxExecutions] = useState("30");
+  const [maxExecutions, setMaxExecutions] = useState(initialIntent.maxExecutions ?? "30");
   const [preview, setPreview] = useState<StrategyPreview>();
   const [revokePreview, setRevokePreview] = useState<{ strategy: PublicMainnetAgentStrategy; digest: Hash; data: Hex }>();
   const [strategies, setStrategies] = useState<PublicMainnetAgentStrategy[]>([]);
@@ -81,14 +120,23 @@ export function MainnetStrategyPanel() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [lastHash, setLastHash] = useState<Hash>();
+  const [autonomyEnabled, setAutonomyEnabled] = useState(false);
+  const [productionGates, setProductionGates] = useState<Array<{ id: string; ready: boolean; message: string }>>([]);
 
   const storageKey = useMemo(
-    () => connection.address ? `rulewallet:policy-account:v2:4663:${connection.address.toLowerCase()}` : undefined,
+    () => connection.address ? `rulewallet:policy-account:v3:4663:${connection.address.toLowerCase()}` : undefined,
     [connection.address],
   );
   const explorer = robinhoodMainnet.blockExplorers.default.url;
 
   const refresh = useCallback(async () => {
+    const statusResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
+    const status = statusResponse.ok ? await statusResponse.json() as {
+      autonomyEnabled?: boolean;
+      productionGates?: Array<{ id: string; ready: boolean; message: string }>;
+    } : undefined;
+    setAutonomyEnabled(status?.autonomyEnabled === true);
+    setProductionGates(status?.productionGates ?? []);
     const [strategyResponse, activityResponse] = await Promise.all([
       fetch("/api/mainnet/strategies", { cache: "no-store" }),
       fetch("/api/mainnet/activity", { cache: "no-store" }),
@@ -99,26 +147,31 @@ export function MainnetStrategyPanel() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      if (storageKey && !account) {
+      setAccount((current) => {
+        if (current || !storageKey) return current;
         const saved = window.localStorage.getItem(storageKey);
-        if (saved && isAddress(saved)) setAccount(getAddress(saved));
-      }
+        return saved && isAddress(saved) ? getAddress(saved) : current;
+      });
       void refresh();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [account, refresh, storageKey]);
+  }, [refresh, storageKey]);
 
   function prepareStrategy() {
     setError(""); setMessage(""); setPreview(undefined);
     try {
       if (!connection.address || connection.chainId !== 4663) throw new Error("Connect the owner wallet on Robinhood Chain mainnet.");
-      if (!isAddress(account) || !isAddress(recipient)) throw new Error("Enter valid V2 account and recipient addresses.");
-      const amountUnits = parseUnits(amount, 18);
+      if (!isAddress(account) || !isAddress(recipient)) throw new Error("Enter valid V3 account and recipient addresses.");
+      const amountUnits = parseMainnetAssetUnits(amount, asset);
       const nonceValue = BigInt(nonce);
       const days = Number(expiryDays);
       const interval = Number(intervalHours) * 3600;
       const executionsLimit = Number(maxExecutions);
-      if (amountUnits <= 0 || nonceValue < 0 || !Number.isInteger(days) || days < 1 || !Number.isInteger(interval) || interval < 300 || !Number.isInteger(executionsLimit) || executionsLimit < 1) {
+      const categoryValue = Number(category);
+      if (intentHashInput.trim() && !isHash(intentHashInput)) {
+        throw new Error("The commerce intent hash must be an exact 32-byte 0x hash.");
+      }
+      if (amountUnits <= 0 || nonceValue < 0 || !intent.trim() || !Number.isInteger(categoryValue) || categoryValue < 0 || categoryValue > 255 || !Number.isInteger(days) || days < 1 || !Number.isInteger(interval) || interval < 300 || !Number.isInteger(executionsLimit) || executionsLimit < 1) {
         throw new Error("Use positive amount, expiry, interval, and execution values.");
       }
       const body = {
@@ -128,18 +181,21 @@ export function MainnetStrategyPanel() {
         asset: asset === "ETH" ? zeroAddress : ROBINHOOD_MAINNET_USDG,
         recipient: getAddress(recipient),
         amount: amountUnits.toString(),
+        category: categoryValue,
+        intentHash: isHash(intentHashInput) ? intentHashInput : keccak256(stringToHex(intent.trim())),
         nonce: nonceValue.toString(),
         expiry: BigInt(Math.floor(Date.now() / 1000) + days * 86400).toString(),
         intervalSeconds: interval,
         maxExecutions: executionsLimit,
       } as const;
       const typedData = {
-        domain: { name: "RuleWallet", version: "2", chainId: 4663 as const, verifyingContract: body.account },
+        domain: { name: "RuleWallet", version: "3", chainId: 4663 as const, verifyingContract: body.account },
         types: strategyTypes,
         primaryType: "Strategy" as const,
         message: {
           chainId: BigInt(4663), account: body.account, asset: body.asset, recipient: body.recipient,
           amount: BigInt(body.amount), nonce: BigInt(body.nonce), expiry: BigInt(body.expiry),
+          category: body.category, intentHash: body.intentHash,
           intervalSeconds: body.intervalSeconds, maxExecutions: body.maxExecutions,
         },
       };
@@ -152,6 +208,7 @@ export function MainnetStrategyPanel() {
     if (!preview || !walletClient.data || !connection.address) return;
     setBusy("sign"); setError(""); setMessage("Review the EIP-712 authorization in your wallet.");
     try {
+      if (!autonomyEnabled) throw new Error("Complete every production gate before activating a mainnet strategy.");
       const signature = await walletClient.data.signTypedData({ account: connection.address, ...preview.typedData });
       const response = await fetch("/api/mainnet/strategies", {
         method: "POST",
@@ -160,9 +217,66 @@ export function MainnetStrategyPanel() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Strategy storage rejected the signature.");
-      setMessage("Owner signature verified and strategy stored. Execution remains disabled unless the secure signer and autonomy gates are configured.");
+      setMessage("Owner signature verified. The strategy is active and eligible for the protected scheduler.");
       setPreview(undefined);
       setNonce((current) => (BigInt(current) + BigInt(1)).toString());
+      await refresh();
+    } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
+  }
+
+  async function signAdminAction(payload: MainnetAdminAction) {
+    if (!walletClient.data || !connection.address) throw new Error("Connect the account owner wallet on chain 4663.");
+    const signature = await walletClient.data.signMessage({
+      account: connection.address,
+      message: buildMainnetAdminMessage(payload),
+    });
+    return { payload, signature };
+  }
+
+  async function setStrategyActive(strategy: PublicMainnetAgentStrategy, active: boolean) {
+    setBusy(`toggle-${strategy.id}`); setError(""); setMessage("");
+    try {
+      const payload: MainnetAdminAction = {
+        action: "set-strategy-active",
+        strategyId: strategy.id,
+        account: strategy.account,
+        active,
+        nonce: crypto.randomUUID(),
+        expiresAt: new Date().getTime() + 5 * 60_000,
+      };
+      const envelope = await signAdminAction(payload);
+      const response = await fetch(`/api/mainnet/strategies/${strategy.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Strategy update failed.");
+      setMessage(active ? "Strategy resumed and scheduled." : "Strategy paused before its next run.");
+      await refresh();
+    } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
+  }
+
+  async function runNow(strategy: PublicMainnetAgentStrategy) {
+    setBusy(`run-${strategy.id}`); setError(""); setMessage("");
+    try {
+      if (!autonomyEnabled) throw new Error("All production gates must pass before the secure signer can run a strategy.");
+      const payload: MainnetAdminAction = {
+        action: "run-strategy",
+        strategyId: strategy.id,
+        account: strategy.account,
+        nonce: crypto.randomUUID(),
+        expiresAt: new Date().getTime() + 5 * 60_000,
+      };
+      const envelope = await signAdminAction(payload);
+      const response = await fetch(`/api/mainnet/strategies/${strategy.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(envelope),
+      });
+      const result = await response.json() as { error?: string; execution?: MainnetAgentExecution };
+      if (!response.ok) throw new Error(result.error ?? "Strategy execution failed.");
+      setMessage(result.execution?.reason ?? "Protected mainnet execution completed.");
       await refresh();
     } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
   }
@@ -172,18 +286,19 @@ export function MainnetStrategyPanel() {
     try {
       if (!connection.address || !publicClient || connection.chainId !== 4663) throw new Error("Connect an owner wallet on chain 4663.");
       const typedData = {
-        domain: { name: "RuleWallet", version: "2", chainId: 4663 as const, verifyingContract: strategy.account },
+        domain: { name: "RuleWallet", version: "3", chainId: 4663 as const, verifyingContract: strategy.account },
         types: strategyTypes,
         primaryType: "Strategy" as const,
         message: {
           chainId: BigInt(4663), account: strategy.account, asset: strategy.asset,
           recipient: strategy.recipient, amount: BigInt(strategy.amount), nonce: BigInt(strategy.nonce),
+          category: strategy.category, intentHash: strategy.intentHash,
           expiry: BigInt(strategy.expiry), intervalSeconds: strategy.intervalSeconds, maxExecutions: strategy.maxExecutions,
         },
       };
       const digest = hashTypedData(typedData);
-      await publicClient.simulateContract({ account: connection.address, address: strategy.account, abi: ruleWalletV2Abi, functionName: "revokeStrategy", args: [digest] });
-      setRevokePreview({ strategy, digest, data: encodeFunctionData({ abi: ruleWalletV2Abi, functionName: "revokeStrategy", args: [digest] }) });
+      await publicClient.simulateContract({ account: connection.address, address: strategy.account, abi: ruleWalletV3Abi, functionName: "revokeStrategy", args: [digest] });
+      setRevokePreview({ strategy, digest, data: encodeFunctionData({ abi: ruleWalletV3Abi, functionName: "revokeStrategy", args: [digest] }) });
       setMessage("Revocation simulation passed. No transaction has been sent.");
     } catch (caught) { setError(readableError(caught)); } finally { setBusy(""); }
   }
@@ -203,21 +318,27 @@ export function MainnetStrategyPanel() {
 
   return (
     <div className="space-y-6">
+      <Alert className={autonomyEnabled ? "border-primary/25 bg-primary/[0.05]" : "border-amber-500/30 bg-amber-50 text-amber-950"}>
+        {autonomyEnabled ? <ShieldCheck /> : <ShieldX />}
+        <AlertTitle>{autonomyEnabled ? "Protected mainnet autonomy is ready" : "Autonomy is installed but fail-closed"}</AlertTitle>
+        <AlertDescription>{autonomyEnabled ? "The verified non-exportable signer may execute exact owner-signed strategies. Every transfer remains bounded by recipients, limits, approvals, expiry, pause, and execution caps." : "Preview strategies now. Signing, storage, and execution unlock only when every production gate below passes."}</AlertDescription>
+      </Alert>
+      {!autonomyEnabled && productionGates.length > 0 && <Card><CardHeader><CardTitle>Required production gates</CardTitle><CardDescription>There is no admin override. All checks must pass simultaneously.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{productionGates.map((gate) => <div key={gate.id} className="rounded-lg border border-grid p-3 text-sm"><p className={gate.ready ? "font-medium text-primary" : "font-medium text-amber-800"}>{gate.ready ? "Ready" : "Incomplete"} · {gate.id}</p><p className="mt-1 text-muted-foreground">{gate.message}</p></div>)}</CardContent></Card>}
       <Card>
         <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><KeyRound className="size-4 text-primary" /> EIP-712 scheduled strategy</CardTitle><CardDescription className="mt-1">An owner signature authorizes an exact recurring transfer. It never changes policy and cannot bypass limits, recipients, approvals, pause, expiry, or execution caps.</CardDescription></div><Button variant="outline" size="sm" onClick={refresh}><RefreshCw /> Refresh</Button></div></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2"><div><Label>Strategy name</Label><Input value={name} onChange={(event) => setName(event.target.value)} /></div><div><Label>V2 account</Label><Input value={account} onChange={(event) => setAccount(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Trusted recipient</Label><Input value={recipient} onChange={(event) => setRecipient(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Exact amount per execution</Label><div className="flex gap-2"><Input value={amount} onChange={(event) => setAmount(event.target.value)} /><Button variant={asset === "ETH" ? "default" : "outline"} onClick={() => setAsset("ETH")}>ETH</Button><Button variant={asset === "USDG" ? "default" : "outline"} onClick={() => setAsset("USDG")}>USDG</Button></div></div></div>
-          <div className="grid gap-3 sm:grid-cols-4"><div><Label>Owner nonce</Label><Input value={nonce} onChange={(event) => setNonce(event.target.value)} /></div><div><Label>Expiry (days)</Label><Input value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} /></div><div><Label>Interval (hours)</Label><Input value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} /></div><div><Label>Max executions</Label><Input value={maxExecutions} onChange={(event) => setMaxExecutions(event.target.value)} /></div></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><Label>Strategy name</Label><Input aria-label="Strategy name" value={name} onChange={(event) => setName(event.target.value)} /></div><div><Label>V3 account</Label><Input aria-label="V3 account" value={account} onChange={(event) => setAccount(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Trusted merchant</Label><Input aria-label="Trusted merchant" value={recipient} onChange={(event) => setRecipient(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Exact amount per execution</Label><div className="flex gap-2"><Input aria-label="Exact amount per execution" value={amount} onChange={(event) => setAmount(event.target.value)} /><Button variant={asset === "ETH" ? "default" : "outline"} onClick={() => setAsset("ETH")}>ETH</Button><Button variant={asset === "USDG" ? "default" : "outline"} onClick={() => setAsset("USDG")}>USDG</Button></div></div><div><Label>Category ID</Label><Input aria-label="Category ID" value={category} onChange={(event) => setCategory(event.target.value)} inputMode="numeric" /></div><div><Label>Exact commerce intent</Label><Input aria-label="Exact commerce intent" value={intent} onChange={(event) => setIntent(event.target.value)} /></div><div className="md:col-span-2"><Label>Existing commerce intent hash (optional)</Label><Input aria-label="Existing commerce intent hash (optional)" value={intentHashInput} onChange={(event) => setIntentHashInput(event.target.value)} className="mt-2 font-mono" placeholder="0x… from an approved RuleWallet order" /><p className="mt-1 text-xs text-muted-foreground">When supplied, this binds the execution receipt back to that exact cart for reconciliation. Otherwise RuleWallet hashes the description above.</p></div></div>
+          <div className="grid gap-3 sm:grid-cols-4"><div><Label>Owner nonce</Label><Input aria-label="Owner nonce" value={nonce} onChange={(event) => setNonce(event.target.value)} /></div><div><Label>Expiry (days)</Label><Input aria-label="Expiry (days)" value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} /></div><div><Label>Interval (hours)</Label><Input aria-label="Interval (hours)" value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} /></div><div><Label>Max executions</Label><Input aria-label="Max executions" value={maxExecutions} onChange={(event) => setMaxExecutions(event.target.value)} /></div></div>
           <Button onClick={prepareStrategy}><ShieldX /> Preview exact authorization</Button>
         </CardContent>
       </Card>
 
-      {preview && <Card className="border-primary/25"><CardHeader><CardTitle>Exact EIP-712 preview</CardTitle><CardDescription>This is a wallet signature, not a transaction. It grants the configured agent a reusable authorization until expiry, revocation, or execution cap.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Account", preview.body.account], ["Asset", preview.body.asset], ["Recipient", preview.body.recipient], ["Amount", `${formatUnits(BigInt(preview.body.amount), 18)} ${asset}`], ["Nonce", preview.body.nonce], ["Expiry", new Date(Number(preview.body.expiry) * 1000).toISOString()], ["Interval", `${preview.body.intervalSeconds}s`], ["Executions", String(preview.body.maxExecutions)], ["Digest", preview.digest]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[150px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signAndStore} disabled={busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Sign exact strategy</Button><Button variant="outline" onClick={() => setPreview(undefined)}>Cancel</Button></div></CardContent></Card>}
+      {preview && <Card className="border-primary/25"><CardHeader><CardTitle>Exact EIP-712 preview</CardTitle><CardDescription>This owner signature authorizes only the displayed recurring transfer and never changes onchain policy.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="overflow-hidden rounded-xl border border-grid font-mono text-xs">{[["Chain", "Robinhood Chain mainnet · 4663"], ["Account", preview.body.account], ["Asset", preview.body.asset], ["Merchant", preview.body.recipient], ["Amount", `${formatMainnetAssetUnits(BigInt(preview.body.amount), asset)} ${asset}`], ["Category", String(preview.body.category)], ["Intent hash", preview.body.intentHash], ["Nonce", preview.body.nonce], ["Expiry", new Date(Number(preview.body.expiry) * 1000).toISOString()], ["Interval", `${preview.body.intervalSeconds}s`], ["Executions", String(preview.body.maxExecutions)], ["Digest", preview.digest]].map(([key, value]) => <div key={key} className="grid gap-1 border-b border-grid px-4 py-3 last:border-0 sm:grid-cols-[150px_1fr]"><span className="text-muted-foreground">{key}</span><span className="break-all">{value}</span></div>)}</div><div className="flex gap-2"><Button onClick={signAndStore} disabled={!autonomyEnabled || busy === "sign"}>{busy === "sign" ? <LoaderCircle className="animate-spin" /> : <Wallet />} {autonomyEnabled ? "Sign and activate strategy" : "Complete production gates first"}</Button><Button variant="outline" onClick={() => setPreview(undefined)}>Cancel</Button></div></CardContent></Card>}
 
       {revokePreview && <Card className="border-red-400/25"><CardHeader><CardTitle>Exact revocation transaction</CardTitle><CardDescription>Chain 4663 · contract {revokePreview.strategy.account} · value 0 ETH</CardDescription></CardHeader><CardContent className="space-y-3"><p className="break-all font-mono text-xs">Digest: {revokePreview.digest}</p><p className="break-all font-mono text-xs">Calldata: {revokePreview.data}</p><p className="text-sm text-muted-foreground">Expected result: this strategy digest becomes permanently revoked onchain.</p><div className="flex gap-2"><Button variant="destructive" onClick={signRevoke} disabled={busy === "revoke"}>{busy === "revoke" ? <LoaderCircle className="animate-spin" /> : <Wallet />} Sign revocation</Button><Button variant="outline" onClick={() => setRevokePreview(undefined)}>Cancel</Button></div></CardContent></Card>}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card><CardHeader><CardTitle>Stored strategies</CardTitle><CardDescription>Signatures are server-side; public output excludes them.</CardDescription></CardHeader><CardContent className="space-y-3">{strategies.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet strategies stored, or durable storage is not configured.</p> : strategies.map((strategy) => <div key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="text-sm font-medium">{strategy.name} <Badge variant="outline">{strategy.active ? "Active" : "Inactive"}</Badge></p><p className="mt-1 text-xs text-muted-foreground">{formatUnits(BigInt(strategy.amount), 18)} · {short(strategy.recipient)} · next {new Date(strategy.nextRunAt).toLocaleString()}</p></div><Button variant="outline" size="sm" onClick={() => prepareRevoke(strategy)}>Revoke onchain</Button></div>)}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Stored strategies</CardTitle><CardDescription>Signatures stay server-side; public output excludes them. Pausing affects scheduling, while revocation permanently disables the signed authorization onchain.</CardDescription></CardHeader><CardContent className="space-y-3">{strategies.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet strategies stored, or durable storage is not configured.</p> : strategies.map((strategy) => <div key={strategy.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="text-sm font-medium">{strategy.name} <Badge variant="outline">{strategy.active ? "Active" : "Paused"}</Badge></p><p className="mt-1 text-xs text-muted-foreground">{formatMainnetAssetUnits(BigInt(strategy.amount), strategy.asset === ROBINHOOD_MAINNET_USDG ? "USDG" : "ETH")} · {short(strategy.recipient)} · next {new Date(strategy.nextRunAt).toLocaleString()}</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={!autonomyEnabled || !strategy.active || Boolean(busy)} onClick={() => runNow(strategy)}>{busy === `run-${strategy.id}` ? <LoaderCircle className="animate-spin" /> : <Play />} Run now</Button><Button variant="outline" size="sm" disabled={Boolean(busy)} onClick={() => setStrategyActive(strategy, !strategy.active)}>{busy === `toggle-${strategy.id}` ? <LoaderCircle className="animate-spin" /> : strategy.active ? <CirclePause /> : <CirclePlay />}{strategy.active ? "Pause" : "Resume"}</Button><Button variant="outline" size="sm" onClick={() => prepareRevoke(strategy)}>Revoke onchain</Button></div></div>)}</CardContent></Card>
         <Card><CardHeader><CardTitle>Public mainnet receipts</CardTitle><CardDescription>Confirmed, blocked, and failed execution attempts.</CardDescription></CardHeader><CardContent className="space-y-3">{executions.length === 0 ? <p className="text-sm text-muted-foreground">No mainnet execution receipts yet.</p> : executions.slice(0, 10).map((execution) => <div key={execution.id} className="flex items-center justify-between gap-3 rounded-lg border border-grid p-3"><div><p className="flex items-center gap-2 text-sm font-medium">{execution.status === "confirmed" && <CheckCircle2 className="size-4 text-primary" />}{execution.strategyName}</p><p className="mt-1 text-xs text-muted-foreground">{execution.reason ?? execution.status}</p></div>{execution.transactionHash && <Button asChild variant="ghost" size="icon"><a href={`${explorer}/tx/${execution.transactionHash}`} target="_blank" rel="noreferrer" aria-label="Open receipt"><ExternalLink /></a></Button>}</div>)}</CardContent></Card>
       </div>
 

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/lib/wagmi-config";
 import { PolicyAccountProvider } from "@/components/policy-account-provider";
+import { EmbeddedWalletProvider } from "@/components/embedded-wallet-provider";
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -20,10 +21,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <WagmiProvider config={wagmiConfig} reconnectOnMount>
-      <QueryClientProvider client={queryClient}>
-        <PolicyAccountProvider>{children}</PolicyAccountProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <EmbeddedWalletProvider>
+      <WagmiProvider config={wagmiConfig} reconnectOnMount>
+        <QueryClientProvider client={queryClient}>
+          <PolicyAccountProvider>{children}</PolicyAccountProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </EmbeddedWalletProvider>
   );
 }

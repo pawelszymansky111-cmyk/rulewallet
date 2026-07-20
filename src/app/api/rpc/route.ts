@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
+import { RPC_MAX_PAYLOAD_BYTES, rpcPayloadIsTooLarge } from "@/lib/rpc-proxy";
 import { getServerEnvironment } from "@/lib/server-env";
 
 export const runtime = "nodejs";
@@ -59,19 +60,20 @@ function validateRpcRequest(payload: unknown): payload is RpcRequest | RpcReques
 
 export async function POST(request: NextRequest) {
   const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (contentLength > 64_000) {
+  if (contentLength > RPC_MAX_PAYLOAD_BYTES) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
-  const limit = checkRateLimit(`rpc:${clientKey(request)}`, {
+  const limit = await checkRateLimit(`rpc:${clientKey(request)}`, {
     limit: 120,
     windowMs: 60_000,
   });
-  if (!limit.allowed) {
+  const failure = rateLimitFailure(limit, "RPC rate limit exceeded");
+  if (failure) {
     return NextResponse.json(
-      { error: "RPC rate limit exceeded" },
+      { error: failure.error },
       {
-        status: 429,
+        status: failure.status,
         headers: {
           "Retry-After": Math.ceil((limit.resetAt - Date.now()) / 1_000).toString(),
         },
@@ -79,9 +81,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let rawPayload: string;
+  try {
+    rawPayload = await request.text();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  if (rpcPayloadIsTooLarge(rawPayload)) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  }
+
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(rawPayload);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }

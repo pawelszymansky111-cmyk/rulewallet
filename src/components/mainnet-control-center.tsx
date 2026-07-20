@@ -16,13 +16,10 @@ import {
 import {
   encodeFunctionData,
   formatEther,
-  formatUnits,
   getAddress,
   isAddress,
   keccak256,
   parseAbi,
-  parseEther,
-  parseUnits,
   stringToHex,
   zeroAddress,
   type Address,
@@ -42,14 +39,20 @@ import {
 } from "@/lib/mainnet-factory-deployment";
 import {
   ROBINHOOD_MAINNET_USDG,
+  buildMainnetAssetPolicyArgs,
+  formatMainnetAssetUnits,
   experimentalMainnetUiEnabled,
   mainnetFactoryAddress,
   mainnetSharedAccountAddress,
+  parseMainnetAssetUnits,
   ruleWalletFactoryAbi,
   ruleWalletV2Abi,
 } from "@/lib/mainnet-registry";
 
-const erc20BalanceAbi = parseAbi(["function balanceOf(address account) view returns (uint256)"]);
+const erc20Abi = parseAbi([
+  "function balanceOf(address account) view returns (uint256)",
+  "function transfer(address recipient,uint256 amount) returns (bool)",
+]);
 
 type PreparedAction = {
   kind: "factory-deploy" | "deploy" | "recipient" | "eth-policy" | "usdg-policy" | "deposit" | "withdraw" | "pause" | "unpause" | "approve" | "execute-approved";
@@ -75,13 +78,13 @@ type Metrics = {
 type MainnetStatus = {
   latestBlock?: string;
   factoryVerifiedOnchain: boolean;
+  factoryRuntimeCodeHash?: Hex;
+  canonicalUsdgVerified: boolean;
+  canonicalUsdgDecimals?: number;
   autonomyEnabled: boolean;
-  signer: { configured: boolean; mode: string; address?: Address; reason?: string };
+  signer: { configured: boolean; mode: string; address?: Address; identityVerified?: boolean; reason?: string };
+  productionGates: Array<{ id: string; ready: boolean; message: string }>;
 };
-
-function short(value: string) {
-  return `${value.slice(0, 8)}…${value.slice(-6)}`;
-}
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -91,9 +94,9 @@ function errorMessage(error: unknown) {
   return "The requested action could not be completed.";
 }
 
-function policySummary(policy: readonly [boolean, bigint, bigint, bigint], symbol: string) {
+function policySummary(policy: readonly [boolean, bigint, bigint, bigint], symbol: "ETH" | "USDG") {
   if (!policy[0]) return `Disabled for agents (${symbol})`;
-  return `${formatUnits(policy[1], 18)} per tx · ${formatUnits(policy[2], 18)} / 24h · ${policy[3] === BigInt(0) ? "no approval threshold" : `approval above ${formatUnits(policy[3], 18)}`}`;
+  return `${formatMainnetAssetUnits(policy[1], symbol)} per tx · ${formatMainnetAssetUnits(policy[2], symbol)} / 24h · ${policy[3] === BigInt(0) ? "no approval threshold" : `approval above ${formatMainnetAssetUnits(policy[3], symbol)}`}`;
 }
 
 export function MainnetControlCenter() {
@@ -112,6 +115,7 @@ export function MainnetControlCenter() {
   const [perTransaction, setPerTransaction] = useState("0.01");
   const [rolling24h, setRolling24h] = useState("0.05");
   const [approvalAbove, setApprovalAbove] = useState("0.005");
+  const [fundAsset, setFundAsset] = useState<"ETH" | "USDG">("ETH");
   const [fundAmount, setFundAmount] = useState("0.001");
   const [withdrawAmount, setWithdrawAmount] = useState("0.001");
   const [requestId, setRequestId] = useState("1");
@@ -134,13 +138,28 @@ export function MainnetControlCenter() {
   const refresh = useCallback(async () => {
     setError("");
     const statusResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
-    if (statusResponse.ok) setStatus(await statusResponse.json());
+    const freshStatus = statusResponse.ok ? await statusResponse.json() as MainnetStatus : undefined;
+    if (freshStatus) {
+      setStatus(freshStatus);
+      if (freshStatus.signer.address) setAgent((current) => current || freshStatus.signer.address || "");
+    }
     if (!publicClient || !accountAddress) return;
     try {
+      if (!freshStatus?.factoryVerifiedOnchain || !mainnetFactoryAddress) {
+        throw new Error("The configured security-beta factory runtime is not verified; account provenance cannot be trusted.");
+      }
+      if (!freshStatus.canonicalUsdgVerified || freshStatus.canonicalUsdgDecimals !== 6) {
+        throw new Error("Canonical USDG metadata verification failed; USDG actions are disabled.");
+      }
+      const [expectedVersion, accountVersion] = await Promise.all([
+        publicClient.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
+        publicClient.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [accountAddress] }),
+      ]);
+      if (accountVersion !== expectedVersion) throw new Error("Selected account was not deployed by the pinned security-beta factory.");
       const [ethBalance, usdgBalance, policyActive, paused, ethPolicy, usdgPolicy, ethRolling, usdgRolling, canonicalStablecoin] =
         await Promise.all([
           publicClient.getBalance({ address: accountAddress }),
-          publicClient.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20BalanceAbi, functionName: "balanceOf", args: [accountAddress] }),
+          publicClient.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20Abi, functionName: "balanceOf", args: [accountAddress] }),
           publicClient.readContract({ address: accountAddress, abi: ruleWalletV2Abi, functionName: "policyActive" }),
           publicClient.readContract({ address: accountAddress, abi: ruleWalletV2Abi, functionName: "paused" }),
           publicClient.readContract({ address: accountAddress, abi: ruleWalletV2Abi, functionName: "assetPolicies", args: [zeroAddress] }),
@@ -216,12 +235,16 @@ export function MainnetControlCenter() {
     try {
       const { owner, client } = requireWallet();
       if (!mainnetFactoryAddress) throw new Error("The V2 factory is not deployed/configured. Follow the mainnet deployment guide first.");
+      const verificationResponse = await fetch("/api/mainnet/status", { cache: "no-store" });
+      const verification = verificationResponse.ok ? await verificationResponse.json() as MainnetStatus : undefined;
+      if (!verification?.factoryVerifiedOnchain) throw new Error("The configured factory runtime bytecode hash is not pinned to this security-beta release.");
+      if (!verification.canonicalUsdgVerified || verification.canonicalUsdgDecimals !== 6) throw new Error("Canonical 6-decimal USDG verification failed; deployment is blocked.");
       const [factoryChainId, factoryUsdg, factoryVersion] = await Promise.all([
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "deploymentChainId" }),
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "canonicalStablecoin" }),
         client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION" }),
       ]);
-      if (factoryChainId !== BigInt(4663) || factoryUsdg !== ROBINHOOD_MAINNET_USDG || factoryVersion !== "2.0.0-experimental") {
+      if (factoryChainId !== BigInt(4663) || factoryUsdg !== ROBINHOOD_MAINNET_USDG || factoryVersion !== "2.1.0-security-beta") {
         throw new Error("Configured factory does not match the pinned chain, canonical USDG, and V2 version.");
       }
       const roles = [guardian, agent, approver];
@@ -276,14 +299,11 @@ export function MainnetControlCenter() {
     try {
       const { owner, client } = requireWallet();
       if (!accountAddress) throw new Error("Select a RuleWallet V2 account.");
-      const token = asset === "ETH" ? zeroAddress : ROBINHOOD_MAINNET_USDG;
-      const perTx = parseUnits(perTransaction, 18);
-      const rolling = parseUnits(rolling24h, 18);
-      const threshold = approvalAbove.trim() ? parseUnits(approvalAbove, 18) : BigInt(0);
+      const args = buildMainnetAssetPolicyArgs(asset, perTransaction, rolling24h, approvalAbove);
+      const [token,, perTx, rolling, threshold] = args;
       if (perTx <= 0 || rolling < perTx || (threshold !== BigInt(0) && threshold > perTx)) {
         throw new Error("Limits must be positive; rolling 24h ≥ per transaction and approval threshold ≤ per transaction.");
       }
-      const args = [token, true, perTx, rolling, threshold] as const;
       await client.simulateContract({ account: owner, address: accountAddress, abi: ruleWalletV2Abi, functionName: "setAssetPolicy", args });
       setPrepared({ kind: asset === "ETH" ? "eth-policy" : "usdg-policy", title: `Set ${asset} agent limits`, to: accountAddress, value: BigInt(0), data: encodeFunctionData({ abi: ruleWalletV2Abi, functionName: "setAssetPolicy", args }), expectedResult: `${asset}: ${perTransaction} per transaction; ${rolling24h} rolling 24h; ${threshold === BigInt(0) ? "no human threshold" : `approval above ${approvalAbove}`}`, payload: { asset: token, enabled: true, perTransaction, rolling24h, approvalAbove: threshold.toString() } });
       setMessage("Simulation passed. This is a separate owner-signed limit change.");
@@ -295,15 +315,22 @@ export function MainnetControlCenter() {
     try {
       const { owner, client } = requireWallet();
       if (!accountAddress) throw new Error("Select a RuleWallet V2 account.");
-      const amount = parseEther(kind === "deposit" ? fundAmount : withdrawAmount);
+      const amount = parseMainnetAssetUnits(kind === "deposit" ? fundAmount : withdrawAmount, fundAsset);
       if (amount <= 0) throw new Error("Amount must be greater than zero.");
       if (kind === "deposit") {
-        await client.estimateGas({ account: owner, to: accountAddress, value: amount });
-        setPrepared({ kind, title: "Deposit ETH into your policy account", to: accountAddress, value: amount, data: "0x", expectedResult: `${formatEther(amount)} ETH deposited; no platform balance cap is imposed`, payload: { amountWei: amount.toString() } });
+        if (fundAsset === "ETH") {
+          await client.estimateGas({ account: owner, to: accountAddress, value: amount });
+          setPrepared({ kind, title: "Deposit ETH into your policy account", to: accountAddress, value: amount, data: "0x", expectedResult: `${formatEther(amount)} ETH deposited; no platform balance cap is imposed`, payload: { asset: fundAsset, amount: amount.toString() } });
+        } else {
+          const args = [accountAddress, amount] as const;
+          await client.simulateContract({ account: owner, address: ROBINHOOD_MAINNET_USDG, abi: erc20Abi, functionName: "transfer", args });
+          setPrepared({ kind, title: "Deposit canonical USDG", to: ROBINHOOD_MAINNET_USDG, value: BigInt(0), data: encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args }), expectedResult: `${formatMainnetAssetUnits(amount, "USDG")} USDG transferred directly into the policy account`, payload: { asset: fundAsset, amount: amount.toString() } });
+        }
       } else {
         const args = [owner, amount] as const;
-        await client.simulateContract({ account: owner, address: accountAddress, abi: ruleWalletV2Abi, functionName: "withdrawNative", args });
-        setPrepared({ kind, title: "Owner withdrawal", to: accountAddress, value: BigInt(0), data: encodeFunctionData({ abi: ruleWalletV2Abi, functionName: "withdrawNative", args }), expectedResult: `${formatEther(amount)} ETH returned to owner ${owner}; agent limits do not apply`, payload: { recipient: owner, amountWei: amount.toString() } });
+        const functionName = fundAsset === "ETH" ? "withdrawNative" : "withdrawCanonicalStablecoin";
+        await client.simulateContract({ account: owner, address: accountAddress, abi: ruleWalletV2Abi, functionName, args });
+        setPrepared({ kind, title: `Owner ${fundAsset} withdrawal`, to: accountAddress, value: BigInt(0), data: encodeFunctionData({ abi: ruleWalletV2Abi, functionName, args }), expectedResult: `${formatMainnetAssetUnits(amount, fundAsset)} ${fundAsset} returned to owner ${owner}; agent limits do not apply`, payload: { asset: fundAsset, recipient: owner, amount: amount.toString() } });
       }
       setMessage("Simulation passed. No funds have moved.");
     } catch (caught) { setError(errorMessage(caught)); } finally { setBusy(""); }
@@ -384,19 +411,21 @@ export function MainnetControlCenter() {
 
   return (
     <div className="space-y-6">
-      <Alert className="border-red-500/25 bg-red-50 text-red-900">
-        <AlertTriangle /><AlertTitle>Experimental, unaudited mainnet software</AlertTitle>
-        <AlertDescription className="text-red-800">Real assets can be lost. RuleWallet is not affiliated with Robinhood, is not audited or risk-free, and is not suitable for large balances. Autonomous mainnet execution stays off without a verified non-exportable signer.</AlertDescription>
+      <Alert className="border-amber-500/30 bg-amber-50 text-amber-950">
+        <AlertTriangle /><AlertTitle>Experimental, unaudited mainnet release</AlertTitle>
+        <AlertDescription className="text-amber-900">Real assets can be lost. Owner, approver, and guardian changes always require wallet signatures. Autonomous transfers remain disabled unless every production gate and the remote non-exportable signer identity pass.</AlertDescription>
       </Alert>
 
       <div className="grid gap-4 md:grid-cols-4">
         {[
           ["Network", "Robinhood Chain · 4663"],
-          ["Factory", status?.factoryVerifiedOnchain ? "Verified bytecode present" : "Not deployed/configured"],
-          ["Secure signer", status?.signer.configured ? `Configured · ${short(status.signer.address!)}` : "Disabled"],
-          ["Autonomy", status?.autonomyEnabled ? "Enabled" : "Disabled by safety gate"],
+          ["Factory", status?.factoryVerifiedOnchain ? "Pinned runtime verified" : "Security-beta factory unavailable"],
+          ["USDG", status?.canonicalUsdgVerified ? "Canonical · 6 decimals" : "Controls disabled"],
+          ["Autonomy", status?.autonomyEnabled ? "Enabled · all gates pass" : "Locked · gates incomplete"],
         ].map(([label, value]) => <Card key={label} size="sm"><CardHeader><CardDescription>{label}</CardDescription><CardTitle className="text-sm text-primary">{value}</CardTitle></CardHeader></Card>)}
       </div>
+
+      {status?.productionGates && <Card><CardHeader><CardTitle>Production automation gates</CardTitle><CardDescription>Every gate is enforced by the server. A failed check disables strategy activation and execution.</CardDescription></CardHeader><CardContent className="grid gap-2 md:grid-cols-2">{status.productionGates.map((gate) => <div key={gate.id} className="rounded-lg border border-grid p-3 text-sm"><span className={gate.ready ? "font-medium text-primary" : "font-medium text-amber-700"}>{gate.ready ? "Ready" : "Incomplete"} · {gate.id}</span><p className="mt-1 text-muted-foreground">{gate.message}</p></div>)}</CardContent></Card>}
 
       {!connection.isConnected ? (
         <Card><CardHeader><CardTitle className="flex items-center gap-2"><Wallet className="size-4" /> Connect the owner wallet</CardTitle><CardDescription>Use the header. Never enter a seed phrase or private key into RuleWallet.</CardDescription></CardHeader></Card>
@@ -442,13 +471,13 @@ export function MainnetControlCenter() {
           {accountAddress && (
             <>
               <Card><CardHeader><div className="flex items-start justify-between gap-4"><div><CardTitle>Live account monitor</CardTitle><CardDescription className="mt-1">Explorer-backed balances and policy state.</CardDescription></div><Button variant="outline" size="sm" onClick={refresh}><RefreshCw /> Refresh</Button></div></CardHeader><CardContent className="space-y-3 text-sm">
-                {metrics ? <><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-grid p-3">ETH balance <b className="float-right font-mono">{formatEther(metrics.ethBalance)}</b></div><div className="rounded-lg border border-grid p-3">USDG balance <b className="float-right font-mono">{formatUnits(metrics.usdgBalance, 18)}</b></div></div><p>{policySummary(metrics.ethPolicy, "ETH")}</p><p>{policySummary(metrics.usdgPolicy, "USDG")}</p><p className="text-muted-foreground">Rolling spent: {formatEther(metrics.ethRolling)} ETH · {formatUnits(metrics.usdgRolling, 18)} USDG · {metrics.paused ? "Paused" : metrics.policyActive ? "Active" : "Inactive"}</p></> : <p className="text-muted-foreground">Load or verify a deployed V2 account to display live state.</p>}
+                {metrics ? <><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-grid p-3">ETH balance <b className="float-right font-mono">{formatEther(metrics.ethBalance)}</b></div><div className="rounded-lg border border-grid p-3">USDG balance <b className="float-right font-mono">{formatMainnetAssetUnits(metrics.usdgBalance, "USDG")}</b></div></div><p>{policySummary(metrics.ethPolicy, "ETH")}</p><p>{policySummary(metrics.usdgPolicy, "USDG")}</p><p className="text-muted-foreground">Rolling spent: {formatEther(metrics.ethRolling)} ETH · {formatMainnetAssetUnits(metrics.usdgRolling, "USDG")} USDG · {metrics.paused ? "Paused" : metrics.policyActive ? "Active" : "Inactive"}</p></> : <p className="text-muted-foreground">Load or verify a deployed V2 account to display live state.</p>}
               </CardContent></Card>
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card><CardHeader><CardTitle>2. Trusted recipient</CardTitle><CardDescription>Agents can transfer only to enabled recipients.</CardDescription></CardHeader><CardContent className="space-y-3"><Input value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="0x… recipient" /><div className="flex gap-2"><Button variant={recipientEnabled ? "default" : "outline"} onClick={() => setRecipientEnabled(true)}>Enable</Button><Button variant={!recipientEnabled ? "destructive" : "outline"} onClick={() => setRecipientEnabled(false)}>Revoke</Button><Button variant="outline" onClick={prepareRecipient}>Simulate</Button></div></CardContent></Card>
                 <Card><CardHeader><CardTitle>3. Mandatory agent limits</CardTitle><CardDescription>Each asset requires its own positive per-transaction and rolling 24-hour limits.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex gap-2"><Button variant={asset === "ETH" ? "default" : "outline"} onClick={() => setAsset("ETH")}>ETH</Button><Button variant={asset === "USDG" ? "default" : "outline"} onClick={() => setAsset("USDG")}>USDG</Button></div><div className="grid gap-3 sm:grid-cols-3"><div><Label>Per transaction</Label><Input value={perTransaction} onChange={(event) => setPerTransaction(event.target.value)} /></div><div><Label>Rolling 24h</Label><Input value={rolling24h} onChange={(event) => setRolling24h(event.target.value)} /></div><div><Label>Approval above</Label><Input value={approvalAbove} onChange={(event) => setApprovalAbove(event.target.value)} placeholder="Blank = optional" /></div></div><Button onClick={preparePolicy}>Simulate {asset} policy</Button></CardContent></Card>
-                <Card><CardHeader><CardTitle>4. Owner funds</CardTitle><CardDescription>No platform balance cap or owner withdrawal limit. Wallet balance and network gas still apply.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="grid grid-cols-2 gap-3"><div><Label>Deposit ETH</Label><Input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} /></div><div><Label>Withdraw ETH</Label><Input value={withdrawAmount} onChange={(event) => setWithdrawAmount(event.target.value)} /></div></div><div className="flex gap-2"><Button variant="outline" onClick={() => prepareFunds("deposit")}>Simulate deposit</Button><Button variant="outline" onClick={() => prepareFunds("withdraw")}>Simulate withdrawal</Button></div></CardContent></Card>
+                <Card><CardHeader><CardTitle>4. Owner funds</CardTitle><CardDescription>Direct ETH and canonical USDG deposits and unrestricted owner withdrawals. Wallet balance and network gas still apply.</CardDescription></CardHeader><CardContent className="space-y-3"><div className="flex gap-2"><Button variant={fundAsset === "ETH" ? "default" : "outline"} onClick={() => setFundAsset("ETH")}>ETH</Button><Button variant={fundAsset === "USDG" ? "default" : "outline"} onClick={() => setFundAsset("USDG")} disabled={!status?.canonicalUsdgVerified}>USDG</Button></div><div className="grid grid-cols-2 gap-3"><div><Label>Deposit {fundAsset}</Label><Input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} /></div><div><Label>Withdraw {fundAsset}</Label><Input value={withdrawAmount} onChange={(event) => setWithdrawAmount(event.target.value)} /></div></div><div className="flex gap-2"><Button variant="outline" onClick={() => prepareFunds("deposit")}>Simulate deposit</Button><Button variant="outline" onClick={() => prepareFunds("withdraw")}>Simulate withdrawal</Button></div></CardContent></Card>
                 <Card><CardHeader><CardTitle>5. Emergency controls</CardTitle><CardDescription>Guardian pauses; owner unpauses. Owner withdrawal remains available while paused.</CardDescription></CardHeader><CardContent className="flex gap-2"><Button variant="destructive" onClick={() => preparePause(true)}><Pause /> Simulate pause</Button><Button variant="outline" onClick={() => preparePause(false)}><Play /> Simulate unpause</Button></CardContent></Card>
                 <Card><CardHeader><CardTitle>6. Human approval queue</CardTitle><CardDescription>Approvers record signatures independently. Execution rechecks every hard rule.</CardDescription></CardHeader><CardContent className="space-y-3"><Input value={requestId} onChange={(event) => setRequestId(event.target.value)} inputMode="numeric" placeholder="Onchain request ID" /><div className="flex gap-2"><Button variant="outline" onClick={() => prepareRequestAction("approve")}>Simulate approval</Button><Button variant="outline" onClick={() => prepareRequestAction("execute-approved")}>Simulate execution</Button></div></CardContent></Card>
               </div>

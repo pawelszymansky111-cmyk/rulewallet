@@ -474,11 +474,6 @@ export function StartExperience() {
                   <ArrowRight />
                 </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/security">
-                  {pro ? "Threat model" : "Read safety guide"}
-                </Link>
-              </Button>
             </div>
           </div>
           <div className="divide-y divide-border overflow-hidden rounded-xl border border-grid bg-card">
