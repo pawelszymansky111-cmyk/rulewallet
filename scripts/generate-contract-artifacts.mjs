@@ -15,19 +15,19 @@ const artifacts = [
 
 await mkdir(new URL("../src/generated/", import.meta.url), { recursive: true });
 
-function immutableReferenceNames(forgeArtifact) {
+function immutableReferencesByName(forgeArtifact) {
   const references = forgeArtifact.deployedBytecode.immutableReferences ?? {};
-  const names = {};
+  const namedReferences = {};
   for (const contract of forgeArtifact.ast?.nodes ?? []) {
     if (contract.nodeType !== "ContractDefinition") continue;
     for (const node of contract.nodes ?? []) {
       const id = String(node.id);
       if (node.nodeType === "VariableDeclaration" && node.mutability === "immutable" && references[id]) {
-        names[node.name] = id;
+        namedReferences[node.name] = references[id];
       }
     }
   }
-  return names;
+  return namedReferences;
 }
 
 for (const [forgeName, webName] of artifacts) {
@@ -40,8 +40,10 @@ for (const [forgeName, webName] of artifacts) {
       abi: forgeArtifact.abi,
       bytecode: forgeArtifact.bytecode.object,
       runtimeBytecode: forgeArtifact.deployedBytecode.object,
-      immutableReferences: forgeArtifact.deployedBytecode.immutableReferences ?? {},
-      immutableReferenceNames: immutableReferenceNames(forgeArtifact),
+      // Solidity AST IDs depend on the complete compiler input and change when
+      // CI installs dependencies. Key web artifacts by the source-level name so
+      // identical bytecode produces identical generated files everywhere.
+      immutableReferences: immutableReferencesByName(forgeArtifact),
       runtimeBytecodeHash: keccak256(forgeArtifact.deployedBytecode.object),
     })}\n`,
   );

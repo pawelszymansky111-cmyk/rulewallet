@@ -20,20 +20,9 @@ export const ruleWalletFactoryV3Bytecode = factoryArtifact.bytecode as Hex;
 
 type ImmutableReference = { start: number; length: number };
 type ImmutableReferences = Record<string, ImmutableReference[]>;
-type ImmutableReferenceNames = Record<string, string>;
 
 const factoryReferences = factoryArtifact.immutableReferences as ImmutableReferences;
 const accountDeployerReferences = accountDeployerArtifact.immutableReferences as ImmutableReferences;
-const factoryReferenceNames = factoryArtifact.immutableReferenceNames as ImmutableReferenceNames;
-const accountDeployerReferenceNames = accountDeployerArtifact.immutableReferenceNames as ImmutableReferenceNames;
-
-const factoryImmutableIds = {
-  canonicalStablecoin: factoryReferenceNames.canonicalStablecoin,
-  deploymentChainId: factoryReferenceNames.deploymentChainId,
-  accountDeployer: factoryReferenceNames.accountDeployer,
-  registryDeployer: factoryReferenceNames.registryDeployer,
-} as const;
-const accountDeployerFactoryImmutableId = accountDeployerReferenceNames.factory;
 
 function replaceImmutable(runtime: Hex, references: ImmutableReference[], value: Hex) {
   let code = runtime.slice(2);
@@ -46,10 +35,9 @@ function replaceImmutable(runtime: Hex, references: ImmutableReference[], value:
   return `0x${code}` as Hex;
 }
 
-function requiredReferences(references: ImmutableReferences, id: string | undefined) {
-  if (!id) throw new Error("Generated artifact is missing an immutable reference name.");
-  const value = references[id];
-  if (!value?.length) throw new Error(`Missing pinned immutable reference ${id}.`);
+function requiredReferences(references: ImmutableReferences, name: string) {
+  const value = references[name];
+  if (!value?.length) throw new Error(`Missing pinned immutable reference ${name}.`);
   return value;
 }
 
@@ -69,22 +57,22 @@ export function buildExpectedFactoryV3Runtime(input: {
   let runtime = factoryArtifact.runtimeBytecode as Hex;
   runtime = replaceImmutable(
     runtime,
-    requiredReferences(factoryReferences, factoryImmutableIds.canonicalStablecoin),
+    requiredReferences(factoryReferences, "canonicalStablecoin"),
     input.canonicalStablecoin,
   );
   runtime = replaceImmutable(
     runtime,
-    requiredReferences(factoryReferences, factoryImmutableIds.deploymentChainId),
+    requiredReferences(factoryReferences, "deploymentChainId"),
     numberToHex(input.chainId),
   );
   runtime = replaceImmutable(
     runtime,
-    requiredReferences(factoryReferences, factoryImmutableIds.accountDeployer),
+    requiredReferences(factoryReferences, "accountDeployer"),
     helpers.accountDeployer,
   );
   runtime = replaceImmutable(
     runtime,
-    requiredReferences(factoryReferences, factoryImmutableIds.registryDeployer),
+    requiredReferences(factoryReferences, "registryDeployer"),
     helpers.registryDeployer,
   );
   return { runtime, runtimeHash: keccak256(runtime), ...helpers } as const;
@@ -93,7 +81,7 @@ export function buildExpectedFactoryV3Runtime(input: {
 export function buildExpectedAccountDeployerV3Runtime(factory: Address) {
   const runtime = replaceImmutable(
     accountDeployerArtifact.runtimeBytecode as Hex,
-    requiredReferences(accountDeployerReferences, accountDeployerFactoryImmutableId),
+    requiredReferences(accountDeployerReferences, "factory"),
     factory,
   );
   return { runtime, runtimeHash: keccak256(runtime) } as const;
