@@ -49,6 +49,8 @@ Publishing code or a frontend is not the same as activating a real-funds system.
 - [ ] Redis locks/idempotency/pending nonces tested under concurrency and outage.
 - [ ] A random 32-byte `MAINNET_STRATEGY_ENCRYPTION_KEY` is configured server-side and restore/key-rotation is rehearsed.
 - [ ] A separate random 32-byte `COMMERCE_SESSION_SECRET` is configured server-side; private order and approval routes reject unsigned sessions.
+- [ ] A different random 32-byte `COMMERCE_DATA_ENCRYPTION_KEY` is configured; Redis contains only authenticated ciphertext envelopes for private commerce records.
+- [ ] Alert receivers verify HMAC signatures, enforce the five-minute timestamp window, and atomically reject repeated delivery IDs.
 - [ ] Authenticated scheduler and alert delivery configured and failure-tested.
 - [ ] Guardian pause, agent revocation, strategy revocation, and owner recovery rehearsed.
 - [ ] Restrictive canary policy uses a verified recipient and disposable balance.

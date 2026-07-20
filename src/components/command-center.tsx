@@ -30,6 +30,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { parseUnits } from "viem";
 import { EmbeddedWalletGate } from "@/components/embedded-wallet-gate";
 import { V3AccountManager } from "@/components/v3-account-manager";
 import { V3AccountDashboard } from "@/components/v3-account-dashboard";
@@ -59,6 +60,7 @@ type ProviderResponse = {
   providers: CommerceProvider[];
   storageConfigured: boolean;
   sessionConfigured: boolean;
+  encryptionConfigured: boolean;
   livePurchasesEnabled: boolean;
   disclosure: string;
 };
@@ -99,6 +101,30 @@ const quickIntents = [
   { category: "shopping" as const, label: "Shop online", query: "USB-C travel charger under $60" },
 ];
 
+const commerceCategories: CommerceCategory[] = [
+  "travel", "food", "tickets", "shopping", "subscriptions", "payroll", "direct",
+];
+
+const onchainCategory: Record<CommerceCategory, number> = {
+  direct: 0,
+  travel: 1,
+  food: 2,
+  tickets: 3,
+  shopping: 4,
+  subscriptions: 5,
+  payroll: 6,
+};
+
+export type CommandCenterInitialIntent = {
+  providerId?: string;
+  category?: string;
+  query?: string;
+  recipient?: string;
+  policyAccount?: string;
+  asset?: string;
+  amount?: string;
+};
+
 function parseError(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
@@ -122,17 +148,28 @@ function shortAddress(value: string) {
   return value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "Not selected";
 }
 
-export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsConfigured: boolean }) {
+export function CommandCenter({
+  embeddedWalletsConfigured,
+  initialIntent = {},
+}: {
+  embeddedWalletsConfigured: boolean;
+  initialIntent?: CommandCenterInitialIntent;
+}) {
   const { mode } = useExperienceMode();
   const pro = mode === "pro";
   const { address, chainId } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const [providerId, setProviderId] = useState("duffel-flights");
-  const [category, setCategory] = useState<CommerceCategory>("travel");
-  const [query, setQuery] = useState("Warsaw to London, next Friday, economy");
-  const [recipient, setRecipient] = useState("");
-  const [policyAccount, setPolicyAccount] = useState("");
-  const [asset, setAsset] = useState<"USDG" | "ETH">("USDG");
+  const [providerId, setProviderId] = useState(initialIntent.providerId ?? "duffel-flights");
+  const [category, setCategory] = useState<CommerceCategory>(
+    commerceCategories.includes(initialIntent.category as CommerceCategory)
+      ? initialIntent.category as CommerceCategory
+      : "travel",
+  );
+  const [query, setQuery] = useState(initialIntent.query ?? "Warsaw to London, next Friday, economy");
+  const [recipient, setRecipient] = useState(initialIntent.recipient ?? "");
+  const [policyAccount, setPolicyAccount] = useState(initialIntent.policyAccount ?? "");
+  const [asset, setAsset] = useState<"USDG" | "ETH">(initialIntent.asset === "ETH" ? "ETH" : "USDG");
+  const [directAmount, setDirectAmount] = useState(initialIntent.amount ?? "10");
   const [origin, setOrigin] = useState("WAW");
   const [destination, setDestination] = useState("LHR");
   const [departureDate, setDepartureDate] = useState(() => new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
@@ -146,8 +183,9 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
   });
 
   const quoteMutation = useMutation({
-    mutationFn: () =>
-      jsonRequest<QuoteResponse>("/api/commerce/quotes", {
+    mutationFn: () => {
+      const directRail = providerId === "direct-onchain" || providerId === "recurring-payments";
+      return jsonRequest<QuoteResponse>("/api/commerce/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -156,7 +194,8 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
           query,
           asset,
           account: policyAccount || undefined,
-          recipient: providerId === "direct-onchain" ? recipient : undefined,
+          recipient: directRail ? recipient : undefined,
+          exactAmountMinor: directRail ? parseUnits(directAmount, asset === "USDG" ? 6 : 18).toString() : undefined,
           travel: providerId === "duffel-flights" ? {
             origin: origin.toUpperCase(),
             destination: destination.toUpperCase(),
@@ -166,7 +205,8 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
           } : undefined,
           idempotencyKey: crypto.randomUUID(),
         }),
-      }),
+      });
+    },
   });
 
   async function ensureCommerceSession(owner: string) {
@@ -314,7 +354,15 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
           <EmbeddedWalletGate configured={embeddedWalletsConfigured} />
           <V3AccountDashboard accountInput={policyAccount} onAccountInputChange={setPolicyAccount} />
           <V3AccountManager onAccountCreated={setPolicyAccount} />
-          <V3PolicyWorkspace selectedAccount={policyAccount} onSelectedAccountChange={setPolicyAccount} />
+          <V3PolicyWorkspace
+            selectedAccount={policyAccount}
+            onSelectedAccountChange={setPolicyAccount}
+            initialChainId={chainId === 4663 ? 4663 : 46630}
+            initialMerchant={initialIntent.recipient}
+            initialCategory={onchainCategory[category]}
+            initialAssetSymbol={asset}
+            initialPerTransaction={initialIntent.amount}
+          />
         </section>
 
         <section id="agent" className="scroll-mt-24">
@@ -369,10 +417,16 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
                 </div>
               </div>
 
-              {providerId === "direct-onchain" ? (
-                <div>
-                  <Label htmlFor="recipient">Exact trusted recipient</Label>
-                  <Input id="recipient" className="mt-2 font-mono" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="0x…" />
+              {providerId === "direct-onchain" || providerId === "recurring-payments" ? (
+                <div className="grid gap-4 sm:grid-cols-[1fr_0.35fr]">
+                  <div>
+                    <Label htmlFor="recipient">Exact trusted recipient</Label>
+                    <Input id="recipient" className="mt-2 font-mono" value={recipient} onChange={(event) => setRecipient(event.target.value)} placeholder="0x…" />
+                  </div>
+                  <div>
+                    <Label htmlFor="direct-amount">Exact amount ({asset})</Label>
+                    <Input id="direct-amount" className="mt-2" inputMode="decimal" value={directAmount} onChange={(event) => setDirectAmount(event.target.value)} />
+                  </div>
                 </div>
               ) : null}
 
@@ -394,11 +448,11 @@ export function CommandCenter({ embeddedWalletsConfigured }: { embeddedWalletsCo
                 </Alert>
               ) : null}
 
-              {providersQuery.data && (!providersQuery.data.storageConfigured || !providersQuery.data.sessionConfigured) ? (
+              {providersQuery.data && (!providersQuery.data.storageConfigured || !providersQuery.data.sessionConfigured || !providersQuery.data.encryptionConfigured) ? (
                 <Alert className="border-amber-400/30 bg-amber-50 text-amber-900">
                   <LockKeyhole />
                   <AlertTitle>Private order lifecycle is not configured</AlertTitle>
-                  <AlertDescription>Quotes still work, but an operator must configure durable Redis and the server-only commerce session secret before orders and approvals can be stored privately.</AlertDescription>
+                  <AlertDescription>Quotes still work, but an operator must configure durable Redis plus separate session and AES-256-GCM data-encryption keys before orders and approvals can be stored privately.</AlertDescription>
                 </Alert>
               ) : null}
 

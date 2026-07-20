@@ -15,7 +15,7 @@ This document separates working features from demos and future integrations. The
 | Scheduled EIP-712 transfers | Legacy V2 public demo plus V3 contract tests | Implemented, production-gated | A V3 testnet signer deployment and the mainnet production gates are external setup steps |
 | Duffel flight offers | Official test-mode data with token | Test data only | No real payment or ticket |
 | Ticketmaster event discovery | Official search data with key | Search + hosted checkout | No autonomous purchase API claim |
-| Direct onchain invoice | Quote and V3 policy path | V3 transfer path after deployment | Exact trusted EVM recipient required |
+| Direct onchain invoice | Quote and V3 policy path | V3 transfer path after deployment | Exact trusted EVM recipient and user-entered amount required |
 | Shopify carts | Deterministic demo only | Disabled | Merchant domain/token/webhooks needed |
 | Stripe Issuing virtual card | Deterministic demo only | Disabled | Provider approval, compliance, funding, controls, and webhooks needed |
 | Food ordering | Deterministic demo only | Disabled | No authorized ordering API partner configured |
@@ -40,3 +40,5 @@ A provider moves to live only after all of the following exist:
 8. fault-injection tests and a restrictive production canary.
 
 Until those conditions are met, the adapter remains search, hosted checkout, sandbox, or disabled.
+
+Private quotes, carts, approvals, orders, and receipts require wallet-session authentication and authenticated AES-256-GCM storage. Approval recipients may reject an exact direct request and open a smaller replacement, or route to the policy workspace to trust the merchant within a wallet-signed limit; an existing signed quote is never silently edited.

@@ -28,6 +28,7 @@ Mainnet autonomy is supported but defaults off and requires every runtime gate. 
 - **Contract flaw:** keep paused. V3 is non-upgradeable. Prepare an owner withdrawal to a verified recovery address and a new version only after review.
 - **USDG anomaly:** pause USDG agent policy and all automation; do not substitute another token address.
 - **Provider double order or false confirmation:** stop that adapter, preserve idempotency/webhook/provider evidence, contact the provider, and do not retry until payment and fulfillment are reconciled independently.
+- **Commerce encryption or alert-signing key exposure:** stop private order creation and external delivery, rotate the affected key through the documented migration procedure, invalidate active commerce sessions, and verify stored-record and delivery-ID integrity before resuming.
 - **Embedded-wallet identity/recovery incident:** stop account creation, revoke affected sessions in the identity provider, pause accounts from an independent guardian, and follow the provider's account-recovery evidence process.
 
 ## Owner recovery transaction

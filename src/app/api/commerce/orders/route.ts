@@ -130,8 +130,11 @@ export async function POST(request: NextRequest) {
             ? "awaiting-approval"
             : "approved",
       policyDecision,
-      paymentRail:
-        quote.providerId === "direct-onchain" ? "direct-onchain" : "provider-api",
+      paymentRail: quote.merchantRecipient
+        ? "direct-onchain"
+        : quote.checkoutUrl
+          ? "hosted-checkout"
+          : "provider-api",
       createdAt: now,
       updatedAt: now,
     };

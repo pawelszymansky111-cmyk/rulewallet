@@ -8,6 +8,11 @@ import {
   type CommerceQuote,
   type PurchaseOrder,
 } from "./commerce-types";
+import {
+  commerceDataEncryptionConfigured,
+  decryptCommerceRecord,
+  encryptCommerceRecord,
+} from "./commerce-data-encryption";
 
 const quoteIdsKey = "rulewallet:commerce:quote-ids";
 const orderIdsKey = "rulewallet:commerce:order-ids";
@@ -25,7 +30,7 @@ function redisEnvironment() {
 
 export function commerceStorageConfigured() {
   const environment = redisEnvironment();
-  return Boolean(environment.url && environment.token);
+  return Boolean(environment.url && environment.token && commerceDataEncryptionConfigured());
 }
 
 function getRedis() {
@@ -78,7 +83,11 @@ export async function saveQuoteIdempotently(quote: CommerceQuote, idempotencyKey
     const existing = await getQuote(existingId);
     if (existing) return existing;
   }
-  await client.set(quoteKey(parsed.id), parsed, { ex: 15 * 60 });
+  await client.set(
+    quoteKey(parsed.id),
+    encryptCommerceRecord(parsed, quoteKey(parsed.id)),
+    { ex: 15 * 60 },
+  );
   const claimed = await client.set(quoteIdempotencyKey(idempotencyKey), parsed.id, {
     nx: true,
     ex: 15 * 60,
@@ -94,14 +103,14 @@ export async function saveQuoteIdempotently(quote: CommerceQuote, idempotencyKey
 
 export async function getQuote(id: string): Promise<CommerceQuote | undefined> {
   const value = await getRedis().get<unknown>(quoteKey(id));
-  return value ? commerceQuoteSchema.parse(value) : undefined;
+  return value ? commerceQuoteSchema.parse(decryptCommerceRecord(value, quoteKey(id))) : undefined;
 }
 
 export async function saveOrder(order: PurchaseOrder) {
   const parsed = purchaseOrderSchema.parse(order);
   const client = getRedis();
   await Promise.all([
-    client.set(orderKey(parsed.id), parsed),
+    client.set(orderKey(parsed.id), encryptCommerceRecord(parsed, orderKey(parsed.id))),
     client.sadd(orderIdsKey, parsed.id),
   ]);
   return parsed;
@@ -110,7 +119,7 @@ export async function saveOrder(order: PurchaseOrder) {
 export async function getOrder(id: string): Promise<PurchaseOrder | undefined> {
   const value = await getRedis().get<unknown>(orderKey(id));
   if (!value) return undefined;
-  const parsed = purchaseOrderSchema.safeParse(value);
+  const parsed = purchaseOrderSchema.safeParse(decryptCommerceRecord(value, orderKey(id)));
   return parsed.success ? parsed.data : undefined;
 }
 
@@ -118,11 +127,12 @@ export async function listOrders(limit = 100): Promise<PurchaseOrder[]> {
   const client = getRedis();
   const ids = await client.smembers<string[]>(orderIdsKey);
   if (ids.length === 0) return [];
-  const values = await client.mget<unknown[]>(...ids.slice(0, limit).map(orderKey));
+  const selectedIds = ids.slice(0, limit);
+  const values = await client.mget<unknown[]>(...selectedIds.map(orderKey));
   return values
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .flatMap((value) => {
-      const parsed = purchaseOrderSchema.safeParse(value);
+    .flatMap((value, index) => {
+      if (value === null) return [];
+      const parsed = purchaseOrderSchema.safeParse(decryptCommerceRecord(value, orderKey(selectedIds[index])));
       return parsed.success ? [parsed.data] : [];
     })
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -132,7 +142,7 @@ export async function saveApproval(approval: ApprovalRequest) {
   const parsed = approvalRequestSchema.parse(approval);
   const client = getRedis();
   await Promise.all([
-    client.set(approvalKey(parsed.id), parsed),
+    client.set(approvalKey(parsed.id), encryptCommerceRecord(parsed, approvalKey(parsed.id))),
     client.sadd(approvalIdsKey, parsed.id),
   ]);
   return parsed;
@@ -141,7 +151,7 @@ export async function saveApproval(approval: ApprovalRequest) {
 export async function getApproval(id: string): Promise<ApprovalRequest | undefined> {
   const value = await getRedis().get<unknown>(approvalKey(id));
   if (!value) return undefined;
-  const parsed = approvalRequestSchema.safeParse(value);
+  const parsed = approvalRequestSchema.safeParse(decryptCommerceRecord(value, approvalKey(id)));
   return parsed.success ? parsed.data : undefined;
 }
 
@@ -149,11 +159,12 @@ export async function listApprovals(limit = 100): Promise<ApprovalRequest[]> {
   const client = getRedis();
   const ids = await client.smembers<string[]>(approvalIdsKey);
   if (ids.length === 0) return [];
-  const values = await client.mget<unknown[]>(...ids.slice(0, limit).map(approvalKey));
+  const selectedIds = ids.slice(0, limit);
+  const values = await client.mget<unknown[]>(...selectedIds.map(approvalKey));
   return values
-    .filter((value): value is NonNullable<typeof value> => value !== null)
-    .flatMap((value) => {
-      const parsed = approvalRequestSchema.safeParse(value);
+    .flatMap((value, index) => {
+      if (value === null) return [];
+      const parsed = approvalRequestSchema.safeParse(decryptCommerceRecord(value, approvalKey(selectedIds[index])));
       return parsed.success ? [parsed.data] : [];
     })
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));

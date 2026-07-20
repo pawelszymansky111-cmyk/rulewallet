@@ -29,6 +29,7 @@ Never set a V3 factory variable until the factory and both helper runtime hashes
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Quotes, carts, approvals, strategies, receipts, locks, nonces, idempotency |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Supported Vercel Marketplace aliases |
 | `COMMERCE_SESSION_SECRET` | Server-only 32-byte hex key for short-lived wallet-authenticated private commerce sessions |
+| `COMMERCE_DATA_ENCRYPTION_KEY` | Separate server-only 32-byte hex key for AES-256-GCM encryption of commerce records at rest |
 | `CRON_SECRET` | Authenticates scheduler routes; at least 16 random characters |
 | `MAINNET_SCHEDULER_MODE` | `vercel-pro-cron` or `external-durable`, only after the scheduler exists |
 | `AGENT_PRIVATE_KEY` | Legacy testnet-only signer; mainnet code never reads it |
@@ -52,8 +53,8 @@ The official Robinhood RPC is rate-limited and is a public fallback, not one of 
 | `MAINNET_MAX_GAS` | Hard transaction gas ceiling |
 | `MAINNET_MAX_FEE_PER_GAS_WEI` | Hard EIP-1559 max-fee ceiling |
 | `MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI` | Hard priority-fee ceiling |
-| `MAINNET_ALERT_WEBHOOK_URL` / `MAINNET_ALERT_WEBHOOK_TOKEN` | Authenticated HTTPS incident delivery |
-| `TESTNET_NOTIFICATION_WEBHOOK_URL` / `TESTNET_NOTIFICATION_WEBHOOK_TOKEN` | Optional testnet receipt delivery |
+| `MAINNET_ALERT_WEBHOOK_URL` / `MAINNET_ALERT_WEBHOOK_TOKEN` / `MAINNET_ALERT_WEBHOOK_SIGNING_SECRET` | Authenticated, HMAC-signed HTTPS incident delivery |
+| `TESTNET_NOTIFICATION_WEBHOOK_URL` / `TESTNET_NOTIFICATION_WEBHOOK_TOKEN` / `TESTNET_NOTIFICATION_WEBHOOK_SIGNING_SECRET` | Optional authenticated, HMAC-signed testnet receipt delivery |
 
 `/api/mainnet/status` reports public readiness only. A raw key, environment flag, or operator cannot bypass a failed runtime gate.
 
@@ -69,6 +70,10 @@ The official Robinhood RPC is rate-limited and is a public fallback, not one of 
 Provider keys remain server-only. A configured key does not automatically set `canPurchase` or `handlesRealFunds`; the adapter must explicitly implement and test the full payment/confirmation lifecycle.
 
 Private order and approval routes require a one-time wallet login message. The challenge is stored briefly and atomically consumed in Redis; the resulting 30-minute session is an HMAC-authenticated HttpOnly, SameSite cookie. This signature cannot move funds and is separate from EIP-712 purchase approval or strategy authorization.
+
+Quotes, carts, orders, approval requests, and receipts are stored only as AES-256-GCM envelopes. The Redis key is authenticated as associated data so ciphertext cannot be moved between records. Plaintext records and records created under another key fail closed. Rotate `COMMERCE_DATA_ENCRYPTION_KEY` only with the migration procedure in the recovery guide.
+
+Outbound webhook receivers must verify `X-RuleWallet-Timestamp`, `X-RuleWallet-Delivery-Id`, and `X-RuleWallet-Signature` (`v1=<hex HMAC-SHA256>` over `timestamp.deliveryId.rawBody`), reject timestamps outside five minutes, and atomically deduplicate delivery IDs before processing.
 
 ## Production separation
 

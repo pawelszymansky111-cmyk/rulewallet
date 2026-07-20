@@ -116,11 +116,11 @@ export function NotificationCenter() {
           </div>
 
           <Card className="launch-card">
-            <CardHeader><CardTitle className="flex items-center gap-2"><Webhook className="size-5 text-primary" /> Secure setup boundary</CardTitle><CardDescription>No webhook URL or token is ever returned to the browser.</CardDescription></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Webhook className="size-5 text-primary" /> Secure setup boundary</CardTitle><CardDescription>No webhook URL, bearer token, or signing key is ever returned to the browser.</CardDescription></CardHeader>
             <CardContent className="grid gap-4 text-sm md:grid-cols-3">
               <div><p className="font-medium">1. Choose a destination</p><p className="mt-2 leading-6 text-muted-foreground">Use an HTTPS endpoint that can route the typed event to your preferred channel.</p></div>
-              <div><p className="font-medium">2. Add server secrets</p><p className="mt-2 leading-6 text-muted-foreground">Configure the URL and a 16+ character bearer token in Vercel—not in client code.</p></div>
-              <div><p className="font-medium">3. Test without funds</p><p className="mt-2 leading-6 text-muted-foreground">Run a blocked testnet request and confirm the alert matches its public receipt.</p></div>
+              <div><p className="font-medium">2. Add server secrets</p><p className="mt-2 leading-6 text-muted-foreground">Configure the URL, a 16+ character bearer token, and a separate 32-byte HMAC key in Vercel—not in client code.</p></div>
+              <div><p className="font-medium">3. Verify and test</p><p className="mt-2 leading-6 text-muted-foreground">Reject stale or duplicate delivery IDs, verify the raw-body signature, then test with a blocked testnet request.</p></div>
               <div className="md:col-span-3 flex flex-wrap gap-2 border-t border-grid pt-4">
                 <Button asChild variant="outline"><Link href="/activity"><Activity /> View receipt history</Link></Button>
                 <Button asChild variant="ghost"><Link href="/docs#notifications">Configuration guide</Link></Button>

@@ -42,6 +42,7 @@ describe("mainnet production safety gates", () => {
       MAINNET_SCHEDULER_MODE: "external-durable",
       MAINNET_ALERT_WEBHOOK_URL: "https://alerts.example/hook",
       MAINNET_ALERT_WEBHOOK_TOKEN: "alert-token-at-least-sixteen",
+      MAINNET_ALERT_WEBHOOK_SIGNING_SECRET: "22".repeat(32),
       MAINNET_MAX_GAS: "500000",
       MAINNET_MAX_FEE_PER_GAS_WEI: "1000000000",
       MAINNET_MAX_PRIORITY_FEE_PER_GAS_WEI: "100000000",
@@ -66,6 +67,14 @@ describe("mainnet production safety gates", () => {
     expect(validateSecureSignerConfiguration({ ...signerEnvironment, MAINNET_SIGNER_ENDPOINT: "http://signer.example.com/v1/sign" }).verified).toBe(false);
     expect(validateSecureSignerConfiguration({ ...signerEnvironment, MAINNET_SIGNER_ENDPOINT: "https://evil.example/v1/sign" }).verified).toBe(false);
     expect(validateSecureSignerConfiguration({ ...signerEnvironment, MAINNET_SIGNER_ATTESTATION_SHA256: "fake" }).verified).toBe(false);
+  });
+
+  it("does not enable monitoring without replay-resistant webhook signing", () => {
+    const monitoring = mainnetProductionGates({
+      MAINNET_ALERT_WEBHOOK_URL: "https://alerts.example/hook",
+      MAINNET_ALERT_WEBHOOK_TOKEN: "alert-token-at-least-sixteen",
+    }).find((gate) => gate.id === "monitoring");
+    expect(monitoring?.ready).toBe(false);
   });
 
   it("blocks RPC disagreement", () => {

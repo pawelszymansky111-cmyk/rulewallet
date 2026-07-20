@@ -66,6 +66,8 @@ RH_MAINNET_RPC_URL=
 RH_MAINNET_RPC_FALLBACK_URL=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
+COMMERCE_SESSION_SECRET=
+COMMERCE_DATA_ENCRYPTION_KEY=
 
 DUFFEL_ACCESS_TOKEN=
 TICKETMASTER_API_KEY=
@@ -76,7 +78,7 @@ MAINNET_SIGNER_MODE=disabled
 MAINNET_STRATEGY_ENCRYPTION_KEY=
 ```
 
-See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the full signer, scheduler, monitoring, storage, private commerce-session, and provider configuration. Never put a private key, seed phrase, provider secret, Redis token, session secret, or signer token in a `NEXT_PUBLIC_` variable.
+Private commerce records are accepted only when durable Redis, the short-lived wallet-session secret, and a separate AES-256-GCM data key are all configured. Direct and recurring onchain requests require an exact recipient and exact user-entered amount; provider prices cannot be overwritten. See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for the full signer, scheduler, monitoring, storage, private commerce-session, and provider configuration. Never put a private key, seed phrase, provider secret, Redis token, encryption key, session secret, or signer token in a `NEXT_PUBLIC_` variable.
 
 ## Contracts
 

@@ -28,8 +28,9 @@ The V3 account and paired registry are the financial authorization boundary. Mod
 | Mainnet raw-key exposure | Mainnet accepts only remote non-exportable signer interface | KMS policy, operator, or cloud-account compromise |
 | Duplicate/ambiguous submission | Strategy and signer-global locks, pending nonce reservation, idempotency, exact late reconciliation | Multi-system outage can delay rather than duplicate payment |
 | RPC manipulation | Two managed HTTPS hosts must agree; exact simulation and confirmed transaction recheck | Independent hosts can share bad upstream state |
-| Provider replay or double order | Durable idempotency and quote expiry; future webhooks must be signature-verified | A not-yet-live adapter must not claim completion |
-| Redis disclosure | Owner strategy signatures use authenticated AES-256-GCM encryption and the key stays outside Redis | Rotate the key by decrypting/re-encrypting during a controlled maintenance window |
+| Provider replay or double order | Durable idempotency and quote expiry; outbound alerts are HMAC-signed and every future inbound provider webhook must be signature-verified | A not-yet-live adapter must not claim completion |
+| Redis disclosure | Private commerce records and owner strategy signatures use separate authenticated AES-256-GCM keys outside Redis | Rotate either key only by decrypting/re-encrypting during a controlled maintenance window |
+| Alert spoof/replay | Bearer authentication, raw-body HMAC, five-minute timestamps, and unique delivery IDs | The receiver must atomically persist delivery IDs; signing does not prove the underlying provider fulfilled an order |
 | Shopping-intent disclosure | Private order/approval APIs require a replay-safe wallet challenge and short-lived HttpOnly session | A compromised owner browser or server can still read that owner's active session data |
 | Malicious canonical token | Immutable address, `SafeERC20`, reentrancy guard | Blacklist, pause, upgrade, fee, or solvency risk remains external |
 | Owner key compromise | No platform balance cap; withdrawals and policy changes require owner | Owner compromise is catastrophic by design |

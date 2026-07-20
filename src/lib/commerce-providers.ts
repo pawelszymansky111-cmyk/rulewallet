@@ -188,6 +188,7 @@ export function getCommerceProvider(id: string) {
 }
 
 function sandboxAmount(request: QuoteRequest) {
+  if (request.exactAmountMinor) return request.exactAmountMinor;
   const normalized = `${request.providerId}:${request.query}`;
   const checksum = [...normalized].reduce((total, character) => total + character.charCodeAt(0), 0);
   if (request.asset === "ETH") {
@@ -199,11 +200,21 @@ function sandboxAmount(request: QuoteRequest) {
 export function createSandboxQuote(request: QuoteRequest, now = new Date()): CommerceQuote {
   const provider = getCommerceProvider(request.providerId);
   if (!provider || !provider.canQuote) throw new Error("This provider cannot create quotes.");
-  if (provider.category !== request.category && request.providerId !== "direct-onchain") {
+  if (
+    provider.category !== request.category
+      && request.providerId !== "direct-onchain"
+      && request.providerId !== "recurring-payments"
+  ) {
     throw new Error("The selected provider does not support this purchase category.");
   }
-  if (request.providerId === "direct-onchain" && !request.recipient) {
+  if ((request.providerId === "direct-onchain" || request.providerId === "recurring-payments") && !request.recipient) {
     throw new Error("Direct onchain quotes require an exact recipient address.");
+  }
+  if ((request.providerId === "direct-onchain" || request.providerId === "recurring-payments") && !request.exactAmountMinor) {
+    throw new Error("Direct onchain quotes require an exact positive amount.");
+  }
+  if (request.exactAmountMinor && request.providerId !== "direct-onchain" && request.providerId !== "recurring-payments") {
+    throw new Error("Provider prices cannot be overwritten; request a new provider quote instead.");
   }
   const amountMinor = sandboxAmount(request);
   return {

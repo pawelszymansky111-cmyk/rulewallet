@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock3, ExternalLink, FileCheck2, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import { useState } from "react";
@@ -11,6 +12,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type ApprovalListResponse = {
   approvals: ApprovalRequest[];
@@ -34,11 +37,20 @@ function formatAmount(approval: ApprovalRequest) {
   return `${whole}${fraction ? `.${fraction}` : ""} ${approval.quote.asset}`;
 }
 
+function decimalAmount(approval: ApprovalRequest) {
+  const decimals = approval.quote.asset === "USDG" ? 6 : 18;
+  const padded = approval.quote.amountMinor.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, -decimals);
+  const fraction = padded.slice(-decimals).replace(/0+$/, "");
+  return `${whole}${fraction ? `.${fraction}` : ""}`;
+}
+
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Approval failed.";
 }
 
 export function ApprovalInbox() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
@@ -46,6 +58,8 @@ export function ApprovalInbox() {
   const { signTypedDataAsync } = useSignTypedData();
   const queryClient = useQueryClient();
   const [sessionOwner, setSessionOwner] = useState<string>();
+  const [reducedAmounts, setReducedAmounts] = useState<Record<string, string>>({});
+  const [actionError, setActionError] = useState<string>();
   const sessionUnlocked = Boolean(address && sessionOwner?.toLowerCase() === address.toLowerCase());
 
   const unlockMutation = useMutation({
@@ -120,6 +134,43 @@ export function ApprovalInbox() {
     },
   });
 
+  async function rejectAndCreateSmallerRequest(approval: ApprovalRequest) {
+    setActionError(undefined);
+    const amount = reducedAmounts[approval.id]?.trim();
+    if (!amount || !/^\d+(?:\.\d+)?$/.test(amount)) throw new Error("Enter a positive smaller amount.");
+    const decimals = approval.quote.asset === "USDG" ? 6 : 18;
+    const [whole, fraction = ""] = amount.split(".");
+    if (fraction.length > decimals) throw new Error(`Use at most ${decimals} decimal places.`);
+    const minor = BigInt(`${whole}${fraction.padEnd(decimals, "0")}`);
+    if (minor <= BigInt(0) || minor >= BigInt(approval.quote.amountMinor)) {
+      throw new Error("The replacement amount must be lower than the current request.");
+    }
+    await decisionMutation.mutateAsync({ approval, decision: "reject" });
+    const params = new URLSearchParams({
+      provider: approval.quote.providerId,
+      category: approval.quote.category,
+      query: approval.quote.summary,
+      recipient: approval.quote.merchantRecipient!,
+      account: approval.account,
+      asset: approval.quote.asset,
+      amount,
+    });
+    router.push(`/command?${params.toString()}#agent`);
+  }
+
+  function trustUrl(approval: ApprovalRequest) {
+    const params = new URLSearchParams({
+      provider: approval.quote.providerId,
+      category: approval.quote.category,
+      query: approval.quote.summary,
+      recipient: approval.quote.merchantRecipient!,
+      account: approval.account,
+      asset: approval.quote.asset,
+      amount: decimalAmount(approval),
+    });
+    return `/command?${params.toString()}#accounts`;
+  }
+
   const approvals = query.data?.approvals ?? [];
   const capturedAt = Date.parse(query.data?.capturedAt ?? "1970-01-01T00:00:00.000Z");
   const pending = approvals.filter(
@@ -170,6 +221,9 @@ export function ApprovalInbox() {
       {decisionMutation.error ? (
         <Alert variant="destructive" className="mt-6"><X /><AlertTitle>Decision not recorded</AlertTitle><AlertDescription>{errorMessage(decisionMutation.error)}</AlertDescription></Alert>
       ) : null}
+      {actionError ? (
+        <Alert variant="destructive" className="mt-6"><X /><AlertTitle>Replacement request blocked</AlertTitle><AlertDescription>{actionError}</AlertDescription></Alert>
+      ) : null}
 
       <section className="mt-8 space-y-4">
         {query.isPending && sessionUnlocked ? <p className="flex items-center gap-2 text-muted-foreground"><LoaderCircle className="size-4 animate-spin" /> Loading exact requests…</p> : null}
@@ -197,8 +251,35 @@ export function ApprovalInbox() {
               <div className="flex flex-wrap gap-3">
                 <Button onClick={() => decisionMutation.mutate({ approval, decision: "approve" })} disabled={decisionMutation.isPending}><Check /> Approve this request</Button>
                 <Button variant="destructive" onClick={() => decisionMutation.mutate({ approval, decision: "reject" })} disabled={decisionMutation.isPending}><X /> Reject</Button>
-                <Button asChild variant="outline"><Link href="/app/policies/new">Change merchant limits <ExternalLink /></Link></Button>
+                {approval.quote.merchantRecipient ? (
+                  <Button asChild variant="outline"><Link href={trustUrl(approval)}>Trust within a limit, then approve <ExternalLink /></Link></Button>
+                ) : (
+                  <Button asChild variant="outline"><Link href="/command#agent">Request another provider quote <ExternalLink /></Link></Button>
+                )}
               </div>
+              {approval.quote.merchantRecipient && (approval.quote.providerId === "direct-onchain" || approval.quote.providerId === "recurring-payments") ? (
+                <div className="rounded-xl border border-primary/15 bg-primary/[0.025] p-4">
+                  <Label htmlFor={`reduced-${approval.id}`}>Reduce the amount</Label>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Input
+                      id={`reduced-${approval.id}`}
+                      className="max-w-52"
+                      inputMode="decimal"
+                      placeholder={`Below ${decimalAmount(approval)}`}
+                      value={reducedAmounts[approval.id] ?? ""}
+                      onChange={(event) => setReducedAmounts((current) => ({ ...current, [approval.id]: event.target.value }))}
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => void rejectAndCreateSmallerRequest(approval).catch((cause) => setActionError(errorMessage(cause)))}
+                      disabled={decisionMutation.isPending}
+                    >
+                      Reject and open smaller request
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">The signed quote cannot be edited. This rejects it first, then opens a new exact direct-payment request.</p>
+                </div>
+              ) : null}
               <p className="flex items-center gap-2 text-xs text-muted-foreground"><Clock3 className="size-3" /> The signed decision expires after five minutes and cannot be reused for another order, chain, or account.</p>
             </CardContent>
           </Card>

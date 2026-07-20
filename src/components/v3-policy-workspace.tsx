@@ -92,10 +92,18 @@ export function V3PolicyWorkspace({
   initialChainId = 46630,
   selectedAccount,
   onSelectedAccountChange,
+  initialMerchant = "",
+  initialCategory = 4,
+  initialAssetSymbol = "USDG",
+  initialPerTransaction = "50",
 }: {
   initialChainId?: 4663 | 46630;
   selectedAccount?: string;
   onSelectedAccountChange?: (value: string) => void;
+  initialMerchant?: string;
+  initialCategory?: number;
+  initialAssetSymbol?: "ETH" | "USDG";
+  initialPerTransaction?: string;
 }) {
   const connection = useAccount();
   const [chainId, setChainId] = useState<4663 | 46630>(initialChainId);
@@ -105,11 +113,11 @@ export function V3PolicyWorkspace({
   const [localAccountInput, setLocalAccountInput] = useState("");
   const accountInput = selectedAccount ?? localAccountInput;
   const setAccountInput = onSelectedAccountChange ?? setLocalAccountInput;
-  const [merchant, setMerchant] = useState("");
-  const [assetSymbol, setAssetSymbol] = useState<"ETH" | "USDG">("USDG");
-  const [category, setCategory] = useState(4);
+  const [merchant, setMerchant] = useState(initialMerchant);
+  const [assetSymbol, setAssetSymbol] = useState<"ETH" | "USDG">(initialAssetSymbol);
+  const [category, setCategory] = useState(initialCategory);
   const [autonomous, setAutonomous] = useState(false);
-  const [perTransaction, setPerTransaction] = useState("50");
+  const [perTransaction, setPerTransaction] = useState(initialPerTransaction);
   const [rolling24Hours, setRolling24Hours] = useState("150");
   const [approvalAbove, setApprovalAbove] = useState("25");
   const [daily, setDaily] = useState("150");

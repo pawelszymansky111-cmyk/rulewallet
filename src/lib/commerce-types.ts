@@ -65,6 +65,7 @@ export const quoteRequestSchema = z.object({
   asset: commerceAssetSchema.default("USDG"),
   account: evmAddressSchema.optional(),
   recipient: evmAddressSchema.optional(),
+  exactAmountMinor: minorAmountSchema.refine((value) => BigInt(value) > BigInt(0), "Amount must be positive.").optional(),
   travel: z.object({
     origin: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
     destination: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),

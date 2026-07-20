@@ -42,9 +42,32 @@ describe("commerce provider registry", () => {
         category: "direct",
         query: "Pay invoice 42",
         asset: "USDG",
+        exactAmountMinor: "42000000",
         idempotencyKey: "93a9fd7b-faae-4f53-beb4-fc2013d583bd",
       }),
     ).toThrow("exact recipient");
+  });
+
+  it("uses the exact user amount for direct payments and rejects provider price overrides", () => {
+    const direct = createSandboxQuote({
+      providerId: "direct-onchain",
+      category: "direct",
+      query: "Pay invoice 42",
+      asset: "USDG",
+      recipient: "0x0000000000000000000000000000000000000001",
+      exactAmountMinor: "42000000",
+      idempotencyKey: "645c407f-5f27-4d64-8a92-91ab668e61b9",
+    });
+    expect(direct.amountMinor).toBe("42000000");
+    expect(direct.lines[0].unitAmountMinor).toBe("42000000");
+    expect(() => createSandboxQuote({
+      providerId: "shopify-storefront",
+      category: "shopping",
+      query: "USB-C charger",
+      asset: "USDG",
+      exactAmountMinor: "1000000",
+      idempotencyKey: "a2ce2e14-61b2-4589-b009-2c8e6cde87dd",
+    })).toThrow("cannot be overwritten");
   });
 
   it("maps an official Duffel test offer without claiming a real booking", async () => {

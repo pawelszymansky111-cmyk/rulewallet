@@ -5,6 +5,9 @@ import { ruleWalletAddress } from "@/lib/rulewallet-contract";
 import { getServerEnvironment } from "@/lib/server-env";
 import { mainnetSignerStatus } from "@/lib/secure-agent-signer";
 import { MAINNET_AUTONOMY_RELEASE_ENABLED, mainnetProductionGates } from "@/lib/mainnet-safety";
+import { commerceStorageConfigured } from "@/lib/commerce-store";
+import { commerceSessionConfigured } from "@/lib/commerce-session";
+import { commerceDataEncryptionConfigured } from "@/lib/commerce-data-encryption";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,6 +29,11 @@ export function GET() {
       policyContractConfigured: Boolean(ruleWalletAddress),
       agentSignerConfigured: agentSignerConfigured(),
       strategyStorageConfigured: storageConfigured(),
+      commerce: {
+        storageConfigured: commerceStorageConfigured(),
+        sessionConfigured: commerceSessionConfigured(),
+        encryptionConfigured: commerceDataEncryptionConfigured(),
+      },
       schedulerConfigured: Boolean(process.env.CRON_SECRET),
       rpcMode: {
         testnet: environment.RH_TESTNET_RPC_URL ? "managed-failover" : "public-fallback",

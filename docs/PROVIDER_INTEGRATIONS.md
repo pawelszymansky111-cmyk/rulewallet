@@ -22,7 +22,7 @@ RuleWallet distinguishes discovery, quoting, checkout, payment, fulfillment, and
 5. Re-check the authoritative price immediately before purchase.
 6. Map settlement to an exact V3 allowlisted recipient or an approved card/payment rail.
 7. Add an idempotency key covering quote, cart, user, and provider order.
-8. Authenticate webhooks, reject replays, and tolerate out-of-order delivery.
+8. Verify provider webhooks against their raw body before parsing, enforce timestamp tolerance, atomically reject repeated event IDs, and tolerate out-of-order delivery.
 9. Model pending, confirmed, partially fulfilled, failed, cancelled, refunded, and reconciled states separately.
 10. Add sandbox contract tests, fault injection, a low-value production canary, and an incident playbook.
 
@@ -32,4 +32,4 @@ RuleWallet does not publish a merchant address unless an authoritative provider 
 
 ## Webhook contract
 
-A future live adapter must verify the raw request body before JSON parsing, check a provider timestamp tolerance, claim a durable event ID, and update an order only through valid forward state transitions. Duplicate or late events are stored for audit but must never duplicate payment or fulfillment.
+A future live adapter must verify the raw request body before JSON parsing, check a provider timestamp tolerance, claim a durable event ID, and update an order only through valid forward state transitions. Duplicate or late events are stored for audit but must never duplicate payment or fulfillment. RuleWallet's own outbound alerts use `X-RuleWallet-Timestamp`, `X-RuleWallet-Delivery-Id`, and `X-RuleWallet-Signature`; receivers verify `v1=HMAC-SHA256(timestamp.deliveryId.rawBody)`, enforce a five-minute window, and persist delivery IDs atomically.

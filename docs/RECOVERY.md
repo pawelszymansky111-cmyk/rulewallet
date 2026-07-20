@@ -46,4 +46,6 @@ The V3 beta does not invent a backend recovery bypass. The guardian can stop act
 
 Rotate `COMMERCE_SESSION_SECRET` to invalidate every private order/approval browser session, then inspect access logs and active approvals. Session cookies expire after 30 minutes and cannot authorize a transfer; separately revoke any suspicious EIP-712 approval, strategy, or agent role onchain.
 
+Do not rotate `COMMERCE_DATA_ENCRYPTION_KEY` in place. First pause order creation, export encrypted records inside the trusted runtime, decrypt and re-encrypt each record under the replacement key while preserving its Redis-key associated data, verify counts and schemas, then atomically promote the new key. If migration evidence is incomplete, leave commerce disabled; never fall back to plaintext.
+
 Never send a seed phrase or private key to RuleWallet, support, an agent, or a deployment environment.

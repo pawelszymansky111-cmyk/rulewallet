@@ -107,7 +107,8 @@ export function mainnetProductionGates(
       || (environment.KV_REST_API_URL && environment.KV_REST_API_TOKEN),
   ) && Boolean(environment.MAINNET_STRATEGY_ENCRYPTION_KEY && /^[a-fA-F0-9]{64}$/.test(environment.MAINNET_STRATEGY_ENCRYPTION_KEY));
   const monitoringReady = isHttpsEndpoint(environment.MAINNET_ALERT_WEBHOOK_URL)
-    && Boolean(environment.MAINNET_ALERT_WEBHOOK_TOKEN);
+    && Boolean(environment.MAINNET_ALERT_WEBHOOK_TOKEN)
+    && /^[a-fA-F0-9]{64}$/.test(environment.MAINNET_ALERT_WEBHOOK_SIGNING_SECRET ?? "");
   const schedulerMode = environment.MAINNET_SCHEDULER_MODE;
   const schedulerReady = Boolean(environment.CRON_SECRET)
     && (schedulerMode === "vercel-pro-cron" || schedulerMode === "external-durable");
@@ -121,7 +122,7 @@ export function mainnetProductionGates(
     { id: "scheduler", ready: schedulerReady, message: schedulerReady ? `Authenticated ${schedulerMode} mainnet scheduler is explicitly configured.` : "Set CRON_SECRET and MAINNET_SCHEDULER_MODE to vercel-pro-cron or external-durable after the scheduler exists." },
     { id: "nonce", ready: true, message: "Signer-global durable nonce locking and unresolved-transaction reservation are enforced." },
     { id: "rpc", ready: rpcReady, message: rpcReady ? "Two independent managed HTTPS RPC hosts are configured; agreement is required before signing." : "Two distinct managed HTTPS RPC hosts are required." },
-    { id: "monitoring", ready: monitoringReady, message: monitoringReady ? "Authenticated HTTPS alert delivery is configured." : "Authenticated HTTPS alert delivery is required." },
+    { id: "monitoring", ready: monitoringReady, message: monitoringReady ? "Authenticated, HMAC-signed HTTPS alerts are configured." : "Authenticated HTTPS alert delivery with a 32-byte HMAC signing secret is required." },
     { id: "fees", ready: feeReady, message: feeReady ? "Strict gas and fee ceilings are configured." : "Strict gas and fee ceilings are not configured." },
   ];
 }
