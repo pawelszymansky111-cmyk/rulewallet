@@ -4,11 +4,9 @@ import {
   ArrowRight,
   Bot,
   Check,
-  Code2,
   Eye,
   Fingerprint,
   Gauge,
-  GitBranch,
   LockKeyhole,
   Network,
   Pause,
@@ -25,8 +23,6 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const githubUrl = process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/pawelszymansky111-cmyk/rulewallet";
 
 export const metadata: Metadata = {
   title: "Hackathon submission",
@@ -60,7 +56,6 @@ export default function HackathonPage() {
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button asChild size="lg"><Link href="/demo"><Timer /> Run the 2-minute demo</Link></Button>
                 <Button asChild size="lg" variant="outline"><Link href="/start"><Wallet /> Build your testnet wallet</Link></Button>
-                <Button asChild size="lg" variant="ghost"><a href={githubUrl}><GitBranch /> Source code</a></Button>
               </div>
             </div>
             <Card className="border-primary/20 bg-primary/[0.035]">
@@ -125,7 +120,7 @@ export default function HackathonPage() {
             <LockKeyhole className="mx-auto size-7 text-primary" />
             <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight">Inspect it. Break it. Verify it.</h2>
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-muted-foreground">No pitch deck is required to prove the core flow. The contract, automation, receipts, tests, and failure boundaries are public.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button><Button asChild size="lg" variant="outline"><a href={githubUrl}><Code2 /> Review the code</a></Button><Button asChild size="lg" variant="ghost"><Link href="/security"><Pause /> Security model</Link></Button></div>
+            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button><Button asChild size="lg" variant="ghost"><Link href="/security"><Pause /> Security model</Link></Button></div>
           </div>
         </section>
       </main>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Code2, ExternalLink, Menu } from "lucide-react";
+import { ExternalLink, Menu } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ExperienceModeToggle } from "@/components/experience-mode-toggle";
 import { useExperienceMode } from "@/components/experience-mode-provider";
@@ -16,10 +16,6 @@ const navigation = [
   { href: "/approvals", simple: "Approvals", pro: "Approval queue" },
   { href: "/docs", simple: "Learn", pro: "Docs" },
 ] as const;
-
-const githubUrl =
-  process.env.NEXT_PUBLIC_GITHUB_URL ??
-  "https://github.com/pawelszymansky111-cmyk/rulewallet";
 
 export function SiteHeader() {
   const { mode } = useExperienceMode();
@@ -44,16 +40,6 @@ export function SiteHeader() {
         </nav>
         <div className="flex items-center gap-2">
           <ExperienceModeToggle className="hidden sm:flex" />
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            className="hidden sm:inline-flex"
-          >
-            <a href={githubUrl} aria-label="GitHub repository">
-              <Code2 />
-            </a>
-          </Button>
           <WalletControl compact />
           <details className="group relative lg:hidden">
             <summary

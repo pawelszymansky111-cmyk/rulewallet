@@ -8,7 +8,6 @@ import {
   BellRing,
   CircleCheck,
   CircleX,
-  ExternalLink,
   LoaderCircle,
   Mail,
   MessageCircle,
@@ -124,7 +123,6 @@ export function NotificationCenter() {
               <div className="md:col-span-3 flex flex-wrap gap-2 border-t border-grid pt-4">
                 <Button asChild variant="outline"><Link href="/activity"><Activity /> View receipt history</Link></Button>
                 <Button asChild variant="ghost"><Link href="/docs#notifications">Configuration guide</Link></Button>
-                <Button asChild variant="ghost"><a href="https://github.com/pawelszymansky111-cmyk/rulewallet" target="_blank" rel="noreferrer">Source repository <ExternalLink /></a></Button>
               </div>
             </CardContent>
           </Card>

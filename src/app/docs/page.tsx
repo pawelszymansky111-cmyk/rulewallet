@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BellRing, Braces, GitBranch, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowRight, BellRing, Braces, KeyRound, ShieldCheck } from "lucide-react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const githubUrl = process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/pawelszymansky111-cmyk/rulewallet";
 
 export const metadata: Metadata = {
   title: "Documentation",
@@ -126,7 +124,7 @@ export default function DocsPage() {
                 <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Wallet-created named spending accounts and a legacy public testnet demo</p><p>Versioned non-upgradeable V3 factory, account, and policy registry</p><p>ETH/USDG asset, merchant, category, period, and approval controls</p><p>EIP-712 schedules and approvals, secure-signer interface, receipts, pause, and owner recovery</p><p>Unit, fork, 512-run fuzz, reentrancy, and V1/V2/V3 invariant tests</p></CardContent></Card>
                 <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>V3 factory/account deployment and every required wallet signature</p><p>Independent audit and formal verification</p><p>Configured non-exportable signer, dual managed RPC, alert delivery, and monitored canary</p><p>Provider purchase execution without a verified, credentialed adapter</p><p>Routers, token approvals, swaps, bridges, or tokenized-stock trading</p></CardContent></Card>
               </div>
-              <div className="mt-8 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/playground">Open playground <ArrowRight /></Link></Button><Button asChild variant="outline"><a href={githubUrl}><GitBranch /> Inspect source</a></Button></div>
+              <div className="mt-8 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/playground">Open playground <ArrowRight /></Link></Button></div>
             </section>
           </div>
         </section>

@@ -8,7 +8,6 @@ import {
   CalendarClock,
   Check,
   CircleDollarSign,
-  Code2,
   ExternalLink,
   Fingerprint,
   Gauge,
@@ -26,10 +25,6 @@ import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const githubUrl =
-  process.env.NEXT_PUBLIC_GITHUB_URL ??
-  "https://github.com/pawelszymansky111-cmyk/rulewallet";
 
 const useCases = [
   { icon: CalendarClock, title: "Recurring payments", text: "Schedule payroll, subscriptions, contractor payments, or agent allowances to verified recipients." },
@@ -179,7 +174,6 @@ export default function Home() {
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">Try a live policy, inspect a real testnet receipt, and tell us the narrowest payment permission your agent actually needs.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg"><Link href="/demo">Start the demo <ArrowRight /></Link></Button>
-            <Button asChild size="lg" variant="outline"><a href={githubUrl} target="_blank" rel="noreferrer"><Code2 /> View source</a></Button>
           </div>
         </section>
       </main>
