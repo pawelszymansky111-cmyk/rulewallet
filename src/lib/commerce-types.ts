@@ -63,6 +63,7 @@ export const quoteRequestSchema = z.object({
   category: commerceCategorySchema,
   query: z.string().trim().min(3).max(500),
   asset: commerceAssetSchema.default("USDG"),
+  chainId: z.literal(4663).or(z.literal(46630)).optional(),
   account: evmAddressSchema.optional(),
   recipient: evmAddressSchema.optional(),
   exactAmountMinor: minorAmountSchema.refine((value) => BigInt(value) > BigInt(0), "Amount must be positive.").optional(),
@@ -73,6 +74,15 @@ export const quoteRequestSchema = z.object({
     passengers: z.number().int().min(1).max(9),
     cabinClass: z.enum(["economy", "premium_economy", "business", "first"]),
   }).optional(),
+  stay: z.object({
+    checkInDate: z.iso.date(),
+    checkOutDate: z.iso.date(),
+    guests: z.number().int().min(1).max(16),
+    rooms: z.number().int().min(1).max(8),
+  }).refine(
+    (stay) => stay.checkOutDate > stay.checkInDate,
+    { message: "Check-out must be after check-in.", path: ["checkOutDate"] },
+  ).optional(),
   idempotencyKey: z.string().uuid(),
 });
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;

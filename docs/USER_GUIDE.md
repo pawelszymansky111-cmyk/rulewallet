@@ -24,11 +24,15 @@ In **Spending rules**, enter the new V3 account and merchant/provider payment ad
 
 Prepare and sign the asset, merchant, merchant/asset, category, and time steps separately. Activate only after each readback matches. Every preview shows exact chain, target, gas, calldata, and expected result.
 
+Each merchant also has two explicit owner-signed controls. **Pause automatic merchant payments** keeps the merchant available only through fresh human approval. **Revoke merchant** removes trust entirely and blocks every new agent payment until the owner enables it again. Both actions are simulated and show exact calldata before the wallet opens.
+
 ## 4. Ask RuleWallet
 
-Choose a provider and describe the purchase. Duffel can return official test-mode flight offers when its test token is configured. Ticketmaster can return official discovery results and a hosted checkout link. Other adapters are clearly marked demo/disabled.
+Choose a provider and describe the purchase. Duffel can return official test-mode flight offers and Stays availability when its test token and relevant product access are configured. Ticketmaster can return official discovery results and a hosted checkout link. Other adapters are clearly marked demo/disabled.
 
 Creating a cart runs an explanatory policy decision and, when needed, creates an approval request. No provider search/cart action alone moves funds.
+
+For an approved mainnet direct-payment order, **Prepare exact payment authorization** opens a one-execution EIP-712 strategy prefilled with the exact account, recipient, asset, amount, category, and cart intent hash. The protected runner writes `payment-pending`, confirmed, replaced, timed-out, late-confirmed, blocked, and failed outcomes back to the matching private order. A timeout stays pending until reconciliation, so RuleWallet never retries an ambiguous payment blindly. Hosted provider checkouts are never marked paid from an onchain receipt.
 
 ## 5. Approve an exception
 

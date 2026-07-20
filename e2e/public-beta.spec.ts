@@ -20,6 +20,13 @@ test("the command center exposes accounts, purchasing, providers, and approvals"
   await expect(page.getByText("01 · Accounts")).toBeVisible();
   await expect(page.getByText("02 · Agent request", { exact: true })).toBeVisible();
   await expect(page.getByText("03 · Providers")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What is happening now" })).toBeVisible();
+  await expect(page.getByText("Upcoming recurring payment")).toBeVisible();
+  await expect(page.getByText("Pending approvals")).toBeVisible();
+  await expect(page.getByText("Confirmed public receipts")).toBeVisible();
+  await expect(page.getByText("Blocked or failed attempts")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pause automatic merchant payments" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Revoke merchant" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Needs my approval/ })).toHaveAttribute("href", "/approvals");
   await expect(page.getByRole("link", { name: /Technical console/ })).toHaveAttribute("target", "_blank");
   await expect(page.getByText(/Quotes are sandbox-only/)).toBeVisible();
@@ -49,4 +56,14 @@ test("provider status never presents sandbox adapters as real purchasing", async
       expect(provider.handlesRealFunds).toBe(false);
     }
   }
+});
+
+test("an approved direct order can prefill an exact one-execution mainnet authorization", async ({ page }) => {
+  const intentHash = `0x${"1".repeat(64)}`;
+  await page.goto(`/mainnet?name=Order%20demo&account=0x0000000000000000000000000000000000000001&recipient=0x0000000000000000000000000000000000000002&amount=25&asset=USDG&category=0&intentHash=${intentHash}&maxExecutions=1`);
+  await expect(page.getByLabel("Strategy name")).toHaveValue("Order demo");
+  await expect(page.getByLabel("V3 account")).toHaveValue("0x0000000000000000000000000000000000000001");
+  await expect(page.getByLabel("Trusted merchant")).toHaveValue("0x0000000000000000000000000000000000000002");
+  await expect(page.getByLabel("Existing commerce intent hash (optional)")).toHaveValue(intentHash);
+  await expect(page.getByLabel("Max executions")).toHaveValue("1");
 });

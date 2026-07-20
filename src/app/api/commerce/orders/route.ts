@@ -10,8 +10,7 @@ import {
   commerceStorageConfigured,
   getQuote,
   listOrders,
-  saveApproval,
-  saveOrder,
+  saveOrderIdempotently,
 } from "@/lib/commerce-store";
 import { type PurchaseOrder } from "@/lib/commerce-types";
 import { readCommerceSession } from "@/lib/commerce-session";
@@ -137,8 +136,8 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       updatedAt: now,
     };
-    if (policyDecision.outcome === "approval-required") {
-      const approval = await saveApproval({
+    const approval = policyDecision.outcome === "approval-required"
+      ? {
         id: crypto.randomUUID(),
         orderId: order.id,
         account: input.account,
@@ -151,20 +150,23 @@ export async function POST(request: NextRequest) {
         nonce: "0",
         createdAt: now,
         expiresAt: quote.expiresAt,
-      });
+      } as const
+      : undefined;
+    if (approval) {
       order.approvalId = approval.id;
     }
-    await saveOrder(order);
+    const saved = await saveOrderIdempotently(order, approval);
     return NextResponse.json({
-      order,
+      order: saved.order,
       paymentBroadcast: false,
       nextStep:
-        order.status === "approved"
+        saved.order.status === "approved"
           ? "Prepare an exact transaction simulation; no payment was sent."
-          : order.status === "awaiting-approval"
+          : saved.order.status === "awaiting-approval"
             ? "Approve or reject the expiring request in the Approval Inbox."
             : "Adjust the policy or cart; blocked orders cannot be paid.",
-    }, { status: 201 });
+      duplicateSuppressed: !saved.created,
+    }, { status: saved.created ? 201 : 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Order creation failed.";
     return NextResponse.json({ error: message }, { status: 400 });

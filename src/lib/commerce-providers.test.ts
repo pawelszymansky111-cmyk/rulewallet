@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createProviderQuote, createSandboxQuote, listCommerceProviders } from "./commerce-providers";
+import { applyCommerceRuntimeReadiness, applyDirectQuoteReadiness, createProviderQuote, createSandboxQuote, listCommerceProviders } from "./commerce-providers";
 
 afterEach(() => {
   delete process.env.DUFFEL_ACCESS_TOKEN;
@@ -15,6 +15,37 @@ describe("commerce provider registry", () => {
         expect(provider.canPurchase).toBe(false);
       }
     }
+  });
+
+  it("enables only direct and recurring rails after every external mainnet gate passes", () => {
+    const providers = applyCommerceRuntimeReadiness(listCommerceProviders(), { directMainnetReady: true });
+    for (const provider of providers) {
+      const direct = provider.id === "direct-onchain" || provider.id === "recurring-payments";
+      expect(provider.canPurchase).toBe(direct);
+      expect(provider.handlesRealFunds).toBe(direct);
+      expect(provider.automaticPaymentSupported).toBe(direct);
+      expect(provider.mode).toBe(direct ? "live" : "sandbox");
+    }
+  });
+
+  it("turns only a chain-4663 direct quote live after the same gates pass", () => {
+    const quote = createSandboxQuote({
+      providerId: "direct-onchain",
+      category: "direct",
+      query: "Pay an exact invoice",
+      asset: "USDG",
+      chainId: 4663,
+      recipient: "0x0000000000000000000000000000000000000001",
+      exactAmountMinor: "25000000",
+      idempotencyKey: "93a9fd7b-faae-4f53-beb4-fc2013d583bd",
+    });
+    expect(applyDirectQuoteReadiness(quote, { chainId: 4663, directMainnetReady: true })).toMatchObject({
+      providerMode: "live",
+      purchaseAvailable: true,
+      sourceReference: "direct-mainnet:93a9fd7b-faae-4f53-beb4-fc2013d583bd",
+    });
+    expect(applyDirectQuoteReadiness(quote, { chainId: 46630, directMainnetReady: true })).toEqual(quote);
+    expect(applyDirectQuoteReadiness(quote, { chainId: 4663, directMainnetReady: false })).toEqual(quote);
   });
 
   it("creates an expiring, explicitly non-purchasable sandbox quote", () => {
@@ -89,6 +120,31 @@ describe("commerce provider registry", () => {
     expect(quote.sourceReference).toBe("duffel-test:off_1");
     expect(quote.purchaseAvailable).toBe(false);
     expect(quote.disclosure).toContain("no real ticket");
+  });
+
+  it("maps official Duffel Stays test availability without claiming a booking", async () => {
+    process.env.DUFFEL_ACCESS_TOKEN = "duffel_test_example";
+    const requestFetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [{
+        accommodation_id: "acc_1", accommodation_name: "Duffel Test Hotel",
+      }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { results: [{
+        id: "srr_1",
+        expires_at: "2026-08-06T12:30:00.000Z",
+        cheapest_rate_total_amount: "299.50",
+        cheapest_rate_currency: "USD",
+        accommodation: { id: "acc_1", name: "Duffel Test Hotel", rating: 4 },
+      }] } }), { status: 200 }));
+    const quote = await createProviderQuote({
+      providerId: "duffel-stays", category: "travel", query: "New York hotel",
+      asset: "USDG", idempotencyKey: "0fa713d0-f66e-4cb8-bcad-e21d481fa49f",
+      stay: { checkInDate: "2026-08-03", checkOutDate: "2026-08-06", guests: 2, rooms: 1 },
+    }, new Date("2026-07-20T10:00:00.000Z"), requestFetch as typeof fetch);
+    expect(requestFetch).toHaveBeenCalledTimes(2);
+    expect(quote.amountMinor).toBe("299500000");
+    expect(quote.sourceReference).toBe("duffel-stays-test:srr_1");
+    expect(quote.purchaseAvailable).toBe(false);
+    expect(quote.disclosure).toContain("not a final booking quote");
   });
 
   it("maps Ticketmaster discovery to an official hosted checkout link", async () => {

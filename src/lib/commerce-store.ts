@@ -54,6 +54,10 @@ function orderKey(id: string) {
   return `rulewallet:commerce:order:${id}`;
 }
 
+function orderIdempotencyKey(order: Pick<PurchaseOrder, "cart">) {
+  return `rulewallet:commerce:order-idempotency:${order.cart.owner.toLowerCase()}:${order.cart.account.toLowerCase()}:${order.cart.quote.id}`;
+}
+
 function approvalKey(id: string) {
   return `rulewallet:commerce:approval:${id}`;
 }
@@ -114,6 +118,48 @@ export async function saveOrder(order: PurchaseOrder) {
     client.sadd(orderIdsKey, parsed.id),
   ]);
   return parsed;
+}
+
+export async function saveOrderIdempotently(order: PurchaseOrder, approval?: ApprovalRequest) {
+  const parsedOrder = purchaseOrderSchema.parse(order);
+  const parsedApproval = approval ? approvalRequestSchema.parse(approval) : undefined;
+  if (parsedApproval && (parsedApproval.orderId !== parsedOrder.id || parsedOrder.approvalId !== parsedApproval.id)) {
+    throw new Error("Order and approval linkage is invalid.");
+  }
+  const client = getRedis();
+  const idempotencyKey = orderIdempotencyKey(parsedOrder);
+  const claimed = await client.set(idempotencyKey, parsedOrder.id, { nx: true, ex: 30 * 24 * 60 * 60 });
+  if (claimed !== "OK") {
+    const existingId = await client.get<string>(idempotencyKey);
+    const existingOrder = existingId ? await getOrder(existingId) : undefined;
+    if (existingOrder) return { order: existingOrder, created: false as const };
+    throw new Error("This exact order is already being created. Retry after the first request finishes.");
+  }
+
+  try {
+    const transaction = client.multi();
+    if (parsedApproval) {
+      transaction.set(
+        approvalKey(parsedApproval.id),
+        encryptCommerceRecord(parsedApproval, approvalKey(parsedApproval.id)),
+      );
+      transaction.sadd(approvalIdsKey, parsedApproval.id);
+    }
+    transaction.set(
+      orderKey(parsedOrder.id),
+      encryptCommerceRecord(parsedOrder, orderKey(parsedOrder.id)),
+    );
+    transaction.sadd(orderIdsKey, parsedOrder.id);
+    await transaction.exec();
+    return { order: parsedOrder, created: true as const };
+  } catch (error) {
+    await client.eval(
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+      [idempotencyKey],
+      [parsedOrder.id],
+    ).catch(() => undefined);
+    throw error;
+  }
 }
 
 export async function getOrder(id: string): Promise<PurchaseOrder | undefined> {

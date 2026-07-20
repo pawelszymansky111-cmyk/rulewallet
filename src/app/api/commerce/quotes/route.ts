@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createProviderQuote } from "@/lib/commerce-providers";
+import { applyDirectQuoteReadiness, createProviderQuote } from "@/lib/commerce-providers";
 import {
   commerceStorageConfigured,
   saveQuoteIdempotently,
 } from "@/lib/commerce-store";
 import { quoteRequestSchema } from "@/lib/commerce-types";
 import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
+import { verifyMainnetRuntime } from "@/lib/mainnet-runtime-verification";
+import { mainnetAutonomyReady } from "@/lib/mainnet-safety";
+import { getServerEnvironment } from "@/lib/server-env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +22,17 @@ export async function POST(request: NextRequest) {
   if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
   try {
     const input = quoteRequestSchema.parse(await request.json());
-    const quote = await createProviderQuote(input);
+    const baseQuote = await createProviderQuote(input);
+    const directMainnet = input.chainId === 4663
+      && (input.providerId === "direct-onchain" || input.providerId === "recurring-payments");
+    const runtime = directMainnet ? await verifyMainnetRuntime() : undefined;
+    const quote = applyDirectQuoteReadiness(baseQuote, {
+      chainId: input.chainId,
+      directMainnetReady: Boolean(runtime && mainnetAutonomyReady(
+        getServerEnvironment(),
+        runtime.runtimeVerification,
+      )),
+    });
     if (!commerceStorageConfigured()) {
       return NextResponse.json({
         quote,

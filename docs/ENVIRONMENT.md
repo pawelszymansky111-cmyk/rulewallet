@@ -64,7 +64,7 @@ Production API routes fail closed with HTTP 429 if durable Redis rate limiting i
 
 | Variable | Mode enabled |
 | --- | --- |
-| `DUFFEL_ACCESS_TOKEN` | Use a `duffel_test_…` token for official test flight offers |
+| `DUFFEL_ACCESS_TOKEN` | Use a `duffel_test_…` token for official test flight offers; Duffel Stays also requires Stays access on that account |
 | `TICKETMASTER_API_KEY` | Official event discovery and hosted checkout links |
 | `SHOPIFY_STOREFRONT_DOMAIN` / `SHOPIFY_STOREFRONT_ACCESS_TOKEN` | Reserved; no live purchase until a merchant adapter is completed |
 | `STRIPE_SECRET_KEY` | Reserved; no Issuing purchase until provider approval and webhooks exist |

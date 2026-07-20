@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react";
-import { MainnetStrategyPanel } from "@/components/mainnet-strategy-panel";
+import { MainnetStrategyPanel, type MainnetStrategyInitialIntent } from "@/components/mainnet-strategy-panel";
 import { V3AccountManager } from "@/components/v3-account-manager";
 import { V3PolicyWorkspace } from "@/components/v3-policy-workspace";
 import { SiteFooter } from "@/components/site-footer";
@@ -15,7 +15,20 @@ export const metadata: Metadata = {
     "RuleWallet V3 commerce accounts and production-gated autonomy on Robinhood Chain mainnet.",
 };
 
-export default function MainnetPage() {
+export default async function MainnetPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
+  const text = (key: string) => typeof query[key] === "string" ? query[key] : undefined;
+  const asset = text("asset");
+  const initialIntent: MainnetStrategyInitialIntent = {
+    name: text("name"),
+    account: text("account"),
+    recipient: text("recipient"),
+    amount: text("amount"),
+    asset: asset === "ETH" || asset === "USDG" ? asset : undefined,
+    category: text("category"),
+    intentHash: text("intentHash"),
+    maxExecutions: text("maxExecutions"),
+  };
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -62,7 +75,7 @@ export default function MainnetPage() {
         <div className="mt-10"><V3AccountManager initialChainId={4663} /></div>
         <div className="mt-10"><V3PolicyWorkspace initialChainId={4663} /></div>
         <div className="mt-10">
-          <MainnetStrategyPanel />
+          <MainnetStrategyPanel initialIntent={initialIntent} />
         </div>
       </main>
       <SiteFooter />

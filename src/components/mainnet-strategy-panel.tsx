@@ -19,6 +19,7 @@ import {
   getAddress,
   hashTypedData,
   isAddress,
+  isHash,
   keccak256,
   stringToHex,
   zeroAddress,
@@ -84,21 +85,33 @@ function short(value: string) {
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
 
-export function MainnetStrategyPanel() {
+export type MainnetStrategyInitialIntent = {
+  name?: string;
+  account?: string;
+  recipient?: string;
+  amount?: string;
+  asset?: "ETH" | "USDG";
+  category?: string;
+  intentHash?: string;
+  maxExecutions?: string;
+};
+
+export function MainnetStrategyPanel({ initialIntent = {} }: { initialIntent?: MainnetStrategyInitialIntent }) {
   const connection = useConnection();
   const publicClient = usePublicClient({ chainId: robinhoodMainnet.id });
   const walletClient = useWalletClient({ chainId: robinhoodMainnet.id });
-  const [account, setAccount] = useState("");
-  const [name, setName] = useState("Bounded daily transfer");
-  const [asset, setAsset] = useState<"ETH" | "USDG">("ETH");
-  const [recipient, setRecipient] = useState("");
-  const [amount, setAmount] = useState("0.001");
-  const [category, setCategory] = useState("6");
+  const [account, setAccount] = useState(initialIntent.account ?? "");
+  const [name, setName] = useState(initialIntent.name ?? "Bounded daily transfer");
+  const [asset, setAsset] = useState<"ETH" | "USDG">(initialIntent.asset ?? "ETH");
+  const [recipient, setRecipient] = useState(initialIntent.recipient ?? "");
+  const [amount, setAmount] = useState(initialIntent.amount ?? "0.001");
+  const [category, setCategory] = useState(initialIntent.category ?? "6");
   const [intent, setIntent] = useState("Recurring trusted merchant payment");
+  const [intentHashInput, setIntentHashInput] = useState(initialIntent.intentHash ?? "");
   const [nonce, setNonce] = useState("1");
   const [expiryDays, setExpiryDays] = useState("30");
   const [intervalHours, setIntervalHours] = useState("24");
-  const [maxExecutions, setMaxExecutions] = useState("30");
+  const [maxExecutions, setMaxExecutions] = useState(initialIntent.maxExecutions ?? "30");
   const [preview, setPreview] = useState<StrategyPreview>();
   const [revokePreview, setRevokePreview] = useState<{ strategy: PublicMainnetAgentStrategy; digest: Hash; data: Hex }>();
   const [strategies, setStrategies] = useState<PublicMainnetAgentStrategy[]>([]);
@@ -155,6 +168,9 @@ export function MainnetStrategyPanel() {
       const interval = Number(intervalHours) * 3600;
       const executionsLimit = Number(maxExecutions);
       const categoryValue = Number(category);
+      if (intentHashInput.trim() && !isHash(intentHashInput)) {
+        throw new Error("The commerce intent hash must be an exact 32-byte 0x hash.");
+      }
       if (amountUnits <= 0 || nonceValue < 0 || !intent.trim() || !Number.isInteger(categoryValue) || categoryValue < 0 || categoryValue > 255 || !Number.isInteger(days) || days < 1 || !Number.isInteger(interval) || interval < 300 || !Number.isInteger(executionsLimit) || executionsLimit < 1) {
         throw new Error("Use positive amount, expiry, interval, and execution values.");
       }
@@ -166,7 +182,7 @@ export function MainnetStrategyPanel() {
         recipient: getAddress(recipient),
         amount: amountUnits.toString(),
         category: categoryValue,
-        intentHash: keccak256(stringToHex(intent.trim())),
+        intentHash: isHash(intentHashInput) ? intentHashInput : keccak256(stringToHex(intent.trim())),
         nonce: nonceValue.toString(),
         expiry: BigInt(Math.floor(Date.now() / 1000) + days * 86400).toString(),
         intervalSeconds: interval,
@@ -311,8 +327,8 @@ export function MainnetStrategyPanel() {
       <Card>
         <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="flex items-center gap-2"><KeyRound className="size-4 text-primary" /> EIP-712 scheduled strategy</CardTitle><CardDescription className="mt-1">An owner signature authorizes an exact recurring transfer. It never changes policy and cannot bypass limits, recipients, approvals, pause, expiry, or execution caps.</CardDescription></div><Button variant="outline" size="sm" onClick={refresh}><RefreshCw /> Refresh</Button></div></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2"><div><Label>Strategy name</Label><Input value={name} onChange={(event) => setName(event.target.value)} /></div><div><Label>V3 account</Label><Input value={account} onChange={(event) => setAccount(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Trusted merchant</Label><Input value={recipient} onChange={(event) => setRecipient(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Exact amount per execution</Label><div className="flex gap-2"><Input value={amount} onChange={(event) => setAmount(event.target.value)} /><Button variant={asset === "ETH" ? "default" : "outline"} onClick={() => setAsset("ETH")}>ETH</Button><Button variant={asset === "USDG" ? "default" : "outline"} onClick={() => setAsset("USDG")}>USDG</Button></div></div><div><Label>Category ID</Label><Input value={category} onChange={(event) => setCategory(event.target.value)} inputMode="numeric" /></div><div><Label>Exact commerce intent</Label><Input value={intent} onChange={(event) => setIntent(event.target.value)} /></div></div>
-          <div className="grid gap-3 sm:grid-cols-4"><div><Label>Owner nonce</Label><Input value={nonce} onChange={(event) => setNonce(event.target.value)} /></div><div><Label>Expiry (days)</Label><Input value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} /></div><div><Label>Interval (hours)</Label><Input value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} /></div><div><Label>Max executions</Label><Input value={maxExecutions} onChange={(event) => setMaxExecutions(event.target.value)} /></div></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><Label>Strategy name</Label><Input aria-label="Strategy name" value={name} onChange={(event) => setName(event.target.value)} /></div><div><Label>V3 account</Label><Input aria-label="V3 account" value={account} onChange={(event) => setAccount(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Trusted merchant</Label><Input aria-label="Trusted merchant" value={recipient} onChange={(event) => setRecipient(event.target.value)} className="font-mono" placeholder="0x…" /></div><div><Label>Exact amount per execution</Label><div className="flex gap-2"><Input aria-label="Exact amount per execution" value={amount} onChange={(event) => setAmount(event.target.value)} /><Button variant={asset === "ETH" ? "default" : "outline"} onClick={() => setAsset("ETH")}>ETH</Button><Button variant={asset === "USDG" ? "default" : "outline"} onClick={() => setAsset("USDG")}>USDG</Button></div></div><div><Label>Category ID</Label><Input aria-label="Category ID" value={category} onChange={(event) => setCategory(event.target.value)} inputMode="numeric" /></div><div><Label>Exact commerce intent</Label><Input aria-label="Exact commerce intent" value={intent} onChange={(event) => setIntent(event.target.value)} /></div><div className="md:col-span-2"><Label>Existing commerce intent hash (optional)</Label><Input aria-label="Existing commerce intent hash (optional)" value={intentHashInput} onChange={(event) => setIntentHashInput(event.target.value)} className="mt-2 font-mono" placeholder="0x… from an approved RuleWallet order" /><p className="mt-1 text-xs text-muted-foreground">When supplied, this binds the execution receipt back to that exact cart for reconciliation. Otherwise RuleWallet hashes the description above.</p></div></div>
+          <div className="grid gap-3 sm:grid-cols-4"><div><Label>Owner nonce</Label><Input aria-label="Owner nonce" value={nonce} onChange={(event) => setNonce(event.target.value)} /></div><div><Label>Expiry (days)</Label><Input aria-label="Expiry (days)" value={expiryDays} onChange={(event) => setExpiryDays(event.target.value)} /></div><div><Label>Interval (hours)</Label><Input aria-label="Interval (hours)" value={intervalHours} onChange={(event) => setIntervalHours(event.target.value)} /></div><div><Label>Max executions</Label><Input aria-label="Max executions" value={maxExecutions} onChange={(event) => setMaxExecutions(event.target.value)} /></div></div>
           <Button onClick={prepareStrategy}><ShieldX /> Preview exact authorization</Button>
         </CardContent>
       </Card>

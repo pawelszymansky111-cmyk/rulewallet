@@ -53,6 +53,27 @@ const definitions: ProviderDefinition[] = [
     disclosure: "Duffel test mode only in this release; it cannot spend real funds or issue real tickets.",
   },
   {
+    id: "duffel-stays",
+    name: "Duffel Stays",
+    category: "travel",
+    rail: "provider-api",
+    description: "Search accommodation availability and prices through Duffel Stays.",
+    officialDomain: "duffel.com",
+    paymentAssets: ["USDG"],
+    settlement: "Duffel Stays quote/booking flow; no onchain settlement address is published.",
+    verificationSource: "https://duffel.com/docs/api/v2/search/stays-search",
+    verifiedAt: "2026-07-20T00:00:00.000Z",
+    refunds: "not-integrated",
+    cancellations: "not-integrated",
+    credential: "DUFFEL_ACCESS_TOKEN",
+    documentationUrl: "https://duffel.com/docs/guides/getting-started-with-stays",
+    configured: () => Boolean(process.env.DUFFEL_ACCESS_TOKEN),
+    sandboxAvailable: true,
+    livePurchaseAvailable: false,
+    automaticPaymentSupported: false,
+    disclosure: "Duffel Stays test search only. Booking needs separate Stays access and a complete provider payment, guest-data, confirmation, cancellation, and reconciliation integration.",
+  },
+  {
     id: "ticketmaster-discovery",
     name: "Ticketmaster Discovery",
     category: "tickets",
@@ -183,6 +204,39 @@ export function listCommerceProviders(): CommerceProvider[] {
   });
 }
 
+export function applyCommerceRuntimeReadiness(
+  providers: CommerceProvider[],
+  readiness: { directMainnetReady: boolean },
+) {
+  return providers.map((provider): CommerceProvider => {
+    const directRail = provider.id === "direct-onchain" || provider.id === "recurring-payments";
+    if (!directRail || !readiness.directMainnetReady) return provider;
+    return {
+      ...provider,
+      mode: "live",
+      canPurchase: true,
+      automaticPaymentSupported: true,
+      handlesRealFunds: true,
+      disclosure: "Robinhood Chain mainnet direct payments are available only through the verified V3 factory, exact onchain policies, and protected non-exportable signer.",
+    };
+  });
+}
+
+export function applyDirectQuoteReadiness(
+  quote: CommerceQuote,
+  readiness: { chainId?: 4663 | 46630; directMainnetReady: boolean },
+): CommerceQuote {
+  const directRail = quote.providerId === "direct-onchain" || quote.providerId === "recurring-payments";
+  if (!directRail || readiness.chainId !== 4663 || !readiness.directMainnetReady) return quote;
+  return {
+    ...quote,
+    providerMode: "live",
+    sourceReference: quote.sourceReference.replace(/^sandbox:/, "direct-mainnet:"),
+    purchaseAvailable: true,
+    disclosure: "Exact Robinhood Chain mainnet payment quote. Payment remains impossible unless the verified V3 account and every onchain rule accept this exact recipient, asset, amount, category, intent, nonce, and expiry.",
+  };
+}
+
 export function getCommerceProvider(id: string) {
   return listCommerceProviders().find((provider) => provider.id === id);
 }
@@ -302,6 +356,96 @@ async function duffelTestQuote(request: QuoteRequest, now: Date, requestFetch: F
   } satisfies CommerceQuote;
 }
 
+function duffelHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "Accept-Encoding": "gzip",
+    "Duffel-Version": "v2",
+  };
+}
+
+async function duffelStayTestQuote(request: QuoteRequest, now: Date, requestFetch: FetchLike) {
+  const token = process.env.DUFFEL_ACCESS_TOKEN;
+  if (!token?.startsWith("duffel_test_")) return undefined;
+  if (!request.stay) throw new Error("Duffel Stays search needs check-in, check-out, guests, and rooms.");
+
+  const suggestionsResponse = await requestFetch("https://api.duffel.com/stays/accommodation/suggestions", {
+    method: "POST",
+    headers: duffelHeaders(token),
+    body: JSON.stringify({ data: { query: request.query } }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const suggestionsPayload = await suggestionsResponse.json() as {
+    data?: Array<{ accommodation_id?: string; accommodation_name?: string }>;
+    errors?: Array<{ message?: string }>;
+  };
+  if (!suggestionsResponse.ok) {
+    throw new Error(suggestionsPayload.errors?.[0]?.message ?? `Duffel Stays suggestions returned ${suggestionsResponse.status}.`);
+  }
+  const suggestion = suggestionsPayload.data?.find((item) => item.accommodation_id);
+  if (!suggestion?.accommodation_id) throw new Error("Duffel Stays returned no accommodation suggestion for this search.");
+
+  const searchResponse = await requestFetch("https://api.duffel.com/stays/search", {
+    method: "POST",
+    headers: duffelHeaders(token),
+    body: JSON.stringify({ data: {
+      rooms: request.stay.rooms,
+      accommodation: { ids: [suggestion.accommodation_id], fetch_rates: true },
+      check_in_date: request.stay.checkInDate,
+      check_out_date: request.stay.checkOutDate,
+      guests: Array.from({ length: request.stay.guests }, () => ({ type: "adult" })),
+      instant_payment: true,
+    } }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const searchPayload = await searchResponse.json() as {
+    data?: { results?: Array<{
+      id: string;
+      expires_at: string;
+      cheapest_rate_total_amount: string;
+      cheapest_rate_currency: string;
+      accommodation?: { id?: string; name?: string; rating?: number };
+    }> };
+    errors?: Array<{ message?: string }>;
+  };
+  if (!searchResponse.ok) {
+    throw new Error(searchPayload.errors?.[0]?.message ?? `Duffel Stays returned ${searchResponse.status}.`);
+  }
+  const result = searchPayload.data?.results
+    ?.filter((item) => item.cheapest_rate_currency === "USD")
+    .sort((left, right) => Number(left.cheapest_rate_total_amount) - Number(right.cheapest_rate_total_amount))[0];
+  if (!result) {
+    throw new Error("Duffel Stays returned no USD-denominated test accommodation for this search.");
+  }
+  const amountMinor = usdToMicroUnits(result.cheapest_rate_total_amount);
+  const accommodationName = result.accommodation?.name ?? suggestion.accommodation_name ?? "Duffel test accommodation";
+  const label = `${accommodationName} · ${request.stay.checkInDate} → ${request.stay.checkOutDate}`;
+  return {
+    id: crypto.randomUUID(),
+    providerId: "duffel-stays",
+    providerMode: "sandbox",
+    category: "travel",
+    asset: "USDG",
+    currency: "USD",
+    amountMinor,
+    lines: [{
+      id: result.id,
+      label: `${label} · ${request.stay.rooms} room${request.stay.rooms === 1 ? "" : "s"} · ${request.stay.guests} guest${request.stay.guests === 1 ? "" : "s"}`,
+      quantity: 1,
+      unitAmountMinor: amountMinor,
+    }],
+    merchantName: accommodationName,
+    summary: `${label}${result.accommodation?.rating ? ` · ${result.accommodation.rating}-star` : ""}`,
+    createdAt: now.toISOString(),
+    expiresAt: result.expires_at,
+    sourceReference: `duffel-stays-test:${result.id}`,
+    purchaseAvailable: false,
+    disclosure: "Live Duffel Stays test-mode availability. This is the cheapest search-stage price, not a final booking quote; no money is spent and no accommodation is booked.",
+  } satisfies CommerceQuote;
+}
+
 async function ticketmasterDiscoveryQuote(request: QuoteRequest, now: Date, requestFetch: FetchLike) {
   const apiKey = process.env.TICKETMASTER_API_KEY;
   if (!apiKey) return undefined;
@@ -342,6 +486,9 @@ export async function createProviderQuote(
 ): Promise<CommerceQuote> {
   if (request.providerId === "duffel-flights") {
     return await duffelTestQuote(request, now, requestFetch) ?? createSandboxQuote(request, now);
+  }
+  if (request.providerId === "duffel-stays") {
+    return await duffelStayTestQuote(request, now, requestFetch) ?? createSandboxQuote(request, now);
   }
   if (request.providerId === "ticketmaster-discovery") {
     return await ticketmasterDiscoveryQuote(request, now, requestFetch) ?? createSandboxQuote(request, now);

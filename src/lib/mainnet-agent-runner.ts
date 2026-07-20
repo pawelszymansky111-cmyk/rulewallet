@@ -34,6 +34,13 @@ import {
   verifyFactoryV3,
 } from "@/lib/v3-factory";
 import { keccak256 } from "viem";
+import {
+  confirmedExecutionStatus,
+  isConfirmationTimeout,
+  reconciledExecutionStatus,
+  transactionMatchesMainnetIntent,
+} from "@/lib/mainnet-execution-safety";
+import { reconcileDirectCommerceOrder } from "@/lib/commerce-reconciliation";
 
 const erc20MetadataAbi = parseAbi([
   "function symbol() view returns (string)",
@@ -58,6 +65,25 @@ function strategyTuple(strategy: MainnetAgentStrategy) {
     intervalSeconds: strategy.intervalSeconds,
     maxExecutions: strategy.maxExecutions,
   } as const;
+}
+
+async function reconcileCommerce(
+  strategy: MainnetAgentStrategy,
+  execution: MainnetAgentExecution,
+) {
+  try {
+    await reconcileDirectCommerceOrder(strategy, execution);
+  } catch (error) {
+    await sendMainnetAlert({
+      severity: "high",
+      code: "COMMERCE_RECONCILIATION_FAILED",
+      summary: errorText(error),
+      account: strategy.account,
+      strategyId: strategy.id,
+      transactionHash: execution.transactionHash,
+      occurredAt: new Date().toISOString(),
+    }).catch(() => false);
+  }
 }
 
 async function record(
@@ -87,6 +113,7 @@ async function record(
     strategyId: strategy.id,
     occurredAt: execution.createdAt,
   }).catch(() => false);
+  await reconcileCommerce(strategy, execution);
   return execution;
 }
 
@@ -253,13 +280,14 @@ export async function executeMainnetStrategy(
       data,
       value: "0",
     });
-    await saveMainnetExecution({
+    const pendingExecution = await saveMainnetExecution({
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
       amount: strategy.amount, trigger, status: "pending",
       reason: `Submitted with signer-global nonce ${nonce}; awaiting 3 confirmations.`,
       transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
     });
+    await reconcileCommerce(strategy, pendingExecution);
     let replacementReason: string | undefined;
     let receipt;
     try {
@@ -270,25 +298,25 @@ export async function executeMainnetStrategy(
         onReplaced: ({ reason }) => { replacementReason = reason; },
       });
     } catch (confirmationError) {
-      if (/timed? out|timeout/i.test(errorText(confirmationError))) {
-        return saveMainnetExecution({
+      if (isConfirmationTimeout(confirmationError)) {
+        const timedOut = await saveMainnetExecution({
           id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
           account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
           amount: strategy.amount, trigger, status: "timed_out",
           reason: "Confirmation timed out. The nonce remains reserved and late confirmation must be reconciled before retrying.",
           transactionHash: submitted.transactionHash, createdAt: new Date().toISOString(),
         });
+        await reconcileCommerce(strategy, timedOut);
+        return timedOut;
       }
       throw confirmationError;
     }
     const finalHash = receipt.transactionHash;
     const transaction = await client.getTransaction({ hash: finalHash });
-    if (
-      receipt.status !== "success" || transaction.from !== signer.address
-      || !transaction.to || getAddress(transaction.to) !== getAddress(strategy.account)
-      || transaction.input.toLowerCase() !== data.toLowerCase() || transaction.value !== BigInt(0)
-      || transaction.nonce !== nonce
-    ) {
+    if (receipt.status !== "success" || !transactionMatchesMainnetIntent(
+      { signerAddress: signer.address, to: strategy.account, data, nonce },
+      transaction,
+    )) {
       await sendMainnetAlert({ severity: "critical", code: "SIGNED_TRANSACTION_MISMATCH", summary: "Signer receipt did not match the approved transaction intent.", account: strategy.account, strategyId: strategy.id, transactionHash: finalHash, occurredAt: new Date().toISOString() }).catch(() => false);
       throw new Error("Secure signer transaction did not match the exact approved intent.");
     }
@@ -300,14 +328,16 @@ export async function executeMainnetStrategy(
       lastRunAt: now.toISOString(),
       nextRunAt: new Date(now.getTime() + strategy.intervalSeconds * 1000).toISOString(),
     });
-    return saveMainnetExecution({
+    const confirmed = await saveMainnetExecution({
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
-      amount: strategy.amount, trigger, status: replacementReason ? "replaced" : "confirmed",
+      amount: strategy.amount, trigger, status: confirmedExecutionStatus(replacementReason),
       reason: replacementReason ? `Transaction ${replacementReason}; replacement intent was revalidated and confirmed.` : !requiresApproval && simulation.result === BigInt(0) ? "Merchant, asset, category, time, and spend-policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
       transactionHash: finalHash, blockNumber: receipt.blockNumber.toString(), confirmations: 3,
       createdAt: now.toISOString(),
     });
+    await reconcileCommerce(strategy, confirmed);
+    return confirmed;
   } catch (error) {
     return record(strategy, "failed", errorText(error), trigger);
   } finally {
@@ -340,13 +370,10 @@ export async function reconcileLateMainnetConfirmations() {
     return [];
   }
   const transaction = await client.getTransaction({ hash: pending.transactionHash }).catch(() => undefined);
-  if (!transaction
-    || transaction.from !== pending.signerAddress
-    || !transaction.to
-    || getAddress(transaction.to) !== getAddress(pending.to)
-    || transaction.input.toLowerCase() !== pending.data.toLowerCase()
-    || transaction.value !== BigInt(0)
-    || transaction.nonce !== pending.nonce) {
+  if (!transaction || !transactionMatchesMainnetIntent(
+    { signerAddress: pending.signerAddress, to: pending.to, data: pending.data, nonce: pending.nonce },
+    transaction,
+  )) {
     await sendMainnetAlert({ severity: "critical", code: "LATE_TRANSACTION_MISMATCH", summary: "Late transaction data did not match the reserved signer intent.", account: strategy.account, strategyId: strategy.id, transactionHash: pending.transactionHash, occurredAt: new Date().toISOString() }).catch(() => false);
     return [];
   }
@@ -360,7 +387,7 @@ export async function reconcileLateMainnetConfirmations() {
     recipient: strategy.recipient,
     amount: strategy.amount,
     trigger: "schedule",
-    status: receipt.status === "success" ? "late_confirmed" : "failed",
+    status: reconciledExecutionStatus(receipt.status),
     reason: receipt.status === "success"
       ? "A previously timed-out transaction was revalidated and confirmed late. The signer nonce reservation was cleared."
       : "A previously timed-out transaction was revalidated and reverted onchain.",
@@ -377,6 +404,7 @@ export async function reconcileLateMainnetConfirmations() {
       nextRunAt: new Date(now.getTime() + strategy.intervalSeconds * 1000).toISOString(),
     });
   }
+  await reconcileCommerce(strategy, late);
   await sendMainnetAlert({ severity: "critical", code: "LATE_MAINNET_CONFIRMATION", summary: late.reason!, account: late.account, strategyId: late.strategyId, transactionHash: late.transactionHash, occurredAt: late.createdAt }).catch(() => false);
   return [late];
 }

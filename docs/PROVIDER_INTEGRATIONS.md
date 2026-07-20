@@ -8,6 +8,7 @@ RuleWallet distinguishes discovery, quoting, checkout, payment, fulfillment, and
 | --- | --- | --- | --- |
 | Direct onchain | Exact ETH/USDG recipient quotes and V3 onchain policy validation | Verified V3 factory/account plus funded restricted agent | V3 transfer only; no arbitrary calls |
 | Duffel Flights | Official test-mode offer request and structured quote | `duffel_test_…` access token | Disabled; test inventory cannot issue real travel |
+| Duffel Stays | Official test-mode accommodation suggestion and availability search | `duffel_test_…` token plus Stays access | Disabled; search-stage price is not a final quote or booking |
 | Ticketmaster Discovery | Official event search and hosted checkout URL | Discovery API key | Provider-hosted checkout only |
 | Shopify | Capability record and sandbox cart | Merchant domain/token plus merchant agreement | Disabled |
 | Stripe Issuing | Capability record and policy design | Approved Issuing account, funding, compliance, and webhooks | Disabled |

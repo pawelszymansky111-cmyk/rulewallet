@@ -61,6 +61,8 @@ const categories = [
 type ActionKind =
   | "asset"
   | "merchant"
+  | "merchant-pause"
+  | "merchant-revoke"
   | "merchant-asset"
   | "category"
   | "schedule"
@@ -198,16 +200,26 @@ export function V3PolicyWorkspace({
         }] });
         title = `Set ${assetSymbol} account limits`;
         expected = `Enable ${assetSymbol} with per-transaction, rolling 24-hour, daily, weekly, monthly, approval, and expiry controls.`;
-      } else if (kind === "merchant") {
+      } else if (kind === "merchant" || kind === "merchant-pause" || kind === "merchant-revoke") {
         if (!isAddress(merchant)) throw new Error("Enter a valid merchant or provider payment address.");
+        const trusted = kind !== "merchant-revoke";
+        const merchantAutonomous = kind === "merchant" ? autonomous : false;
         data = encodeFunctionData({ abi: registryAbi, functionName: "setMerchantPolicy", args: [getAddress(merchant), {
-          trusted: true,
-          autonomous,
+          trusted,
+          autonomous: merchantAutonomous,
           category,
-          expiresAt,
+          expiresAt: trusted ? expiresAt : BigInt(0),
         }] });
-        title = autonomous ? "Trust merchant for bounded automatic payments" : "Trust merchant with approval required";
-        expected = `${getAddress(merchant)} becomes a category ${category} merchant until the selected expiry. ${autonomous ? "Payments may skip confirmation only while every other policy passes." : "Every payment still requires approval."}`;
+        if (kind === "merchant-revoke") {
+          title = "Revoke merchant";
+          expected = `${getAddress(merchant)} is no longer trusted. Every new agent payment to it is blocked until the owner separately enables it again.`;
+        } else if (kind === "merchant-pause") {
+          title = "Pause automatic merchant payments";
+          expected = `${getAddress(merchant)} remains listed, but automatic payment is disabled. Every permitted payment requires a fresh human approval.`;
+        } else {
+          title = autonomous ? "Trust merchant for bounded automatic payments" : "Trust merchant with approval required";
+          expected = `${getAddress(merchant)} becomes a category ${category} merchant until the selected expiry. ${autonomous ? "Payments may skip confirmation only while every other policy passes." : "Every payment still requires approval."}`;
+        }
       } else if (kind === "merchant-asset") {
         if (!isAddress(merchant) || !asset) throw new Error("Enter a valid merchant and select a configured asset.");
         data = encodeFunctionData({ abi: registryAbi, functionName: "setMerchantAssetPolicy", args: [getAddress(merchant), asset, {
@@ -329,6 +341,10 @@ export function V3PolicyWorkspace({
             <Button variant="outline" onClick={() => void prepare("merchant")} disabled={Boolean(busy)}>2. Trust merchant</Button>
             <Button variant="outline" onClick={() => void prepare("merchant-asset")} disabled={Boolean(busy)}>3. Merchant limits</Button>
             <Button variant="outline" onClick={() => void prepare("category")} disabled={Boolean(busy)}>4. Category budget</Button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void prepare("merchant-pause")} disabled={Boolean(busy)}>Pause automatic merchant payments</Button>
+            <Button variant="destructive" onClick={() => void prepare("merchant-revoke")} disabled={Boolean(busy)}>Revoke merchant</Button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div><Label>Weekdays bitmap</Label><Input className="mt-2" value={weekdays} onChange={(event) => setWeekdays(event.target.value)} /></div>

@@ -14,8 +14,10 @@ This document separates working features from demos and future integrations. The
 | Human approval requests | Working | Working after V3 deployment | Current role, expiry, signature, and policy revalidated |
 | Scheduled EIP-712 transfers | Legacy V2 public demo plus V3 contract tests | Implemented, production-gated | A V3 testnet signer deployment and the mainnet production gates are external setup steps |
 | Duffel flight offers | Official test-mode data with token | Test data only | No real payment or ticket |
+| Duffel accommodation search | Official Stays test-mode availability with token and Stays access | Test data only | Search-stage price only; no final provider quote, payment, or booking |
 | Ticketmaster event discovery | Official search data with key | Search + hosted checkout | No autonomous purchase API claim |
 | Direct onchain invoice | Quote and V3 policy path | V3 transfer path after deployment | Exact trusted EVM recipient and user-entered amount required |
+| Direct-order reconciliation | Working state machine and private order ledger | Working after signer/factory gates | Exact cart intent hash binds pending, confirmed, timeout, late, blocked, and failed receipts; ambiguous timeouts are never blindly retried |
 | Shopify carts | Deterministic demo only | Disabled | Merchant domain/token/webhooks needed |
 | Stripe Issuing virtual card | Deterministic demo only | Disabled | Provider approval, compliance, funding, controls, and webhooks needed |
 | Food ordering | Deterministic demo only | Disabled | No authorized ordering API partner configured |

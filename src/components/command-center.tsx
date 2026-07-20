@@ -7,6 +7,7 @@ import {
   Activity,
   ArrowRight,
   Bot,
+  Building2,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import type {
   CommerceCategory,
+  ApprovalRequest,
   CommerceProvider,
   CommerceQuote,
   PurchaseOrder,
@@ -84,6 +86,19 @@ type CommerceSessionResponse = {
   expiresAt?: string | number;
 };
 
+type PrivateOperations = {
+  orders: PurchaseOrder[];
+  approvals: ApprovalRequest[];
+};
+
+type PublicOperations = {
+  nextScheduledRun?: string;
+  confirmed: number;
+  blocked: number;
+  failed: number;
+  source: "mainnet" | "testnet-demo";
+};
+
 const categoryIcons = {
   travel: Plane,
   food: Utensils,
@@ -95,10 +110,11 @@ const categoryIcons = {
 } satisfies Record<CommerceCategory, typeof Plane>;
 
 const quickIntents = [
-  { category: "travel" as const, label: "Find a flight", query: "Warsaw to London, next Friday, economy" },
-  { category: "food" as const, label: "Order food", query: "Vegetarian dinner delivered tonight" },
-  { category: "tickets" as const, label: "Buy tickets", query: "Two concert tickets in Warsaw this month" },
-  { category: "shopping" as const, label: "Shop online", query: "USB-C travel charger under $60" },
+  { providerId: "duffel-flights", category: "travel" as const, icon: Plane, label: "Find a flight", query: "Warsaw to London, next Friday, economy" },
+  { providerId: "duffel-stays", category: "travel" as const, icon: Building2, label: "Find a hotel", query: "New York hotel" },
+  { providerId: "food-partner", category: "food" as const, icon: Utensils, label: "Order food", query: "Vegetarian dinner delivered tonight" },
+  { providerId: "ticketmaster-discovery", category: "tickets" as const, icon: Ticket, label: "Buy tickets", query: "Two concert tickets in Warsaw this month" },
+  { providerId: "shopify-storefront", category: "shopping" as const, icon: ShoppingBag, label: "Shop online", query: "USB-C travel charger under $60" },
 ];
 
 const commerceCategories: CommerceCategory[] = [
@@ -144,6 +160,10 @@ function formatAssetAmount(quote: CommerceQuote) {
   return `${whole}${fraction ? `.${fraction}` : ""} ${quote.asset}`;
 }
 
+function decimalAssetAmount(quote: CommerceQuote) {
+  return formatAssetAmount(quote).split(" ")[0];
+}
+
 function shortAddress(value: string) {
   return value ? `${value.slice(0, 7)}…${value.slice(-5)}` : "Not selected";
 }
@@ -175,6 +195,10 @@ export function CommandCenter({
   const [departureDate, setDepartureDate] = useState(() => new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
   const [passengers, setPassengers] = useState("1");
   const [cabinClass, setCabinClass] = useState<"economy" | "premium_economy" | "business" | "first">("economy");
+  const [checkInDate, setCheckInDate] = useState(() => new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
+  const [checkOutDate, setCheckOutDate] = useState(() => new Date(Date.now() + 17 * 86_400_000).toISOString().slice(0, 10));
+  const [stayGuests, setStayGuests] = useState("2");
+  const [stayRooms, setStayRooms] = useState("1");
 
   const providersQuery = useQuery({
     queryKey: ["commerce-providers"],
@@ -193,6 +217,7 @@ export function CommandCenter({
           category,
           query,
           asset,
+          chainId: chainId === 4663 || chainId === 46630 ? chainId : undefined,
           account: policyAccount || undefined,
           recipient: directRail ? recipient : undefined,
           exactAmountMinor: directRail ? parseUnits(directAmount, asset === "USDG" ? 6 : 18).toString() : undefined,
@@ -202,6 +227,12 @@ export function CommandCenter({
             departureDate,
             passengers: Number(passengers),
             cabinClass,
+          } : undefined,
+          stay: providerId === "duffel-stays" ? {
+            checkInDate,
+            checkOutDate,
+            guests: Number(stayGuests),
+            rooms: Number(stayRooms),
           } : undefined,
           idempotencyKey: crypto.randomUUID(),
         }),
@@ -220,6 +251,64 @@ export function CommandCenter({
       body: JSON.stringify({ address: owner, message: challenge.message, signature }),
     });
   }
+
+  const privateOperationsQuery = useQuery({
+    queryKey: ["command-private-operations", address, policyAccount],
+    enabled: false,
+    queryFn: async (): Promise<PrivateOperations> => {
+      if (!address) throw new Error("Connect the owner wallet before unlocking private activity.");
+      await ensureCommerceSession(address);
+      const suffix = new URLSearchParams({ owner: address });
+      if (policyAccount) suffix.set("account", policyAccount);
+      const [ordersResponse, approvalsResponse] = await Promise.all([
+        jsonRequest<{ orders: PurchaseOrder[] }>(`/api/commerce/orders?${suffix}`),
+        jsonRequest<{ approvals: ApprovalRequest[] }>(`/api/commerce/approvals?owner=${address}`),
+      ]);
+      return { orders: ordersResponse.orders, approvals: approvalsResponse.approvals };
+    },
+  });
+
+  const publicOperationsQuery = useQuery({
+    queryKey: ["command-public-operations", chainId, policyAccount],
+    queryFn: async (): Promise<PublicOperations> => {
+      if (chainId === 4663) {
+        const [strategiesResponse, activityResponse] = await Promise.all([
+          jsonRequest<{ strategies: Array<{ account: string; active: boolean; nextRunAt: string }> }>("/api/mainnet/strategies"),
+          jsonRequest<{ executions: Array<{ account: string; status: string }> }>("/api/mainnet/activity"),
+        ]);
+        const selected = policyAccount.toLowerCase();
+        const strategies = strategiesResponse.strategies.filter(
+          (strategy) => (!selected || strategy.account.toLowerCase() === selected) && strategy.active,
+        );
+        const executions = activityResponse.executions.filter(
+          (execution) => !selected || execution.account.toLowerCase() === selected,
+        );
+        return {
+          nextScheduledRun: strategies.map((strategy) => strategy.nextRunAt).sort()[0],
+          confirmed: executions.filter((execution) => execution.status === "confirmed" || execution.status === "late_confirmed").length,
+          blocked: executions.filter((execution) => execution.status === "blocked").length,
+          failed: executions.filter((execution) => execution.status === "failed" || execution.status === "timed_out").length,
+          source: "mainnet",
+        };
+      }
+      const metrics = await jsonRequest<{
+        automation: {
+          nextScheduledRun?: string;
+          confirmedExecutions: number;
+          blockedExecutions: number;
+          failedExecutions: number;
+        };
+      }>("/api/public/metrics");
+      return {
+        nextScheduledRun: metrics.automation.nextScheduledRun,
+        confirmed: metrics.automation.confirmedExecutions,
+        blocked: metrics.automation.blockedExecutions,
+        failed: metrics.automation.failedExecutions,
+        source: "testnet-demo",
+      };
+    },
+    staleTime: 15_000,
+  });
 
   const orderMutation = useMutation({
     mutationFn: async (quote: CommerceQuote) => {
@@ -246,12 +335,32 @@ export function CommandCenter({
   const selectedProvider = providers.find((provider) => provider.id === providerId);
   const quote = quoteMutation.data?.quote;
   const order = orderMutation.data?.order;
+  const privateOrders = privateOperationsQuery.data?.orders ?? [];
+  const privateApprovals = privateOperationsQuery.data?.approvals ?? [];
+  const pendingApprovalCount = privateApprovals.filter((approval) => approval.status === "pending").length
+    + (order?.status === "awaiting-approval" && !privateOrders.some((item) => item.id === order.id) ? 1 : 0);
+  const recentOrder = order ?? privateOrders[0];
+  const publicOperations = publicOperationsQuery.data;
+  const authorizationUrl = recentOrder?.status === "approved"
+    && recentOrder.paymentRail === "direct-onchain"
+    && recentOrder.cart.chainId === 4663
+    && recentOrder.cart.quote.merchantRecipient
+    ? `/mainnet?${new URLSearchParams({
+        name: `Order ${recentOrder.id.slice(0, 8)}`,
+        account: recentOrder.cart.account,
+        recipient: recentOrder.cart.quote.merchantRecipient,
+        amount: decimalAssetAmount(recentOrder.cart.quote),
+        asset: recentOrder.cart.quote.asset,
+        category: String(onchainCategory[recentOrder.cart.quote.category]),
+        intentHash: recentOrder.cart.intentHash,
+        maxExecutions: "1",
+      })}`
+    : undefined;
 
   function chooseIntent(intent: (typeof quickIntents)[number]) {
-    const provider = providers.find((item) => item.category === intent.category);
     setCategory(intent.category);
     setQuery(intent.query);
-    if (provider) setProviderId(provider.id);
+    setProviderId(intent.providerId);
   }
 
   function chooseProvider(value: string) {
@@ -340,6 +449,44 @@ export function CommandCenter({
           </div>
         </section>
 
+        <section aria-labelledby="operations-heading" className="scroll-mt-24 space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="eyebrow">Live operations</p>
+              <h2 id="operations-heading" className="mt-2 text-2xl font-semibold tracking-tight">{pro ? "Execution and approval state" : "What is happening now"}</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => void publicOperationsQuery.refetch()} disabled={publicOperationsQuery.isFetching}>
+                {publicOperationsQuery.isFetching ? <LoaderCircle className="animate-spin" /> : <Activity />} Refresh public receipts
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => void privateOperationsQuery.refetch()} disabled={!address || privateOperationsQuery.isFetching}>
+                {privateOperationsQuery.isFetching ? <LoaderCircle className="animate-spin" /> : <LockKeyhole />} Unlock my orders
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card><CardContent className="p-4"><Clock3 className="size-4 text-primary" /><p className="mt-3 text-xs text-muted-foreground">Upcoming recurring payment</p><p className="mt-1 font-medium">{publicOperations?.nextScheduledRun ? new Date(publicOperations.nextScheduledRun).toLocaleString() : "None scheduled"}</p><p className="mt-1 text-[11px] text-muted-foreground">{publicOperations?.source === "mainnet" ? "Selected mainnet account" : "Public testnet demo"}</p></CardContent></Card>
+            <Card><CardContent className="p-4"><FileCheck2 className="size-4 text-primary" /><p className="mt-3 text-xs text-muted-foreground">Pending approvals</p><p className="mt-1 text-2xl font-semibold">{privateOperationsQuery.data || order ? pendingApprovalCount : "—"}</p><Link href="/approvals" className="mt-1 inline-flex text-xs text-primary">Open inbox →</Link></CardContent></Card>
+            <Card><CardContent className="p-4"><ReceiptText className="size-4 text-primary" /><p className="mt-3 text-xs text-muted-foreground">Confirmed public receipts</p><p className="mt-1 text-2xl font-semibold">{publicOperations?.confirmed ?? "—"}</p><Link href="/activity" className="mt-1 inline-flex text-xs text-primary">View receipts →</Link></CardContent></Card>
+            <Card><CardContent className="p-4"><XCircle className="size-4 text-amber-700" /><p className="mt-3 text-xs text-muted-foreground">Blocked or failed attempts</p><p className="mt-1 text-2xl font-semibold">{publicOperations ? publicOperations.blocked + publicOperations.failed : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">Failures never become approvals automatically.</p></CardContent></Card>
+          </div>
+          {recentOrder ? (
+            <Alert className="border-primary/25 bg-primary/[0.04]">
+              <ShoppingBag />
+              <AlertTitle>Latest private order · {recentOrder.status}</AlertTitle>
+              <AlertDescription>
+                <span>{recentOrder.cart.quote.summary} · {formatAssetAmount(recentOrder.cart.quote)}. Private history is shown only after the connected owner unlocks a short-lived session.</span>
+                {authorizationUrl ? <Button asChild size="sm" className="mt-3"><Link href={authorizationUrl}>Prepare exact payment authorization <ArrowRight /></Link></Button> : null}
+              </AlertDescription>
+            </Alert>
+          ) : privateOperationsQuery.data ? (
+            <p className="rounded-xl border border-dashed border-primary/20 p-4 text-sm text-muted-foreground">No private orders exist for this owner and selected account.</p>
+          ) : (
+            <p className="rounded-xl border border-dashed border-primary/20 p-4 text-sm text-muted-foreground">Unlock private activity with the connected owner wallet to load order and approval history. The login signature cannot move funds.</p>
+          )}
+          {privateOperationsQuery.error ? <Alert variant="destructive"><XCircle /><AlertTitle>Private activity unavailable</AlertTitle><AlertDescription>{parseError(privateOperationsQuery.error)}</AlertDescription></Alert> : null}
+        </section>
+
         <section id="accounts" className="scroll-mt-24 space-y-4">
           <div>
             <p className="eyebrow">01 · Accounts</p>
@@ -377,13 +524,13 @@ export function CommandCenter({
             <CardContent className="space-y-6">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {quickIntents.map((intent) => {
-                  const Icon = categoryIcons[intent.category];
+                  const Icon = intent.icon;
                   return (
                     <button
-                      key={intent.category}
+                      key={intent.providerId}
                       type="button"
                       onClick={() => chooseIntent(intent)}
-                      className={`rounded-xl border p-4 text-left transition ${category === intent.category ? "border-primary/45 bg-primary/[0.08]" : "border-primary/15 bg-white hover:border-primary/35"}`}
+                      className={`rounded-xl border p-4 text-left transition ${providerId === intent.providerId ? "border-primary/45 bg-primary/[0.08]" : "border-primary/15 bg-white hover:border-primary/35"}`}
                     >
                       <Icon className="size-5 text-primary" />
                       <span className="mt-3 block font-medium">{intent.label}</span>
@@ -440,6 +587,15 @@ export function CommandCenter({
                 </div>
               ) : null}
 
+              {providerId === "duffel-stays" ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div><Label htmlFor="stay-check-in">Check-in</Label><Input id="stay-check-in" className="mt-2" type="date" value={checkInDate} onChange={(event) => setCheckInDate(event.target.value)} /></div>
+                  <div><Label htmlFor="stay-check-out">Check-out</Label><Input id="stay-check-out" className="mt-2" type="date" value={checkOutDate} onChange={(event) => setCheckOutDate(event.target.value)} /></div>
+                  <div><Label htmlFor="stay-guests">Guests</Label><Input id="stay-guests" className="mt-2" type="number" min={1} max={16} value={stayGuests} onChange={(event) => setStayGuests(event.target.value)} /></div>
+                  <div><Label htmlFor="stay-rooms">Rooms</Label><Input id="stay-rooms" className="mt-2" type="number" min={1} max={8} value={stayRooms} onChange={(event) => setStayRooms(event.target.value)} /></div>
+                </div>
+              ) : null}
+
               {selectedProvider ? (
                 <Alert>
                   <Store />
@@ -476,7 +632,7 @@ export function CommandCenter({
                 <div className="rounded-2xl border border-primary/30 bg-primary/[0.035] p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <Badge variant="outline" className="border-amber-400/40 text-amber-800">{quote.sourceReference.startsWith("duffel-test:") ? "Live provider sandbox" : quote.sourceReference.startsWith("ticketmaster:") ? "Live provider discovery" : "Sandbox demo"}</Badge>
+                      <Badge variant="outline" className={quote.providerMode === "live" ? "border-primary/35 text-primary" : "border-amber-400/40 text-amber-800"}>{quote.sourceReference.startsWith("direct-mainnet:") ? "Verified mainnet direct quote" : quote.sourceReference.startsWith("duffel-stays-test:") ? "Live stays sandbox" : quote.sourceReference.startsWith("duffel-test:") ? "Live provider sandbox" : quote.sourceReference.startsWith("ticketmaster:") ? "Live provider discovery" : "Sandbox demo"}</Badge>
                       <h3 className="mt-3 text-xl font-semibold">{quote.summary}</h3>
                       <p className="mt-2 text-sm text-muted-foreground">{quote.disclosure}</p>
                     </div>
