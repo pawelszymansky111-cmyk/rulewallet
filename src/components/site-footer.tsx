@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 
-const xUrl = process.env.NEXT_PUBLIC_X_URL;
+const xUrl = process.env.NEXT_PUBLIC_X_URL ?? "https://x.com/rulewallet";
 
 export function SiteFooter() {
   return (
@@ -22,7 +22,7 @@ export function SiteFooter() {
           <Link href="/security" className="hover:text-foreground">Security</Link>
           <Link href="/playground" className="hover:text-foreground">Playground</Link>
           <a href="/app" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:text-foreground">Console <ExternalLink className="size-3" /></a>
-          {xUrl && <a href={xUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">X</a>}
+          <a href={xUrl} target="_blank" rel="noreferrer" className="hover:text-foreground">X</a>
         </nav>
       </div>
     </footer>

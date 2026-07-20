@@ -17,6 +17,8 @@ const navigation = [
   { href: "/docs", simple: "Learn", pro: "Docs" },
 ] as const;
 
+const xUrl = process.env.NEXT_PUBLIC_X_URL ?? "https://x.com/rulewallet";
+
 export function SiteHeader() {
   const { mode } = useExperienceMode();
 
@@ -40,6 +42,9 @@ export function SiteHeader() {
         </nav>
         <div className="flex items-center gap-2">
           <ExperienceModeToggle className="hidden sm:flex" />
+          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
+            <a href={xUrl} target="_blank" rel="noreferrer" aria-label="RuleWallet on X">X</a>
+          </Button>
           <WalletControl compact />
           <details className="group relative lg:hidden">
             <summary
@@ -75,6 +80,14 @@ export function SiteHeader() {
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-primary hover:bg-primary/10"
               >
                 Open console <ExternalLink className="size-3" />
+              </a>
+              <a
+                href={xUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                RuleWallet on X
               </a>
             </nav>
           </details>
