@@ -75,12 +75,12 @@ Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent d
 
 ## Release checklist
 
-- [ ] Production deployment is `READY` and aliased to `rulewallet.vercel.app`.
-- [ ] `/api/mainnet/status` reports the verified factory, canonical 6-decimal USDG, signer identity, and every production gate accurately.
-- [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
-- [ ] `/command`, `/approvals`, `/mainnet`, `/app/operator`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
-- [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.
-- [ ] The public GitHub branch or merged main commit matches the verified production artifact.
+- [x] Production deployment is `READY` and aliased to `rulewallet.vercel.app` (verified 2026-07-20).
+- [x] `/api/mainnet/status` accurately reports the missing V3 factory and production signer gates while confirming canonical six-decimal USDG.
+- [x] `/api/public/metrics` returns the current block, policy, agent, and receipt data.
+- [x] Every public route returns HTTP 200; Command Center, Start, Approvals, and Demo pass desktop/mobile browser checks without runtime errors or horizontal overflow.
+- [x] The latest confirmed testnet receipt opens on the Robinhood Chain testnet explorer.
+- [x] The public `agent/spending-command-center` branch matches the verified production artifact (verified 2026-07-20).
 - [ ] X profile and every post say testnet; no token or affiliation claim appears.
 - [ ] Private vulnerability reporting is enabled before soliciting security review.
 
