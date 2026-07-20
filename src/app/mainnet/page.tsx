@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, ExternalLink } from "lucide-react";
-import { MainnetControlCenter } from "@/components/mainnet-control-center";
-import { MainnetSimpleMode } from "@/components/mainnet-simple-mode";
 import { MainnetStrategyPanel } from "@/components/mainnet-strategy-panel";
+import { V3AccountManager } from "@/components/v3-account-manager";
+import { V3PolicyWorkspace } from "@/components/v3-policy-workspace";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 export const metadata: Metadata = {
   title: "Experimental mainnet",
   description:
-    "Experimental, unaudited RuleWallet V2 accounts and production-gated autonomy on Robinhood Chain mainnet.",
+    "RuleWallet V3 commerce accounts and production-gated autonomy on Robinhood Chain mainnet.",
 };
 
 export default function MainnetPage() {
@@ -32,7 +32,7 @@ export default function MainnetPage() {
               Robinhood Chain mainnet
             </h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">
-              Deploy a personal V2 policy account, configure bounded agent
+              Deploy a personal V3 commerce account, configure bounded agent
               authority, and run exact owner-signed strategies through a
               verified non-exportable signer when every production gate passes.
             </p>
@@ -59,12 +59,8 @@ export default function MainnetPage() {
             </Button>
           </div>
         </div>
-        <div className="mt-10">
-          <MainnetSimpleMode />
-        </div>
-        <div className="mt-10">
-          <MainnetControlCenter />
-        </div>
+        <div className="mt-10"><V3AccountManager initialChainId={4663} /></div>
+        <div className="mt-10"><V3PolicyWorkspace initialChainId={4663} /></div>
         <div className="mt-10">
           <MainnetStrategyPanel />
         </div>

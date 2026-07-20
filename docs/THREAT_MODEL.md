@@ -1,59 +1,58 @@
-# Threat model
-
-## Security-beta additions
-
-- Queued requests are hostile inputs: execution revalidates the originating agent role, strategy revocation/expiry, active unique approvals, recipient, pause, and current limits.
-- Expected-looking factory getters are not provenance. Only the pinned runtime hash plus the exact factory's deployment record is accepted.
-- RPC and signer services are separate trust domains. Future signing requires two agreeing RPCs, a signer-global nonce lock, strict fees, HTTPS hostname pinning, and a real signer identity attestation.
-- Environment flags cannot enable mainnet autonomy in this release.
+# V3 threat model
 
 ## Assets and trust boundaries
 
-- ETH and canonical USDG held by each personal V2 account;
-- owner policies, role assignments, trusted recipients, rolling spend, strategy state, and pending approvals;
-- the exact transaction intent shown before a wallet signature;
-- KMS/MPC/HSM authorization, RPC credentials, durable locks, and confirmation records;
-- notification event contents, webhook credentials, and operational alert destinations;
-- factory/account bytecode, source verification, frontend artifacts, and deployment metadata.
+- ETH and canonical six-decimal USDG held by each mainnet V3 account;
+- valueless testnet ETH/tUSDG in the testing environment;
+- owner policies, role assignments, merchants, categories, schedules, spend state, strategies, and approvals;
+- passkey/external wallet sessions and exact transactions shown before signing;
+- remote non-exportable signer, RPC observations, durable locks, and pending nonces;
+- provider credentials, quotes, carts, orders, webhooks, and fulfillment state;
+- exact factory/helper/account/registry runtimes and deployment provenance.
 
-The contract is trusted to enforce policy. Agent output, browser state, RPC responses, backend code, signing infrastructure, recipients, token responses, dependencies, and operators are untrusted or compromiseable.
+The V3 account and paired registry are the financial authorization boundary. Models, browsers, provider APIs, backends, databases, RPCs, signer operators, merchants, tokens, and project operators are untrusted or compromiseable.
 
 ## Main abuse cases
 
-| Threat | Onchain/offchain control | Residual risk |
+| Threat | Primary control | Residual risk |
 | --- | --- | --- |
-| Compromised agent drains the account | Mandatory per-transaction and rolling 24h caps; trusted recipients; only ETH/USDG | Attacker can consume the remaining configured allowance |
-| Backend bypasses policy | Contract revalidates every execution; backend has no owner/approver/guardian authority | Compromised owner can reconfigure policy |
-| Arbitrary call or malicious router | V2 exposes no arbitrary-call, approval, router, swap, or bridge function | Direct recipient or canonical token implementation can still fail |
-| Strategy replay or mutation | EIP-712 chain/account binding, nonce-to-digest binding, expiry, interval, execution cap, revocation | Owner can sign an unsafe but valid strategy |
-| High-value action skips approval | Threshold creates a pending request; unique approvers and minimum count checked onchain | Compromised approvers may approve malicious requests |
-| Policy changes after approval | Recipient, asset policy, limits, pause, and rolling spend rechecked at execution | Denial of service from later restrictive changes |
-| Reentrancy | Reentrancy guard and finalized state before direct transfer | Recipient fallback can still revert and block its own transfer |
-| Owner cannot recover funds | Owner withdrawal is independent of agent limits and remains available while paused | Owner-key loss or compromise remains catastrophic |
-| Guardian abuses pause | Guardian can pause but cannot unpause, change policy, or withdraw | Guardian can cause denial of service |
-| Mainnet raw key exposure | Mainnet code has no raw private-key path; secure-signer interface requires non-exportable external custody | Signer service/operator compromise |
-| Duplicate scheduler delivery | Token-owned durable lock, idempotency key, onchain nonce/strategy interval | Long outage around lock expiry can produce blocked duplicates |
-| RPC inconsistency/outage | Managed primary and failover, simulation, confirmation tracking, explorer link | Multiple providers can share bad upstream data |
-| Frontend substitutes calldata | Exact chain/to/value/calldata/result preview reused for send; wallet confirmation required | Compromised wallet/host can misrepresent its own UI |
-| Notification endpoint is compromised | Delivery happens after durable recording; authenticated HTTPS adapter has no policy or signer credentials | Public receipt metadata and recipient addresses may be disclosed to the configured destination |
+| Compromised agent drains account | Asset, merchant, category, period, time, count, expiry, and execution caps | Attacker can spend remaining configured allowance to a compromised trusted merchant |
+| Fake official provider | Owner-signed merchant address/category plus capability registry | Owner can trust the wrong address; labels are not identity proof |
+| Backend invents an allowed policy | Registry revalidates every payment onchain | Backend can deny service or show misleading previews |
+| Search result shown as purchase | Distinct quote/order/payment/confirmation states and provider capability flags | Third-party checkout can still fail after discovery |
+| Strategy replay/mutation | EIP-712 chain/account/intent/category binding, nonce-to-digest binding, expiry, interval, count, revoke | Owner may sign an unsafe but valid strategy |
+| Queued request executes after authority changes | Agent role, strategy revocation/expiry, approvals, and all policy rechecked at execution | Later restriction can intentionally deny service |
+| Approval replay or stale signer | EIP-712 approver/nonce/expiry and active role check | Compromised active approvers may approve malicious requests |
+| Spoof factory/account | Exact immutable-linked factory/helper hashes, factory version record, registry controller binding | Build pipeline compromise could pin malicious artifacts |
+| Role collision | Constructor and grant checks require distinct operational addresses; duplicate approvers rejected | Multiple embedded wallets may share one authentication/recovery domain |
+| Mainnet raw-key exposure | Mainnet accepts only remote non-exportable signer interface | KMS policy, operator, or cloud-account compromise |
+| Duplicate/ambiguous submission | Strategy and signer-global locks, pending nonce reservation, idempotency, exact late reconciliation | Multi-system outage can delay rather than duplicate payment |
+| RPC manipulation | Two managed HTTPS hosts must agree; exact simulation and confirmed transaction recheck | Independent hosts can share bad upstream state |
+| Provider replay or double order | Durable idempotency and quote expiry; future webhooks must be signature-verified | A not-yet-live adapter must not claim completion |
+| Redis disclosure | Owner strategy signatures use authenticated AES-256-GCM encryption and the key stays outside Redis | Rotate the key by decrypting/re-encrypting during a controlled maintenance window |
+| Shopping-intent disclosure | Private order/approval APIs require a replay-safe wallet challenge and short-lived HttpOnly session | A compromised owner browser or server can still read that owner's active session data |
+| Malicious canonical token | Immutable address, `SafeERC20`, reentrancy guard | Blacklist, pause, upgrade, fee, or solvency risk remains external |
+| Owner key compromise | No platform balance cap; withdrawals and policy changes require owner | Owner compromise is catastrophic by design |
+| Guardian abuse | Guardian can pause/cancel but not unpause or withdraw | Denial of service |
 
-## V2 invariants
+## V3 invariants
 
-- An enabled agent asset always has a positive per-transaction limit and a rolling limit at least as large.
-- Rolling recorded spend cannot exceed the current owner-configured limit.
-- Agents can transfer only native ETH or the immutable canonical USDG address.
-- Agents can transfer only to an enabled trusted recipient.
-- Agent requests consume a strict per-agent nonce.
-- One owner strategy nonce binds to one EIP-712 digest.
+- Agents can transfer only native ETH or the immutable canonical stablecoin.
+- Every agent transfer uses a trusted, unexpired merchant and matching category.
+- Asset, merchant/asset, and category policies must all be enabled.
+- Recorded spend cannot exceed configured per-transaction, rolling, period, merchant, category, or count limits.
 - Human approval cannot override a failed hard policy.
-- Expired, cancelled, executed, revoked, exhausted, or early recurring actions cannot execute.
+- Expired, cancelled, executed, rejected, revoked, exhausted, early, or unauthorized actions cannot execute.
+- One strategy nonce binds to one digest; one approval nonce is single-use.
+- Revoking the originating agent or strategy blocks its pending request.
 - Guardian cannot withdraw or unpause; agent cannot configure, approve, pause, unpause, or withdraw.
-- Owner withdrawals do not consume or depend on agent allowance.
+- Owner withdrawal does not grant the agent broader authority.
+- No proxy, delegatecall, arbitrary external call, token approval, swap, router, or bridge exists.
 
-## Alerts
+## Operational alerts
 
-Production monitoring must alert on failed/reverted execution spikes, nonce conflicts, repeated lock contention, policy/role/recipient changes, pause/unpause, owner withdrawals, signer address changes, RPC disagreement, balance thresholds, and signer-provider authentication failures. Alerts never create authority; the guardian pause is the containment control.
+Alert on policy/role/merchant changes, pause/unpause, owner withdrawals, failed simulations, revert spikes, nonce conflicts, lock contention, RPC disagreement, signer identity changes, fee-ceiling failures, provider errors, quote/order mismatches, unusual spend, and balance thresholds. Alerts carry no authority; guardian pause and agent revocation are containment controls.
 
-## Explicit non-claims
+## Non-claims
 
-This experimental release is unaudited. Tests do not prove absence of bugs, economic safety, RPC honesty, key security, correct recipient identity, stablecoin solvency, or suitability for large balances. RuleWallet is not affiliated with Robinhood.
+This is an internal engineering security model, not an independent audit or guarantee. Tests do not prove absence of bugs, recipient identity, provider fulfillment, key security, stablecoin solvency, RPC honesty, or suitability for large balances. RuleWallet is not affiliated with Robinhood or the named commerce providers.

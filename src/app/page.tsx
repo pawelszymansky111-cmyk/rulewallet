@@ -162,8 +162,8 @@ export default function Home() {
           <div className="mx-auto grid max-w-7xl gap-8 px-5 py-16 lg:grid-cols-[1fr_0.75fr] lg:items-center lg:px-8 lg:py-20">
             <div>
               <p className="eyebrow">Honest release status</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight">Working testnet beta. Experimental mainnet implementation.</h2>
-              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">Testnet automation and public receipts are live. Mainnet autonomy remains disabled until the pinned factory, non-exportable signer, dual RPC, durable scheduler, fee ceilings, and monitoring gates all verify. RuleWallet is not independently audited or affiliated with Robinhood.</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight">Working legacy testnet demo. V3 commerce beta ready for deployment.</h2>
+              <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">Legacy testnet automation and public receipts are live. V3 adds named spending accounts and merchant/category/time budgets, but its factories still require wallet-signed deployment. Mainnet autonomy remains disabled until the pinned V3 factory, non-exportable signer, dual RPC, durable scheduler, fee ceilings, and monitoring gates all verify. RuleWallet is not independently audited or affiliated with Robinhood.</p>
             </div>
             <div className="flex flex-wrap gap-3 lg:justify-end">
               <Button asChild variant="outline"><Link href="/mainnet">Inspect mainnet gates</Link></Button>

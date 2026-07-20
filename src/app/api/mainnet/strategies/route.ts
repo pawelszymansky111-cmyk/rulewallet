@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashTypedData, parseAbi, verifyTypedData, zeroAddress, type Hex } from "viem";
+import { getAddress, hashTypedData, parseAbi, verifyTypedData, zeroAddress, type Hex } from "viem";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
@@ -9,12 +9,11 @@ import {
 } from "@/lib/mainnet-agent-types";
 import { claimMainnetStrategyDigest, listMainnetStrategies, saveMainnetStrategy } from "@/lib/mainnet-agent-store";
 import {
-  mainnetFactoryAddress,
   ROBINHOOD_MAINNET_USDG,
-  ruleWalletFactoryAbi,
-  ruleWalletV2Abi,
+  ruleWalletPolicyRegistryV3Abi,
+  ruleWalletV3Abi,
 } from "@/lib/mainnet-registry";
-import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
+import { mainnetFactoryV3Address, ruleWalletFactoryV3Abi, verifyFactoryV3 } from "@/lib/v3-factory";
 import { getServerEnvironment } from "@/lib/server-env";
 import { mainnetAutonomyReady } from "@/lib/mainnet-safety";
 import { mainnetSignerStatus, verifyMainnetSignerIdentity } from "@/lib/secure-agent-signer";
@@ -64,11 +63,14 @@ export async function POST(request: NextRequest) {
     const client = getMainnetPublicClient();
     const environment = getServerEnvironment();
     const signer = mainnetSignerStatus();
-    if (!mainnetFactoryAddress) {
-      return NextResponse.json({ error: "Verified V2 factory is not configured." }, { status: 503 });
+    if (!mainnetFactoryV3Address) {
+      return NextResponse.json({ error: "Verified V3 factory is not configured." }, { status: 503 });
     }
     const [factoryVerification, signerIdentity, usdgSymbol, usdgDecimals] = await Promise.all([
-      verifyPinnedMainnetFactory(client, mainnetFactoryAddress),
+      verifyFactoryV3(client, mainnetFactoryV3Address, {
+        chainId: 4663,
+        canonicalStablecoin: ROBINHOOD_MAINNET_USDG,
+      }),
       signer.configured ? verifyMainnetSignerIdentity().catch(() => undefined) : Promise.resolve(undefined),
       client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "symbol" }).catch(() => undefined),
       client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "decimals" }).catch(() => undefined),
@@ -85,27 +87,45 @@ export async function POST(request: NextRequest) {
     }
     if (!signer.address) return NextResponse.json({ error: "Verified mainnet agent signer is unavailable." }, { status: 503 });
 
-    const [code, ownerRole, agentRole, canonicalStablecoin, expectedVersion, accountVersion, trusted, policy, onchainDigest] = await Promise.all([
-      client.getCode({ address: input.account }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "OWNER_ROLE" }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "AGENT_ROLE" }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "canonicalStablecoin" }),
-      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
-      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [input.account] }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "trustedRecipients", args: [input.recipient] }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "assetPolicies", args: [input.asset] }),
-      client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "strategyDigest", args: [typedData.message] }),
+    const code = await client.getCode({ address: input.account });
+    if (!code || code === "0x") return NextResponse.json({ error: "No V3 account code at that address." }, { status: 400 });
+    const [ownerRole, agentRole, canonicalStablecoin, policyRegistry, expectedVersion, accountVersion, onchainDigest] = await Promise.all([
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "OWNER_ROLE" }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "AGENT_ROLE" }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "canonicalStablecoin" }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "policyRegistry" }),
+      client.readContract({ address: mainnetFactoryV3Address, abi: ruleWalletFactoryV3Abi, functionName: "VERSION_HASH" }),
+      client.readContract({ address: mainnetFactoryV3Address, abi: ruleWalletFactoryV3Abi, functionName: "accountVersion", args: [input.account] }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "strategyDigest", args: [typedData.message] }),
     ]);
-    if (!code || code === "0x") return NextResponse.json({ error: "No V2 account code at that address." }, { status: 400 });
     if (canonicalStablecoin !== ROBINHOOD_MAINNET_USDG) return NextResponse.json({ error: "Account canonical USDG does not match the official registry." }, { status: 400 });
-    if (accountVersion !== expectedVersion) return NextResponse.json({ error: "Account was not deployed by the configured V2 factory/version." }, { status: 400 });
-    const isOwner = await client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [ownerRole, input.owner] });
+    if (accountVersion !== expectedVersion) return NextResponse.json({ error: "Account was not deployed by the configured V3 factory/version." }, { status: 400 });
+    const [registryController, registryStablecoin, merchantPolicy, assetPolicy, merchantAssetPolicy, categoryBudget, isOwner, signerHasAgentRole] = await Promise.all([
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "controller" }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "canonicalStablecoin" }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "merchantPolicies", args: [input.recipient] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "assetPolicies", args: [input.asset] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "merchantAssetPolicies", args: [input.recipient, input.asset] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "categoryBudgets", args: [input.category, input.asset] }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "hasRole", args: [ownerRole, input.owner] }),
+      client.readContract({ address: input.account, abi: ruleWalletV3Abi, functionName: "hasRole", args: [agentRole, signer.address] }),
+    ]);
+    if (getAddress(registryController) !== getAddress(input.account) || getAddress(registryStablecoin) !== ROBINHOOD_MAINNET_USDG) {
+      return NextResponse.json({ error: "Account policy registry provenance is invalid." }, { status: 400 });
+    }
     if (!isOwner) return NextResponse.json({ error: "Signer does not hold OWNER_ROLE on this account." }, { status: 403 });
-    const signerHasAgentRole = await client.readContract({ address: input.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [agentRole, signer.address] });
     if (!signerHasAgentRole) return NextResponse.json({ error: "The verified secure signer does not hold AGENT_ROLE on this account." }, { status: 400 });
-    if (!trusted) return NextResponse.json({ error: "Recipient is not currently trusted onchain." }, { status: 400 });
-    if (!policy[0]) return NextResponse.json({ error: "The selected asset policy is disabled." }, { status: 400 });
-    if (BigInt(input.amount) > policy[1]) return NextResponse.json({ error: "Strategy amount exceeds the onchain per-transaction limit." }, { status: 400 });
+    if (!merchantPolicy[0]) return NextResponse.json({ error: "Merchant is not currently trusted onchain." }, { status: 400 });
+    if (merchantPolicy[2] !== input.category) return NextResponse.json({ error: "Signed category does not match the merchant's onchain category." }, { status: 400 });
+    if (!assetPolicy[0]) return NextResponse.json({ error: "The selected asset policy is disabled." }, { status: 400 });
+    if (!merchantAssetPolicy[0]) return NextResponse.json({ error: "The selected asset is disabled for this merchant." }, { status: 400 });
+    if (!categoryBudget[0]) return NextResponse.json({ error: "The selected category budget is disabled." }, { status: 400 });
+    await client.readContract({
+      address: policyRegistry,
+      abi: ruleWalletPolicyRegistryV3Abi,
+      functionName: "validatePayment",
+      args: [input.recipient, input.asset, BigInt(input.amount), input.category],
+    });
 
     const digest = hashTypedData(typedData);
     if (onchainDigest.toLowerCase() !== digest.toLowerCase()) {

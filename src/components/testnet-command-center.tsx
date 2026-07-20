@@ -500,7 +500,7 @@ export function TestnetCommandCenter() {
             <AlertTriangle className="size-4 text-amber-700" /> Contract deployment gate
           </CardTitle>
           <CardDescription>
-            The audited-library contract build is ready, but no testnet address is configured.
+            The tested contract build is ready, but no testnet address is configured.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">

@@ -16,13 +16,18 @@ export const metadata: Metadata = {
 
 const policyExample = `{
   "network": "robinhood-chain-testnet",
-  "agent": "payment-operator",
+  "account": "travel budget",
+  "agent": "booking assistant",
+  "asset": "USDG",
   "limits": {
-    "perTransactionEth": "0.001",
-    "rolling24HoursEth": "0.005"
+    "perTransaction": "75.00",
+    "rolling24Hours": "150.00",
+    "monthly": "600.00"
   },
-  "approvalAboveEth": "0.0005",
-  "trustedRecipients": ["0x..."],
+  "merchant": "0x...",
+  "category": "travel",
+  "allowedUtcHours": "07:00-22:00",
+  "approvalAbove": "50.00",
   "pauseAvailable": true
 }`;
 
@@ -44,9 +49,9 @@ export default function DocsPage() {
       <main>
         <section className="border-b border-grid">
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
-            <Badge variant="outline" className="border-primary/25 text-primary">Live testnet V1 · Experimental mainnet V2</Badge>
+            <Badge variant="outline" className="border-primary/25 text-primary">Legacy testnet demo · V3 commerce beta</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">RuleWallet documentation</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. Testnet V1 is live. Experimental V2 adds a versioned mainnet factory, ETH/USDG-only transfers, EIP-712 schedules, secure-signer gates, and exact transaction previews; it remains unaudited.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">A narrow, inspectable permission layer between an AI agent and an onchain policy account. V3 adds named accounts, ETH/USDG budgets, merchant/category/time controls, single-use approvals, EIP-712 schedules, secure-signer gates, and exact transaction previews. The public legacy demo remains available while V3 deployment and production credentials stay explicit release gates.</p>
             <div className="mt-7 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/demo">Start guided demo <ArrowRight /></Link></Button><Button asChild variant="outline"><Link href="/hackathon">Hackathon submission</Link></Button><Button asChild variant="ghost"><Link href="/activity">View live receipts</Link></Button></div>
           </div>
         </section>
@@ -118,8 +123,8 @@ export default function DocsPage() {
               <p className="font-mono text-xs tracking-[0.16em] text-primary uppercase">06 / MVP boundary</p>
               <h2 className="mt-3 text-2xl font-semibold">What this build does—and does not do.</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Deployed Robinhood Chain testnet V1 demo</p><p>Versioned non-upgradeable V2 factory/accounts</p><p>ETH and canonical USDG agent limits and approvals</p><p>EIP-712 schedules, secure-signer interface, receipts, pause, and owner recovery</p><p>Unit, fork, fuzz, reentrancy, and V1/V2 invariant tests</p></CardContent></Card>
-                <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Any automated mainnet contract deployment or wallet signature</p><p>Independent audit and formal verification</p><p>Configured non-exportable signer, alert delivery, and monitored canary</p><p>Routers, token approvals, swaps, bridges, or tokenized-stock trading</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Included</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>Wallet-created named spending accounts and a legacy public testnet demo</p><p>Versioned non-upgradeable V3 factory, account, and policy registry</p><p>ETH/USDG asset, merchant, category, period, and approval controls</p><p>EIP-712 schedules and approvals, secure-signer interface, receipts, pause, and owner recovery</p><p>Unit, fork, 512-run fuzz, reentrancy, and V1/V2/V3 invariant tests</p></CardContent></Card>
+                <Card><CardHeader><CardTitle>Still gated</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-muted-foreground"><p>V3 factory/account deployment and every required wallet signature</p><p>Independent audit and formal verification</p><p>Configured non-exportable signer, dual managed RPC, alert delivery, and monitored canary</p><p>Provider purchase execution without a verified, credentialed adapter</p><p>Routers, token approvals, swaps, bridges, or tokenized-stock trading</p></CardContent></Card>
               </div>
               <div className="mt-8 flex flex-wrap gap-3"><Button asChild className="bg-primary text-primary-foreground"><Link href="/playground">Open playground <ArrowRight /></Link></Button><Button asChild variant="outline"><a href={githubUrl}><GitBranch /> Inspect source</a></Button></div>
             </section>

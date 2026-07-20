@@ -1,76 +1,54 @@
-# User guide
+# RuleWallet V3 user guide
 
-## Connect safely
+## 1. Create or connect a wallet
 
-1. Open the RuleWallet deployment from a trusted bookmark.
-2. Connect an injected wallet or WalletConnect session.
-3. Switch to **Robinhood Chain Testnet (46630)**.
-4. Confirm the header and banner both say testnet.
-5. Never enter a seed phrase in the site.
+Open `/command`. If Privy is configured, sign in with passkey/email and create an embedded wallet; otherwise connect an EVM wallet. RuleWallet never asks for a seed phrase. For low-value beta role separation you may create additional embedded addresses; for serious use choose independently recovered/hardware owner, guardian, and approver wallets.
 
-## Agent execution
+## 2. Create a named policy account
 
-1. The connected agent wallet must hold `AGENT_ROLE`.
-2. Enter an allowlisted target and testnet ETH amount.
-3. Select **Simulate onchain**.
-4. Read the chain, policy address, target, value, calldata, nonce, expiry, and approval path.
-5. Select **Sign exact testnet call** only if every field matches your intent.
-6. Verify the resulting hash on the Robinhood Chain testnet explorer.
+Choose testnet first. Enter a name and distinct guardian, agent, and approver addresses. Select **Simulate exact deployment**. Review chain, pinned factory, predicted account, zero value, roles, and calldata. Only then select **Sign deployment in wallet**.
 
-Amounts below the configured approval threshold execute immediately if all hard rules pass. Larger amounts create a pending request.
+If the V3 factory/token is missing or fails exact runtime verification, deployment stays disabled and `/app/operator` shows the operator setup.
 
-## Personal policy account and trusted addresses
+## 3. Add spending rules
 
-1. Deploy your own contract at `/app/deploy`, or open `/app/services` and enter an existing RuleWallet policy-account address.
-2. Select **Verify and use**. RuleWallet checks the pinned testnet runtime bytecode and confirms that the connected wallet holds `DEFAULT_ADMIN_ROLE`.
-3. Enter a private local label and the full EVM recipient address.
-4. Select **Preview permission** and verify the chain, policy account, target, detected wallet/contract type, permission, and scope.
-5. Sign `setTargetAllowed(target, true)` in your wallet.
-6. Disable the address at any time with another simulated, explicit wallet transaction.
+In **Spending rules**, enter the new V3 account and merchant/provider payment address. Configure:
 
-Labels are stored only in the current browser and are not identity verification. The onchain `allowedTargets` mapping is authoritative. Always verify a recipient address through a second trusted channel.
+- ETH or six-decimal USDG;
+- merchant category and expiry;
+- whether payments inside every rule may skip confirmation;
+- per-transaction and rolling 24-hour caps;
+- daily, weekly, and 30-day asset/category caps;
+- merchant daily amount and transactions per day;
+- weekday bitmap and UTC-minute window.
 
-The ecosystem section is for discovery. Protocol contracts are not one-click enabled because the current policy account cannot restrict arbitrary router calldata. A service becomes automation-ready only after RuleWallet ships and audits a dedicated adapter that constrains selectors, assets, recipients, and minimum output.
+Prepare and sign the asset, merchant, merchant/asset, category, and time steps separately. Activate only after each readback matches. Every preview shows exact chain, target, gas, calldata, and expected result.
 
-## Scheduled strategies
+## 4. Ask RuleWallet
 
-1. Open `/app/agent` with the onchain admin wallet connected.
-2. Grant `AGENT_ROLE` to the displayed dedicated agent address in MetaMask.
-3. Fund that address with only enough testnet ETH to pay gas.
-4. Choose payroll, subscription, contractor, or agent allowance as a starting template—or enter a custom name, amount, and daily/weekly cadence.
-5. Enter an already allowlisted target and review the prefilled values. Templates never create permission or bypass policy.
-6. Sign the short-lived admin message; it does not move funds.
-7. Use **Run now** for a canary execution, then verify its receipt on `/activity`.
-8. Pause a strategy with another admin signature, revoke `AGENT_ROLE`, or emergency-pause the contract at any time.
+Choose a provider and describe the purchase. Duffel can return official test-mode flight offers when its test token is configured. Ticketmaster can return official discovery results and a hosted checkout link. Other adapters are clearly marked demo/disabled.
 
-The scheduled agent cannot edit policies or targets and refuses amounts above the human-approval threshold.
+Creating a cart runs an explanatory policy decision and, when needed, creates an approval request. No provider search/cart action alone moves funds.
 
-## Owner funds and recovery
+## 5. Approve an exception
 
-1. Open `/app`, connect the account owner, and confirm the selected policy account.
-2. Enter a small faucet-ETH amount under **Owner funds** and simulate the direct deposit before signing it in the wallet.
-3. To recover funds, first use the guardian or owner pause control in `/app/agent`.
-4. Return to **Owner funds**, enter the amount and recovery recipient, and simulate `emergencyWithdrawNative`.
-5. Sign only after the preview shows chain `46630`, the intended policy account, amount, and recipient.
-6. Open the resulting explorer receipt and unpause only after the incident or recovery is resolved.
+Open `/approvals` from the independent approver/owner context. Review order, account, merchant, exact amount, reason, nonce, and five-minute expiry. The EIP-712 signature is bound to that decision and single-use. Onchain payment requests still require the active approver role and recheck every hard policy at execution.
 
-Deposits do not grant the agent additional authority. Owner recovery remains separate from agent limits, requires `DEFAULT_ADMIN_ROLE`, and is available only while the account is paused.
+## 6. Scheduled payments
 
-## Notifications
+On `/mainnet`, enter a verified V3 account, trusted merchant, exact asset/amount, category, commerce intent, nonce, expiry, interval, and maximum executions. Preview the EIP-712 digest. Mainnet strategy activation remains unavailable until `/api/mainnet/status` reports every non-exportable-signer and production gate ready.
 
-Open `/app/notifications` to see whether external delivery is configured. In-app receipts always remain available. An operator may configure a server-only authenticated HTTPS adapter to route confirmed execution, approval, failure, and unusual-spending events to email, Telegram, Slack, or an incident platform.
+Pause the offchain schedule when temporarily unnecessary. Revoke the digest onchain to disable it permanently.
 
-Notification delivery happens only after the receipt is stored. The destination receives no wallet, signer, or policy-management credential. Test the adapter with a deliberately blocked testnet request and compare the event to `/activity`.
+## 7. Emergency and recovery
 
-## Human approval
+- Guardian or owner: simulate and sign `pause()` immediately.
+- Owner: revoke the agent role and affected strategies.
+- Owner: verify chain, account, asset, amount, recovery recipient, and calldata before a withdrawal.
+- Owner only: unpause after the incident runbook's recovery gates pass.
 
-1. Connect an independent wallet with `APPROVER_ROLE`.
-2. Obtain the request ID from the `RequestCreated` explorer event.
-3. Enter the request ID and record an approval.
-4. After the threshold is reached, execute the approved request.
+Frontend rollback cannot reverse a blockchain payment. Follow [`INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md).
 
-Execution rechecks active policy, allowlists, transaction limit, rolling spend, slippage metadata, expiry, pause state, and asset balance. Approval cannot override a failed hard rule.
+## 8. Verify receipts
 
-## Emergency
-
-The guardian may pause immediately. Only the delayed default admin can unpause or recover assets, and recovery is available only while paused. Follow the incident runbook before taking recovery actions.
+Open `/activity` and the linked Blockscout transaction. A provider order also needs provider-side confirmation; a chain receipt alone proves only the blockchain transfer.

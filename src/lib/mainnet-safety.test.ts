@@ -37,6 +37,7 @@ describe("mainnet production safety gates", () => {
       RH_MAINNET_RPC_FALLBACK_URL: "https://secondary-rpc.example/v2/key",
       UPSTASH_REDIS_REST_URL: "https://redis.example",
       UPSTASH_REDIS_REST_TOKEN: "redis-token",
+      MAINNET_STRATEGY_ENCRYPTION_KEY: "11".repeat(32),
       CRON_SECRET: "cron-secret-at-least-sixteen",
       MAINNET_SCHEDULER_MODE: "external-durable",
       MAINNET_ALERT_WEBHOOK_URL: "https://alerts.example/hook",

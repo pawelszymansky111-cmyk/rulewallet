@@ -1,30 +1,31 @@
-# RuleWallet public testnet launch kit
+# RuleWallet V3 launch kit
 
 ## Security-beta launch checklist
 
 - [ ] `npm run verify` passes from a clean checkout.
 - [ ] The mandatory current-state mainnet fork confirms canonical USDG is `USDG` with 6 decimals.
-- [ ] `/demo`, `/start`, `/app/agent`, `/activity`, `/docs`, and `/mainnet` render on mobile and desktop.
+- [ ] `/command`, `/approvals`, `/mainnet`, `/app`, `/app/operator`, `/activity`, and `/docs` render on mobile and desktop.
 - [ ] `/app` shows live balance, limits, role state, next schedule, and recent receipt without demo placeholders.
 - [ ] Payment templates prefill only bounded direct testnet transfers and never bypass trusted-recipient or limit checks.
 - [ ] `/app/notifications` reports the adapter state without exposing endpoint credentials.
-- [ ] `/mainnet` says “Experimental, unaudited mainnet,” rejects incompatible factories, and keeps autonomy fail-closed until every production gate passes.
+- [ ] `/mainnet` accepts only exact V3 factory/helper/account/registry provenance and keeps autonomy fail-closed until every production gate passes.
+- [ ] Provider status distinguishes official test/search data, hosted checkout, disabled purchase adapters, and confirmed payments.
 - [ ] No seed phrase, private key, signer credential, RPC credential, or Redis credential appears in Git history or build output.
 - [ ] No blockchain transaction was broadcast during release verification.
 - [ ] Publish the hackathon copy and X thread only after the production deployment health check passes.
 
 ## Positioning
 
-**Tagline:** Agents act. Rules hold.
+**Tagline:** Tell the agent what to buy. Keep the keys and the limits.
 
-**One sentence:** RuleWallet gives autonomous onchain agents narrow, enforceable authority with spending caps, target allowlists, human thresholds, public receipts, and instant revocation.
+**One sentence:** RuleWallet gives AI agents merchant, category, time, amount, approval, and expiry-bounded payment authority without giving them the owner key.
 
 RuleWallet is original open-source testnet infrastructure. Never imply a Robinhood partnership, an audit, mainnet readiness, custody certification, or a token.
 
 ## Canonical links
 
-- Product: https://rulewallet.vercel.app
-- Guided demo: https://rulewallet.vercel.app/demo
+- Product: https://rulewallet.vercel.app/command
+- Guided demo: [`COMMAND_CENTER_DEMO.md`](COMMAND_CENTER_DEMO.md)
 - Hackathon submission: https://rulewallet.vercel.app/hackathon
 - Owner onboarding: https://rulewallet.vercel.app/start
 - Public receipts: https://rulewallet.vercel.app/activity
@@ -42,7 +43,7 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 
 **Handle candidates:** `@RuleWalletDev`, `@UseRuleWallet`, `@RuleWalletHQ` — verify availability before claiming.
 
-**Bio:** Give agents a budget. Keep the keys. Programmable spending controls and public receipts for autonomous onchain agents. Live on testnet. Open source.
+**Bio:** The spending command center for AI agents. Passkey wallets, merchant budgets, approvals, scheduled payments, and public receipts on Robinhood Chain. Open source.
 
 **Website:** https://rulewallet.vercel.app/demo
 
@@ -59,16 +60,16 @@ The new white-and-green preview and banner use the RuleWallet R mark, product UI
 
 ## Two-minute judge recording
 
-1. Open `/demo`; show `Policy: enforcing`, the live block, agent nonce, and confirmed receipt count.
-2. Continue to the receipt and open its transaction on the testnet explorer.
-3. Open the simulator; show one allowed payment and one blocked untrusted recipient.
-4. End on the line: **Give agents a budget. Keep the keys.**
+1. Open `/command`; unlock/connect a wallet and show a named V3 account.
+2. Show a merchant/category/budget policy simulation and exact calldata.
+3. Request a provider quote, create a guarded order, and open the approval inbox.
+4. Show one receipt and one blocked policy violation. End on: **Tell the agent what to buy. Keep the keys and the limits.**
 
 Do not record wallet secrets, browser notifications, personal tabs, Vercel environment variables, or mainnet balances.
 
 ## Community outreach
 
-> I’m building RuleWallet, an open-source policy account for autonomous onchain agents. The public Robinhood Chain testnet demo now has a dedicated agent role, scheduled execution, hard onchain limits, and explorer-backed receipts. I’m looking for one concrete action your agent needs and one failure the policy must block. Would you try the two-minute demo? https://rulewallet.vercel.app/demo
+> I’m building RuleWallet, an open-source spending command center for AI agents. Users create a wallet, add merchant/category/time budgets, approve exceptions, and verify public receipts. I’m looking for one commerce action your agent needs and one failure the policy must block. Would you try the testnet Command Center? https://rulewallet.vercel.app/command
 
 Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent developers, and onchain security researchers. Contribute useful feedback before posting a link, and ask for a concrete failure case rather than generic promotion.
 
@@ -77,7 +78,7 @@ Approach Robinhood Chain builders, account-abstraction teams, autonomous-agent d
 - [ ] Production deployment is `READY` and aliased to `rulewallet.vercel.app`.
 - [ ] `/api/mainnet/status` reports the verified factory, canonical 6-decimal USDG, signer identity, and every production gate accurately.
 - [ ] `/api/public/metrics` returns current block, policy, agent, and receipt data.
-- [ ] `/start`, `/demo`, `/hackathon`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
+- [ ] `/command`, `/approvals`, `/mainnet`, `/app/operator`, `/activity`, `/docs`, and `/security` pass desktop and mobile checks.
 - [ ] The latest transaction hash opens on the Robinhood Chain testnet explorer.
 - [ ] The public GitHub branch or merged main commit matches the verified production artifact.
 - [ ] X profile and every post say testnet; no token or affiliation claim appears.

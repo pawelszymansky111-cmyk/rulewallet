@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button";
 import { WalletControl } from "@/components/wallet-control";
 
 const navigation = [
-  { href: "/start", simple: "Get started", pro: "Start" },
+  { href: "/command", simple: "Command center", pro: "Command center" },
+  { href: "/start", simple: "How it works", pro: "Onboarding" },
   { href: "/demo", simple: "Try demo", pro: "Demo" },
   { href: "/activity", simple: "What happened", pro: "Activity" },
-  { href: "/mainnet", simple: "Mainnet preview", pro: "Mainnet lab" },
+  { href: "/approvals", simple: "Approvals", pro: "Approval queue" },
   { href: "/docs", simple: "Learn", pro: "Docs" },
-  { href: "/security", simple: "Safety", pro: "Security" },
 ] as const;
 
 const githubUrl =

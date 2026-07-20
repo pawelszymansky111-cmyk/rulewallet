@@ -1,101 +1,83 @@
 # RuleWallet X launch copy
 
-## Profile
+## Bio
 
-**Display name:** RuleWallet
+The spending command center for AI agents. Passkey wallets, merchant budgets, approvals, scheduled payments, and public receipts on Robinhood Chain. Open source.
 
-**Bio:** Give agents a budget. Keep the keys. Programmable spending controls and public receipts for autonomous onchain agents. Live on testnet. Open source.
+## Launch post
 
-**Website:** https://rulewallet.vercel.app/demo
+AI agents should be able to pay—not own your wallet.
 
-**Banner:** `public/social/rulewallet-x-banner.png`
+RuleWallet is a spending command center with passkey wallets, trusted merchants, category/time budgets, real-time approvals, scheduled USDG/ETH payments, pause/revoke, and public receipts.
 
-## Single launch post
+Try the testnet Command Center: https://rulewallet.vercel.app/command
 
-AI agents need permission to act—not unlimited access to a wallet.
+## Thread
 
-RuleWallet gives agents trusted recipients, hard spending limits, human approvals, emergency controls, and public receipts.
+### 1 / 8
 
-The autonomous testnet beta is live. Try it in two minutes, no funds required:
-https://rulewallet.vercel.app/demo
+Introducing RuleWallet V3: tell an AI agent what to buy while the account—not the model—enforces what it may spend. 🟢
 
-## Eight-post launch thread
+Create a wallet, add rules, approve exceptions, and inspect every result.
 
-### 1 / Launch
+https://rulewallet.vercel.app/command
 
-We built RuleWallet: programmable spending controls for autonomous onchain agents.
+### 2 / 8
 
-Give agents a budget. Keep the keys. 🟢
+The problem: agents need useful payment authority, but a private key is unlimited authority.
 
-Live testnet demo: https://rulewallet.vercel.app/demo
+RuleWallet replaces “here is my wallet” with “this merchant, this asset, this category, this amount, during this time window, until this expiry.”
 
-Attach `public/social/rulewallet-x-banner.png`.
+### 3 / 8
 
-### 2 / The problem
+V3 policy accounts enforce:
 
-An agent should not need your full wallet key to make one recurring payment.
-
-A compromised model, backend, or agent signer should be limited to one narrow permission—not everything the wallet owns.
-
-### 3 / The control layer
-
-RuleWallet enforces:
-
-• trusted recipients
-• per-transfer limits
-• rolling 24h limits
+• transaction + rolling 24h limits
+• daily / weekly / monthly budgets
+• merchant + category caps
+• payment-count + UTC schedules
 • human approval thresholds
-• expiry, nonce, pause, and revoke
+• pause, revoke, expiry, and replay protection
 
-The contract decides. The interface explains.
+### 4 / 8
 
-### 4 / What works today
-
-This is a working Robinhood Chain testnet beta:
-
-✓ deployed policy account
-✓ dedicated AGENT_ROLE signer
-✓ daily/weekly schedules
-✓ wallet-signed admin actions
-✓ live metrics
-✓ explorer-backed receipts
-
-https://rulewallet.vercel.app/activity
-
-### 5 / Product experience
+Users can connect an existing wallet or create a passkey-backed embedded wallet. Multiple named accounts separate travel, shopping, subscriptions, payroll, or teams.
 
 Simple and Pro modes expose the same controls in different language.
 
-Start with a payroll, subscription, contractor, or agent-allowance template. Add a named recipient. Set limits. Schedule a tiny testnet transfer. Watch every result.
+### 5 / 8
 
-### 6 / Safety model
+The commerce lifecycle is explicit:
 
-The agent cannot edit policy, trust a recipient, approve its own request, unpause the account, or withdraw owner funds.
+intent → quote → cart → policy → approval → payment → provider confirmation → receipt
 
-Every scheduled execution re-checks current onchain state and simulates the exact call before signing.
+A search result is never presented as a completed purchase.
 
-### 7 / Honest boundary
+### 6 / 8
 
-RuleWallet is experimental and not independently audited or affiliated with Robinhood.
+Today’s provider boundary is honest:
 
-Mainnet autonomy remains off until the factory, non-exportable signer, dual RPC, durable scheduler, fee ceilings, and monitoring gates all verify.
+✓ direct trusted-recipient ETH/USDG rails
+✓ Duffel official test flight offers
+✓ Ticketmaster discovery + hosted checkout
+◌ Shopify/card/food purchasing stays disabled until production integrations exist
 
-No token. No sale.
+### 7 / 8
 
-### 8 / Call to builders
+Mainnet automation uses an external non-exportable signer and fails closed unless factory bytecode, USDG, dual RPC, durable nonce locks, scheduler, fee ceilings, monitoring, signer identity, and every onchain rule pass.
 
-Try the two-minute demo and tell us two things:
+No arbitrary calls. No unlimited approvals.
 
-1. the narrowest payment permission your agent needs
-2. the failure RuleWallet must stop
+### 8 / 8
+
+RuleWallet is open source, experimental, and not independently audited or affiliated with Robinhood or the named providers. Testnet assets have no value. No token or sale.
 
 Code: https://github.com/pawelszymansky111-cmyk/rulewallet
-Demo: https://rulewallet.vercel.app/demo
+Demo: https://rulewallet.vercel.app/command
 
 ## Posting checklist
 
-- Confirm the production deployment and `/api/public/metrics` are healthy.
-- Record in a clean browser profile without personal tabs or wallet balances.
-- Say “testnet” in the first post and demo video.
-- Do not claim an audit, Robinhood affiliation, token, airdrop, or mainnet readiness.
-- Reply to the thread with one short demo clip and one explorer-backed receipt.
+- Verify the production build, `/api/health`, provider status, and mainnet gates.
+- Record with valueless testnet assets and no personal wallet balances visible.
+- Show one blocked request and one public receipt.
+- Do not imply a sandbox quote is a purchase or claim external audit/affiliation.

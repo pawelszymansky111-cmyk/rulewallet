@@ -37,10 +37,10 @@ const CANONICAL_USDG = getAddress("0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168");
 const CURVE_ORDER = BigInt("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
 const HALF_CURVE_ORDER = CURVE_ORDER / BigInt(2);
 const EXECUTE_SELECTOR = toFunctionSelector(
-  "executeSignedStrategy((uint256,address,address,address,uint128,uint64,uint64,uint32,uint32),bytes,uint64)",
+  "executeSignedStrategy((uint256,address,address,address,uint128,uint8,bytes32,uint64,uint64,uint32,uint32),bytes,uint64)",
 );
 const accountAbi = parseAbi([
-  "function executeSignedStrategy((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy,bytes ownerSignature,uint64 requestDeadline) returns (uint256 requestId)",
+  "function executeSignedStrategy((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint8 category,bytes32 intentHash,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy,bytes ownerSignature,uint64 requestDeadline) returns (uint256 requestId)",
 ]);
 
 let kmsClient;

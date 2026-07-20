@@ -25,9 +25,9 @@ export default function SecurityPage() {
       <main>
         <section className="border-b border-grid">
           <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8 lg:py-24">
-            <Badge variant="outline" className="border-primary/25 text-primary">Security model · Draft v0.2</Badge>
+            <Badge variant="outline" className="border-primary/25 text-primary">Security model · V3 commerce beta</Badge>
             <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">Assume the agent will fail.</h1>
-            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. V2 has a narrower mainnet boundary, but it is not independently audited and remains experimental high-risk software.</p>
+            <p className="mt-4 max-w-3xl text-lg leading-8 text-muted-foreground">RuleWallet reduces blast radius when an agent is buggy, manipulated, or compromised. V3 narrows authority by asset, merchant, category, time, and period, but it is not independently audited and remains experimental high-risk software.</p>
           </div>
         </section>
 
@@ -35,7 +35,7 @@ export default function SecurityPage() {
           <Alert className="border-amber-500/25 bg-amber-50 text-amber-900">
             <AlertTriangle />
             <AlertTitle>Experimental mainnet code is not a safety claim</AlertTitle>
-            <AlertDescription className="text-amber-800">V1 is live on testnet. V2 mainnet contracts, UI, and signer boundaries are implemented but not deployed or audited by this release. Do not treat source verification or passing tests as proof of safety.</AlertDescription>
+            <AlertDescription className="text-amber-800">A legacy testnet demo is live. V3 contracts, UI, provider boundaries, and signer controls are implemented, but V3 mainnet is not deployed or independently audited by this release. Do not treat source verification or passing tests as proof of safety.</AlertDescription>
           </Alert>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2">

@@ -15,10 +15,9 @@ import {
 } from "@/lib/mainnet-agent-store";
 import type { MainnetAgentStrategy, MainnetAgentExecution } from "@/lib/mainnet-agent-types";
 import {
-  mainnetFactoryAddress,
   ROBINHOOD_MAINNET_USDG,
-  ruleWalletFactoryAbi,
-  ruleWalletV2Abi,
+  ruleWalletPolicyRegistryV3Abi,
+  ruleWalletV3Abi,
 } from "@/lib/mainnet-registry";
 import { sendMainnetAlert } from "@/lib/mainnet-monitoring";
 import { getMainnetAgentSigner, mainnetSignerStatus } from "@/lib/secure-agent-signer";
@@ -29,7 +28,11 @@ import {
   mainnetAutonomyReady,
   mainnetProductionGates,
 } from "@/lib/mainnet-safety";
-import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
+import {
+  mainnetFactoryV3Address,
+  ruleWalletFactoryV3Abi,
+  verifyFactoryV3,
+} from "@/lib/v3-factory";
 import { keccak256 } from "viem";
 
 const erc20MetadataAbi = parseAbi([
@@ -48,6 +51,8 @@ function strategyTuple(strategy: MainnetAgentStrategy) {
     asset: strategy.asset,
     recipient: strategy.recipient,
     amount: BigInt(strategy.amount),
+    category: strategy.category,
+    intentHash: strategy.intentHash as Hex,
     nonce: BigInt(strategy.nonce),
     expiry: BigInt(strategy.expiry),
     intervalSeconds: strategy.intervalSeconds,
@@ -106,8 +111,11 @@ export async function executeMainnetStrategy(
   const signer = getMainnetAgentSigner();
   const [signerIdentity, factoryVerification, usdgSymbol, usdgDecimals] = await Promise.all([
     signer.verifyIdentity().catch(() => undefined),
-    mainnetFactoryAddress
-      ? verifyPinnedMainnetFactory(client, mainnetFactoryAddress).catch(() => undefined)
+    mainnetFactoryV3Address
+      ? verifyFactoryV3(client, mainnetFactoryV3Address, {
+          chainId: 4663,
+          canonicalStablecoin: ROBINHOOD_MAINNET_USDG,
+        }).catch(() => undefined)
       : Promise.resolve(undefined),
     client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "symbol" }).catch(() => undefined),
     client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "decimals" }).catch(() => undefined),
@@ -141,44 +149,73 @@ export async function executeMainnetStrategy(
     const typedStrategy = strategyTuple(strategy);
     const nowSeconds = BigInt(Math.floor(Date.now() / 1000));
     if (BigInt(strategy.expiry) <= nowSeconds) return record(strategy, "blocked", "Strategy signature expired.", trigger);
-    if (!mainnetFactoryAddress) return record(strategy, "blocked", "Verified mainnet factory is not configured.", trigger);
+    if (!mainnetFactoryV3Address) {
+      return record(strategy, "blocked", "Verified V3 mainnet factory is not configured.", trigger);
+    }
 
-    const [agentRole, policyActive, paused, trusted, policy, digest, expectedVersion, accountVersion, accountStablecoin] = await Promise.all([
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "AGENT_ROLE" }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "policyActive" }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "paused" }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "trustedRecipients", args: [strategy.recipient] }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "assetPolicies", args: [strategy.asset] }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "strategyDigest", args: [typedStrategy] }),
-      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "VERSION_HASH" }),
-      client.readContract({ address: mainnetFactoryAddress, abi: ruleWalletFactoryAbi, functionName: "accountVersion", args: [strategy.account] }),
-      client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "canonicalStablecoin" }),
+    const [agentRole, policyActive, paused, policyRegistry, digest, expectedVersion, accountVersion, accountStablecoin] = await Promise.all([
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "AGENT_ROLE" }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "policyActive" }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "paused" }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "policyRegistry" }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "strategyDigest", args: [typedStrategy] }),
+      client.readContract({ address: mainnetFactoryV3Address, abi: ruleWalletFactoryV3Abi, functionName: "VERSION_HASH" }),
+      client.readContract({ address: mainnetFactoryV3Address, abi: ruleWalletFactoryV3Abi, functionName: "accountVersion", args: [strategy.account] }),
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "canonicalStablecoin" }),
     ]);
-    const hasAgentRole = await client.readContract({ address: strategy.account, abi: ruleWalletV2Abi, functionName: "hasRole", args: [agentRole, signer.address] });
-    if (accountVersion !== expectedVersion || accountStablecoin !== ROBINHOOD_MAINNET_USDG) return record(strategy, "blocked", "Account provenance or canonical USDG binding is invalid.", trigger);
+    const [
+      hasAgentRole,
+      registryController,
+      registryStablecoin,
+      merchantPolicy,
+      assetPolicy,
+      merchantAssetPolicy,
+      categoryBudget,
+      requiresApproval,
+    ] = await Promise.all([
+      client.readContract({ address: strategy.account, abi: ruleWalletV3Abi, functionName: "hasRole", args: [agentRole, signer.address] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "controller" }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "canonicalStablecoin" }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "merchantPolicies", args: [strategy.recipient] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "assetPolicies", args: [strategy.asset] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "merchantAssetPolicies", args: [strategy.recipient, strategy.asset] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "categoryBudgets", args: [strategy.category, strategy.asset] }),
+      client.readContract({ address: policyRegistry, abi: ruleWalletPolicyRegistryV3Abi, functionName: "validatePayment", args: [strategy.recipient, strategy.asset, BigInt(strategy.amount), strategy.category] }),
+    ]);
+    if (
+      accountVersion !== expectedVersion
+      || accountStablecoin !== ROBINHOOD_MAINNET_USDG
+      || getAddress(registryController) !== getAddress(strategy.account)
+      || getAddress(registryStablecoin) !== ROBINHOOD_MAINNET_USDG
+    ) {
+      return record(strategy, "blocked", "Account provenance, V3 registry controller, or canonical USDG binding is invalid.", trigger);
+    }
     if (strategy.digest && digest.toLowerCase() !== strategy.digest.toLowerCase()) return record(strategy, "blocked", "Stored and onchain EIP-712 strategy digests disagree.", trigger);
     if (!policyActive) return record(strategy, "blocked", "Onchain policy is inactive.", trigger);
     if (paused) return record(strategy, "blocked", "Policy account is paused.", trigger);
-    if (!trusted) return record(strategy, "blocked", "Recipient is no longer trusted.", trigger);
-    if (!policy[0]) return record(strategy, "blocked", "Asset policy is disabled.", trigger);
+    if (!merchantPolicy[0]) return record(strategy, "blocked", "Merchant is no longer trusted.", trigger);
+    if (merchantPolicy[2] !== strategy.category) return record(strategy, "blocked", "Merchant category no longer matches the signed strategy.", trigger);
+    if (!assetPolicy[0]) return record(strategy, "blocked", "Asset policy is disabled.", trigger);
+    if (!merchantAssetPolicy[0]) return record(strategy, "blocked", "This asset is disabled for the merchant.", trigger);
+    if (!categoryBudget[0]) return record(strategy, "blocked", "The category budget is disabled.", trigger);
     if (!hasAgentRole) return record(strategy, "blocked", "Secure signer does not hold AGENT_ROLE.", trigger);
 
     const requestDeadline = BigInt(Math.floor(Date.now() / 1000) + 30 * 60);
     const simulation = await client.simulateContract({
       account: signer.address,
       address: strategy.account,
-      abi: ruleWalletV2Abi,
+      abi: ruleWalletV3Abi,
       functionName: "executeSignedStrategy",
       args: [typedStrategy, strategy.signature as Hex, requestDeadline],
     });
     const data = encodeFunctionData({
-      abi: ruleWalletV2Abi,
+      abi: ruleWalletV3Abi,
       functionName: "executeSignedStrategy",
       args: [typedStrategy, strategy.signature as Hex, requestDeadline],
     });
     const [nonce, estimatedGas, fees] = await Promise.all([
       client.getTransactionCount({ address: signer.address, blockTag: "pending" }),
-      client.estimateContractGas({ account: signer.address, address: strategy.account, abi: ruleWalletV2Abi, functionName: "executeSignedStrategy", args: [typedStrategy, strategy.signature as Hex, requestDeadline] }),
+      client.estimateContractGas({ account: signer.address, address: strategy.account, abi: ruleWalletV3Abi, functionName: "executeSignedStrategy", args: [typedStrategy, strategy.signature as Hex, requestDeadline] }),
       client.estimateFeesPerGas(),
     ]);
     if (!fees.maxFeePerGas || !fees.maxPriorityFeePerGas) throw new Error("RPC did not return EIP-1559 fee estimates.");
@@ -202,7 +239,7 @@ export async function executeMainnetStrategy(
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas.toString(),
       nonce,
       idempotencyKey: `rulewallet:4663:${strategy.id}:${digest}:${nonce}`,
-      expectedResult: simulation.result === BigInt(0)
+      expectedResult: !requiresApproval && simulation.result === BigInt(0)
         ? "Direct policy-compliant transfer and RequestExecuted event"
         : `Pending human approval request ${simulation.result}`,
     });
@@ -267,7 +304,7 @@ export async function executeMainnetStrategy(
       id: crypto.randomUUID(), strategyId: strategy.id, strategyName: strategy.name,
       account: strategy.account, asset: strategy.asset, recipient: strategy.recipient,
       amount: strategy.amount, trigger, status: replacementReason ? "replaced" : "confirmed",
-      reason: replacementReason ? `Transaction ${replacementReason}; replacement intent was revalidated and confirmed.` : simulation.result === BigInt(0) ? "Policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
+      reason: replacementReason ? `Transaction ${replacementReason}; replacement intent was revalidated and confirmed.` : !requiresApproval && simulation.result === BigInt(0) ? "Merchant, asset, category, time, and spend-policy checks passed; transfer confirmed." : `Pending human approval request ${simulation.result}.`,
       transactionHash: finalHash, blockNumber: receipt.blockNumber.toString(), confirmations: 3,
       createdAt: now.toISOString(),
     });

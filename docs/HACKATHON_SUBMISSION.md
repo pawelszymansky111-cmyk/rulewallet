@@ -1,108 +1,75 @@
-# RuleWallet — hackathon submission
-
-**Current release:** a complete autonomous Robinhood Chain testnet beta plus an experimental Robinhood Chain mainnet implementation. Mainnet autonomy is fail-closed and activates only after the pinned factory, canonical asset, durable infrastructure, monitoring, and verified non-exportable signer gates all pass. The security-beta fixes canonical 6-decimal USDG handling, stale queued authorization, role/approval separation, and factory provenance. This is an internal security review, not an external audit.
+# RuleWallet V3 — hackathon submission
 
 ## Submission title
 
-**RuleWallet: Bounded onchain authority for autonomous agents**
+**RuleWallet: the spending command center for AI agents**
 
-## One-line description
+## One line
 
-RuleWallet lets AI agents execute useful onchain actions through a policy account that enforces target allowlists, spending limits, approvals, expiry, pause, and revocation without giving the agent the owner's wallet key.
-
-## Track and network
-
-- Network: Robinhood Chain Testnet
-- Chain ID: `46630`
-- Category: agent infrastructure / programmable wallets / onchain security
-- Status: working, open-source, unaudited testnet MVP
+RuleWallet lets users create policy-controlled wallets where agents can pay trusted merchants under hard amount, category, time, expiry, and approval rules—without receiving the owner key.
 
 ## Problem
 
-Autonomous agents need authority to pay, rebalance, subscribe, or interact with protocols. Giving an agent a normal wallet key grants far more authority than any single task requires. Prompt rules are not a security boundary: a compromised model, backend, or agent key can still sign unintended transactions.
+An agent that can book travel, order food, pay a subscription, or settle an invoice needs payment authority. A normal wallet key grants authority over everything, while prompt instructions are not a financial security boundary.
 
 ## Solution
 
-RuleWallet places a non-upgradeable policy account between agent intent and execution. The owner keeps the admin wallet. A separate agent signer receives only `AGENT_ROLE` and can execute actions that pass the current onchain policy.
+RuleWallet V3 deploys a personal non-upgradeable account plus an immutable policy registry. A separate agent may request only direct ETH or canonical USDG transfers. The registry rechecks merchant, asset, category, per-transaction, rolling, daily, weekly, monthly, count, expiry, and UTC schedule rules during every execution. Higher-risk actions require independent approvers; guardian pause and owner recovery are separate.
 
-The policy account enforces:
+## Working product
 
-- allowed recipients and targets;
-- independent native/token policies;
-- maximum value per transaction;
-- bounded rolling 24-hour spend;
-- human approval above a threshold;
-- agent nonces and request expiry;
-- guardian emergency pause;
-- explicit role revocation;
-- public request and execution events.
-
-## What is working
-
-- Deployed Robinhood Chain testnet policy contract.
-- Dedicated server-side testnet signer holding only `AGENT_ROLE`.
-- Daily and weekly recurring transfer strategies stored in Redis.
-- Exact RPC simulation before every autonomous broadcast.
-- Wallet-scoped personal policy-account selection.
-- Admin-verified trusted-address enable and revoke flow.
-- Live onchain metrics and public explorer-backed receipts.
-- Live safety dashboard combining balance, rolling allowance, role state, schedules, and latest execution.
-- Named recipient records and payroll, subscription, contractor, and agent-allowance templates.
-- Typed authenticated-webhook events for execution, approval, failure, and unusual spending.
-- Human approval, emergency pause, agent revoke, and clear blocked states.
-- Policy simulator with allowed, review, and blocked scenarios.
-- Full Next.js application, Foundry contracts, CI, threat model, and incident runbook.
+- External wallet or passkey/email embedded wallet onboarding.
+- Multiple embedded addresses and multiple named policy accounts.
+- Simple and Pro interfaces with identical capability.
+- Exact simulated wallet transactions for account and policy setup.
+- Trusted providers, automatic-payment opt-in, budgets, schedules, approvals, pause, and revoke.
+- EIP-712 scheduled strategies with intent/category binding and replay protection.
+- Durable quote/cart/order/approval/receipt lifecycle.
+- Official Duffel test flight offers and Ticketmaster event discovery when credentials are configured.
+- Public receipts and separate technical console.
+- V3 mainnet path with exact factory/helper provenance and non-exportable-signer gates.
+- Solidity unit/fuzz/invariant/malicious-token/fork coverage plus application, provider, signer, link, and build tests.
 
 ## Why it is different
 
-1. **The contract is the security boundary.** Frontend labels and model output cannot grant authority.
-2. **The agent does not receive the owner key.** Compromise is limited to the role and policy currently granted.
-3. **Simulation is part of the execution path.** The exact action is tested against current state before signing.
-4. **Receipts are public proof.** Judges can verify the real transaction, block, target, and application receipt.
-5. **Failure is a first-class demo.** Unknown targets, exceeded limits, stale nonces, pause state, and missing roles fail closed.
+1. **The contract, not the model, decides.** A compromised frontend or backend cannot authorize a policy violation.
+2. **Commerce intent is signed.** Chain, account, asset, merchant, amount, category, intent, nonce, expiry, interval, and count are bound together.
+3. **Automatic does not mean unlimited.** Confirmation-free merchants still obey every budget and time rule.
+4. **Provider honesty is part of the product.** Discovery, payment, and confirmation are separate states; disabled integrations say so.
+5. **Failure is demonstrable.** Wrong merchant/category/time, excessive amount, expired/revoked strategy, removed agent, or pause state fails closed.
 
 ## Architecture
 
 ```text
-Scheduled strategy
-       │
-       ▼
-Dedicated AGENT_ROLE signer
-       │ read state + simulate exact call
-       ▼
-RuleWalletPolicyAccount
-   ├── hard rule fails ──► revert / blocked receipt
-   ├── below threshold ──► execute / public receipt
-   └── above threshold ──► independent human approvals
+Passkey / owner wallet
+        │ deploy + configure
+        ▼
+Personal V3 account ───── paired policy registry
+        ▲                           ▲
+        │ exact agent request       │ merchant/category/time/budget checks
+        │                           │
+Commerce intent → quote → cart → approval → payment → receipt → confirmation
 ```
 
-The server never receives the owner's seed phrase or admin key. Strategy mutations require a short-lived, single-use signature from the onchain admin. The agent cannot edit policy, allowlist targets, approve requests, unpause, or recover funds.
+## Two-minute demo
 
-## Two-minute judge demo
-
-1. **0:00–0:30 — Live guardrails:** open `/app` and show the active policy, testnet balance, rolling allowance, next schedule, and granted agent role.
-2. **0:30–1:05 — Useful automation:** open `/app/agent`, choose a payment template, and show that a trusted recipient and bounded amount are still required.
-3. **1:05–2:00 — Proof and failure:** open the latest receipt, compare its transaction hash with the explorer, then exceed a limit in `/playground` and show pause/revoke.
+Open `/command`, create/unlock a wallet, deploy a named testnet account, show one policy simulation, request a Duffel test offer, create a guarded order, approve/reject it, then show one public receipt and one deliberately blocked payment. Full script: [`COMMAND_CENTER_DEMO.md`](COMMAND_CENTER_DEMO.md).
 
 ## Links
 
-- Product: https://rulewallet.vercel.app
-- Hackathon page: https://rulewallet.vercel.app/hackathon
-- Two-minute demo: https://rulewallet.vercel.app/demo
-- Onboarding: https://rulewallet.vercel.app/start
-- Public receipts: https://rulewallet.vercel.app/activity
+- Product: https://rulewallet.vercel.app/command
+- Mainnet control surface: https://rulewallet.vercel.app/mainnet
+- Approval inbox: https://rulewallet.vercel.app/approvals
+- Receipts: https://rulewallet.vercel.app/activity
 - Source: https://github.com/pawelszymansky111-cmyk/rulewallet
 
-## Safety and honest limitations
+## Honest limits
 
-RuleWallet is experimental and not independently audited. Testnet ETH has no real value. The mainnet implementation remains fail-closed for autonomy until every documented production gate passes; it should not receive real funds during the preview. Generic DeFi router calls remain unsupported because an address allowlist alone cannot constrain selectors, token flow, recipient, or minimum output. Each protocol would require a dedicated independently reviewed adapter.
-
-There is no RuleWallet token, sale, airdrop, investment product, or affiliation with Robinhood Markets.
+Testnet assets have no value. Mainnet requires a separately wallet-signed V3 deployment and verified production signer/infrastructure. Duffel is test-mode only; Ticketmaster checkout stays provider-hosted; other purchase adapters are disabled until complete. RuleWallet is experimental, not independently audited, and not affiliated with Robinhood or named providers. There is no token or sale.
 
 ## Roadmap
 
-1. Build selector-limited adapters for exchanges, lending, bridges, and tokenized assets.
-2. Add ERC-4337 session keys with expiry and narrow permissions.
-3. Complete independent audits and publish resolved findings.
-4. Move administration to a verified multisig and add monitored RPC failover.
-5. Run small-value canaries only after every documented mainnet gate has evidence.
+1. Deploy/verify V3 testnet and run public failure challenges.
+2. Complete one production commerce provider end to end, including refunds and webhooks.
+3. External contract review and restrictive mainnet canary.
+4. Portable passkey/session-key standards and team policy templates.

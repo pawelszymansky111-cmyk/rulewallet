@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { parseAbi } from "viem";
 import { robinhoodMainnet } from "@/lib/chains";
 import {
-  mainnetFactoryAddress,
   ROBINHOOD_MAINNET_USDG,
 } from "@/lib/mainnet-registry";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
-import { verifyPinnedMainnetFactory } from "@/lib/mainnet-verification";
+import { mainnetFactoryV3Address, verifyFactoryV3 } from "@/lib/v3-factory";
 import { mainnetSignerStatus, verifyMainnetSignerIdentity } from "@/lib/secure-agent-signer";
 import { mainnetAlertsConfigured } from "@/lib/mainnet-monitoring";
 import { getServerEnvironment } from "@/lib/server-env";
@@ -26,8 +25,11 @@ export async function GET() {
   const signer = mainnetSignerStatus();
   const [blockNumber, factoryVerification, usdgSymbol, usdgDecimals, signerIdentity] = await Promise.all([
     client.getBlockNumber().catch(() => undefined),
-    mainnetFactoryAddress
-      ? verifyPinnedMainnetFactory(client, mainnetFactoryAddress).catch(() => undefined)
+    mainnetFactoryV3Address
+      ? verifyFactoryV3(client, mainnetFactoryV3Address, {
+          chainId: robinhoodMainnet.id,
+          canonicalStablecoin: ROBINHOOD_MAINNET_USDG,
+        }).catch(() => undefined)
       : Promise.resolve(undefined),
     client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "symbol" }).catch(() => undefined),
     client.readContract({ address: ROBINHOOD_MAINNET_USDG, abi: erc20MetadataAbi, functionName: "decimals" }).catch(() => undefined),
@@ -49,9 +51,12 @@ export async function GET() {
       chainId: robinhoodMainnet.id,
       latestBlock: blockNumber?.toString(),
       mainnetUiEnabled: environment.ENABLE_MAINNET === "true",
-      factoryAddress: mainnetFactoryAddress,
+      factoryVersion: "3.0.0-commerce-beta",
+      factoryAddress: mainnetFactoryV3Address,
       factoryVerifiedOnchain: factoryVerification?.verified ?? false,
-      factoryRuntimeCodeHash: factoryVerification?.runtimeCodeHash,
+      factoryRuntimeCodeHash: factoryVerification?.factoryRuntimeHash,
+      accountDeployerRuntimeCodeHash: factoryVerification?.accountDeployerRuntimeHash,
+      registryDeployerRuntimeCodeHash: factoryVerification?.registryDeployerRuntimeHash,
       canonicalUsdgVerified,
       canonicalUsdgDecimals: usdgDecimals,
       autonomyEnabled,

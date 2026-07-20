@@ -20,6 +20,8 @@ function input(asset: string = zeroAddress) {
     asset,
     recipient,
     amount: "1000000000000000",
+    category: 3,
+    intentHash: `0x${"44".repeat(32)}`,
     nonce: "7",
     expiry: "2000000000",
     intervalSeconds: 86400,
@@ -35,6 +37,8 @@ describe("mainnet signed strategy", () => {
     expect(typed.domain.verifyingContract).toBe(account);
     expect(typed.message.chainId).toBe(BigInt(4663));
     expect(typed.message.amount).toBe(BigInt("1000000000000000"));
+    expect(typed.message.category).toBe(3);
+    expect(typed.message.intentHash).toBe(`0x${"44".repeat(32)}`);
   });
 
   it("accepts only native ETH or canonical USDG", () => {

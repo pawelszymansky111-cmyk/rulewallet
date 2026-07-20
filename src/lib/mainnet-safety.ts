@@ -105,7 +105,7 @@ export function mainnetProductionGates(
   const storageReady = Boolean(
     (environment.UPSTASH_REDIS_REST_URL && environment.UPSTASH_REDIS_REST_TOKEN)
       || (environment.KV_REST_API_URL && environment.KV_REST_API_TOKEN),
-  );
+  ) && Boolean(environment.MAINNET_STRATEGY_ENCRYPTION_KEY && /^[a-fA-F0-9]{64}$/.test(environment.MAINNET_STRATEGY_ENCRYPTION_KEY));
   const monitoringReady = isHttpsEndpoint(environment.MAINNET_ALERT_WEBHOOK_URL)
     && Boolean(environment.MAINNET_ALERT_WEBHOOK_TOKEN);
   const schedulerMode = environment.MAINNET_SCHEDULER_MODE;
@@ -114,10 +114,10 @@ export function mainnetProductionGates(
   const signerReady = signer.verified && runtime.signerIdentityVerified === true;
   return [
     { id: "release", ready: MAINNET_AUTONOMY_RELEASE_ENABLED, message: "This build contains the production-gated autonomous execution path." },
-    { id: "factory", ready: runtime.factoryVerified === true, message: runtime.factoryVerified ? "The configured 2.1.0-security-beta factory runtime is pinned and verified." : "Deploy and configure the pinned security-beta factory." },
+    { id: "factory", ready: runtime.factoryVerified === true, message: runtime.factoryVerified ? "The configured 3.0.0-commerce-beta factory and helper runtimes are pinned and verified." : "Deploy and configure the pinned V3 commerce factory." },
     { id: "asset", ready: runtime.canonicalAssetVerified === true, message: runtime.canonicalAssetVerified ? "Canonical Robinhood Chain USDG reports symbol USDG and 6 decimals." : "Canonical USDG metadata verification has not passed." },
     { id: "signer", ready: signerReady, message: signerReady ? `Remote identity and non-exportable signer attestation verified for ${signer.keyId}.` : signer.verified ? "Signer configuration is valid, but the remote identity attestation handshake has not passed." : signer.reason },
-    { id: "storage", ready: storageReady, message: storageReady ? "Durable strategy, receipt, idempotency, lock, and nonce storage is configured." : "Durable Redis storage is required." },
+    { id: "storage", ready: storageReady, message: storageReady ? "Durable storage and authenticated encryption for strategy signatures are configured." : "Durable Redis plus a 32-byte MAINNET_STRATEGY_ENCRYPTION_KEY are required." },
     { id: "scheduler", ready: schedulerReady, message: schedulerReady ? `Authenticated ${schedulerMode} mainnet scheduler is explicitly configured.` : "Set CRON_SECRET and MAINNET_SCHEDULER_MODE to vercel-pro-cron or external-durable after the scheduler exists." },
     { id: "nonce", ready: true, message: "Signer-global durable nonce locking and unresolved-transaction reservation are enforced." },
     { id: "rpc", ready: rpcReady, message: rpcReady ? "Two independent managed HTTPS RPC hosts are configured; agreement is required before signing." : "Two distinct managed HTTPS RPC hosts are required." },

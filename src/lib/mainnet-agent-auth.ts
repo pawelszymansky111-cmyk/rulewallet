@@ -11,7 +11,7 @@ import {
   getMainnetStrategy,
 } from "@/lib/mainnet-agent-store";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
-import { ruleWalletV2Abi } from "@/lib/mainnet-registry";
+import { ruleWalletV3Abi } from "@/lib/mainnet-registry";
 
 export async function verifyMainnetAdminAction(rawPayload: unknown, signature: string) {
   const payload = mainnetAdminActionSchema.parse(rawPayload);
@@ -33,12 +33,12 @@ export async function verifyMainnetAdminAction(rawPayload: unknown, signature: s
   const client = getMainnetPublicClient();
   const ownerRole = await client.readContract({
     address: strategy.account,
-    abi: ruleWalletV2Abi,
+    abi: ruleWalletV3Abi,
     functionName: "OWNER_ROLE",
   });
   const isOwner = await client.readContract({
     address: strategy.account,
-    abi: ruleWalletV2Abi,
+    abi: ruleWalletV3Abi,
     functionName: "hasRole",
     args: [ownerRole, signer],
   });

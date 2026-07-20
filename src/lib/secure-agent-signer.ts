@@ -40,7 +40,7 @@ export type MainnetSignerIdentity = {
 };
 
 export const EXECUTE_SIGNED_STRATEGY_SELECTOR = toFunctionSelector(
-  "executeSignedStrategy((uint256,address,address,address,uint128,uint64,uint64,uint32,uint32),bytes,uint64)",
+  "executeSignedStrategy((uint256,address,address,address,uint128,uint8,bytes32,uint64,uint64,uint32,uint32),bytes,uint64)",
 );
 
 /// Adapter boundary for a non-exportable KMS, MPC, or HSM-backed agent key.

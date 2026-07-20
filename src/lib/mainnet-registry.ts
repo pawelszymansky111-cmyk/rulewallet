@@ -92,6 +92,46 @@ export const ruleWalletV2Abi = parseAbi([
   "error StrategyNotReady(bytes32 digest,uint256 nextExecutionAt)",
 ]);
 
+export const ruleWalletV3Abi = parseAbi([
+  "function OWNER_ROLE() view returns (bytes32)",
+  "function AGENT_ROLE() view returns (bytes32)",
+  "function APPROVER_ROLE() view returns (bytes32)",
+  "function GUARDIAN_ROLE() view returns (bytes32)",
+  "function hasRole(bytes32 role,address account) view returns (bool)",
+  "function canonicalStablecoin() view returns (address)",
+  "function policyRegistry() view returns (address)",
+  "function policyActive() view returns (bool)",
+  "function paused() view returns (bool)",
+  "function minimumApprovals() view returns (uint8)",
+  "function activeApproverCount() view returns (uint256)",
+  "function nextRequestId() view returns (uint256)",
+  "function activeAgents() view returns (address[])",
+  "function setPolicyActive(bool active)",
+  "function revokeAgentSessions(address[] agents)",
+  "function strategyDigest((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint8 category,bytes32 intentHash,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy) view returns (bytes32)",
+  "function executeSignedStrategy((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint8 category,bytes32 intentHash,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy,bytes ownerSignature,uint64 requestDeadline) returns (uint256 requestId)",
+  "function revokeStrategy(bytes32 digest)",
+  "function pause()",
+  "function unpause()",
+  "function withdrawNative(address recipient,uint256 amount)",
+  "function withdrawCanonicalStablecoin(address recipient,uint256 amount)",
+]);
+
+export const ruleWalletPolicyRegistryV3Abi = parseAbi([
+  "function controller() view returns (address)",
+  "function canonicalStablecoin() view returns (address)",
+  "function assetPolicies(address asset) view returns (bool allowed,uint128 maxPerTransaction,uint128 maxRolling24Hours,uint128 approvalAbove,uint128 dailyLimit,uint128 weeklyLimit,uint128 monthlyLimit,uint64 expiresAt)",
+  "function merchantPolicies(address merchant) view returns (bool trusted,bool autonomous,uint8 category,uint64 expiresAt)",
+  "function merchantAssetPolicies(address merchant,address asset) view returns (bool allowed,uint128 maxPerTransaction,uint128 dailyLimit,uint32 maxTransactionsPerDay)",
+  "function categoryBudgets(uint8 category,address asset) view returns (bool allowed,uint128 dailyLimit,uint128 weeklyLimit,uint128 monthlyLimit,uint64 expiresAt)",
+  "function merchantTimePolicies(address merchant) view returns (bool enabled,uint8 weekdays,uint16 startMinuteUtc,uint16 endMinuteUtc)",
+  "function rollingSpent(address asset) view returns (uint256)",
+  "function assetPeriodSpend(address asset) view returns (uint256 daily,uint256 weekly,uint256 monthly)",
+  "function categoryPeriodSpend(uint8 category,address asset) view returns (uint256 daily,uint256 weekly,uint256 monthly)",
+  "function merchantDailySpend(address merchant,address asset) view returns (uint256 amount,uint256 count)",
+  "function validatePayment(address recipient,address asset,uint256 amount,uint8 category) view returns (bool requiresApproval)",
+]);
+
 function configuredAddress(value: string | undefined): Address | undefined {
   return value && isAddress(value) ? getAddress(value) : undefined;
 }

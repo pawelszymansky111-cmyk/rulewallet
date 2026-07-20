@@ -1,111 +1,97 @@
-# Architecture
+# RuleWallet V3 architecture
 
-## Security-beta boundary
+RuleWallet is a non-custodial spending command center. Users may connect an external EVM wallet or create a Privy embedded wallet protected by passkey/email authentication. The owner then deploys one or more named, non-upgradeable policy accounts. The application never receives a seed phrase or exportable private key.
 
-The public product includes the Robinhood Chain testnet beta and an experimental, production-gated mainnet path. Canonical USDG uses 6 base-unit decimals. A mainnet account is trusted only when the configured factory's complete immutable-linked runtime hash matches the pinned `2.1.0-security-beta` hash and that exact factory records the account version. Autonomous execution is supported in code but remains off unless every live gate passes.
+## Environments
 
-## Release boundary
-
-RuleWallet now has two isolated environments:
-
-| Environment | Chain ID | Contract path | Funds |
+| Environment | Chain | Stablecoin | Purpose |
 | --- | ---: | --- | --- |
-| Robinhood Chain testnet | `46630` | Existing `RuleWalletPolicyAccount` V1 and scheduled demo agent | Valueless test ETH only |
-| Robinhood Chain mainnet | `4663` | Experimental factory-deployed `RuleWalletPolicyAccountV2` | Real assets; unaudited and high risk |
+| Robinhood Chain testnet | `46630` | `RuleWalletTestUSDG` (6 decimals, valueless) | Complete product testing |
+| Robinhood Chain mainnet | `4663` | canonical USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` | Real assets after V3 deployment and production gates |
 
-V1 is preserved for the public testnet demo. V2 is non-upgradeable and has a narrower transfer-only surface. Factory and account deployment require explicit connected-wallet signatures; no release script broadcasts them. No backend or administrator can override V2 policy checks.
+V1 and V2 remain in the repository for historical testnet receipts and migrations. New accounts, policies, strategy signatures, and automation use V3 only.
 
-## Mainnet flow
+## Contract graph
 
 ```text
-Owner wallet ── simulate exact transaction ── review chain/to/value/calldata/result
-     │                                      │
-     └──────────────── wallet signature ◄───┘
-                         │
-                         ▼
-               Versioned V2 factory
-                         │ CREATE2
-                         ▼
-             Personal non-upgradeable account
-              ├─ OWNER: policy + withdrawal
-              ├─ AGENT: bounded direct transfer only
-              ├─ APPROVER: high-value approval only
-              └─ GUARDIAN: emergency pause only
-                         │
-         ┌───────────────┴────────────────┐
-         ▼                                ▼
- direct native ETH                 canonical USDG
- trusted recipient                 trusted recipient
- asset limits                      asset limits
+RuleWalletFactoryV3  ──creates──► RuleWalletAccountDeployerV3
+        │                              │ CREATE2
+        │                              ▼
+        │                    RuleWalletPolicyAccountV3
+        │                              │ immutable link
+        └──creates──► RegistryDeployerV3
+                                       │ CREATE2
+                                       ▼
+                           RuleWalletPolicyRegistryV3
 ```
 
-The browser broadcasts owner, approver, and guardian transactions through the connected wallet. The read-only RPC proxy rejects transaction-broadcast methods. The contract—not the UI, API, scheduler, signer provider, or database—is the authorization boundary.
+The exact factory, account-deployer, and registry-deployer runtimes are reconstructed with immutable values and hash-checked by the frontend and backend. A contract that only returns expected getters does not pass provenance verification. Factory `accountVersion` plus the paired registry's immutable `controller` and canonical-stablecoin values establish account provenance.
 
-## V2 contract boundary
+## Roles
 
-`RuleWalletPolicyAccountV2` uses OpenZeppelin `AccessControlDefaultAdminRules`, `EIP712`, `Pausable`, `ReentrancyGuard`, and `SafeERC20`.
+- `OWNER_ROLE`: configure policies, revoke strategies, unpause, and withdraw available owner funds.
+- `AGENT_ROLE`: request only direct native ETH or canonical USDG transfers under policy.
+- `APPROVER_ROLE`: approve or reject pending high-risk requests; it cannot change policy or withdraw.
+- `GUARDIAN_ROLE`: pause and cancel; it cannot unpause or withdraw.
+- delayed default admin: transfers role-administration authority after the configured OpenZeppelin delay.
 
-It supports only:
+Deployment rejects role collisions and duplicate approvers. Approval thresholds cannot exceed active unique approvers.
 
-1. direct native ETH transfers;
-2. direct transfers of the immutable canonical Robinhood Chain USDG address;
-3. trusted-recipient enable/revoke;
-4. mandatory positive per-transaction and rolling 24-hour limits for each enabled agent asset;
-5. optional human-approval thresholds;
-6. EIP-712 recurring strategy authorizations;
-7. owner withdrawals, guardian pause, and owner unpause.
+## Onchain policy evaluation
 
-It has no arbitrary calls, generic ERC-20 path, token approvals, DEX router, bridge, swap, delegatecall, or upgrade hook. Agent policy changes and owner withdrawals are separate wallet-signed transactions. Owner withdrawals are intentionally outside agent spending limits and may withdraw any available balance.
+Every agent payment must pass all applicable controls at execution time:
 
-### Signed strategies
+1. account active and not paused;
+2. supported asset (native ETH or immutable canonical stablecoin);
+3. trusted, unexpired merchant with the signed category;
+4. enabled merchant/asset pair;
+5. merchant automatic-payment flag or human approval path;
+6. per-transaction and conservative rolling-24-hour limits;
+7. asset daily, weekly, and 30-day limits;
+8. category daily, weekly, and 30-day limits;
+9. merchant daily amount and transaction-count limits;
+10. optional weekday and UTC-minute window;
+11. current agent role, request expiry, nonce, strategy revocation/expiry, and active unique approvals.
 
-An EIP-712 strategy commits to:
+The frontend policy evaluator is explanatory only. Neither an API response, database row, provider quote, operator, agent, nor signer can override the contracts.
 
-- chain ID and policy-account address;
-- asset, recipient, and exact amount;
-- owner nonce and expiry;
-- minimum execution interval and maximum execution count.
+## Commerce lifecycle
 
-The EIP-712 domain also binds the signature to `RuleWallet`, version `2`, the current chain, and the verifying account. A nonce binds to one digest on first execution. The account rejects nonce conflicts, expiry, early recurrence, exhaustion, revoked strategies, invalid owners, untrusted recipients, unsupported assets, paused/inactive policies, and either limit being exceeded.
+```text
+User intent → provider quote → cart → policy decision → approval (if required)
+            → exact payment request → onchain receipt → provider confirmation → reconciliation
+```
 
-### Rolling accounting
+Each stored artifact has its own ID, expiry, status, and idempotency boundary. `quoted`, `approved`, `payment-pending`, `paid`, and `confirmed` are deliberately different states. The current provider adapters are listed in [`COMMERCE_CAPABILITY_MATRIX.md`](COMMERCE_CAPABILITY_MATRIX.md); a provider search result is never presented as a completed purchase.
 
-V1 and V2 retain the current hour plus the previous 24 hourly buckets. This deliberately over-counts near an hour boundary for at most one hour, but never forgets spend before a complete 24 hours. Pending requests are revalidated before execution.
+## Signed strategies and approvals
 
-## Signer and scheduler boundary
+The V3 EIP-712 strategy domain is `RuleWallet`, version `3`, current chain, and the personal account. A strategy commits to chain, account, asset, merchant, exact amount, category, commerce-intent hash, owner nonce, expiry, interval, and maximum executions. One owner nonce binds to one digest. Revocation is permanent.
 
-Testnet retains its dedicated, server-only demo EOA for backwards compatibility. `AGENT_PRIVATE_KEY` is explicitly testnet-only.
+Approvals commit to chain, account, request ID, approver, nonce, and expiry. Signatures are short-lived and single-use. Pending requests revalidate the originating agent role, strategy state, approvals, and every current policy before transfer.
 
-Mainnet uses the `SecureAgentSigner` interface. Its adapter boundary submits an exact transaction intent to a separately operated KMS/MPC/HSM service and accepts no raw private key. The included AWS service uses a non-exportable KMS secp256k1 key and DynamoDB idempotency. Execution fails closed unless all of these are true:
+## Autonomous signer
 
-- the release supports autonomy and both `ENABLE_MAINNET=true` and `ENABLE_MAINNET_AUTONOMY=true`;
-- `MAINNET_SIGNER_MODE=external-kms`;
-- the remote public signer address, key ID, public-key attestation, non-exportability flag, chain, zero-value policy, and allowed selector are verified;
-- signer endpoint is HTTPS, matches the exact allowed hostname, and has a runtime credential;
-- two independent managed HTTPS RPC hosts agree and strict gas/fee ceilings pass;
-- durable Redis storage, authenticated Cron, and HTTPS alert delivery are configured;
-- the agent has `AGENT_ROLE` on the selected account;
-- the exact call simulates successfully under current onchain policy.
+Mainnet automation uses `SecureAgentSigner`; there is no raw mainnet private-key path. The reference AWS KMS adapter allows only chain `4663`, zero-value calls, allowlisted V3 accounts, and the exact `executeSignedStrategy` selector. It returns a public key identity and attestation while the secp256k1 key remains non-exportable.
 
-Durable Redis locks use unique ownership tokens and compare-before-delete release. A signer-global lock serializes nonce allocation across strategies, and a submitted nonce remains durably reserved across timeout until exact calldata, signer, recipient, value, and nonce are reconciled. Pending, replaced, timed-out, reverted, and late-confirmed states are recorded. Confirmation tracking and public receipts use Blockscout transaction hashes.
+The application additionally requires an exact V3 factory, canonical USDG metadata, two independent managed RPC hosts, signer-global Redis nonce locking, unresolved-transaction reservation, fee ceilings, authenticated scheduler, and alert delivery. Missing any gate keeps execution disabled.
 
-## RPC and data
+## Provider boundary
 
-- Browser reads go through `/api/rpc?chainId=4663|46630`.
-- Only an allowlist of read/simulation JSON-RPC methods is accepted.
-- Mainnet and testnet have separate primary, failover, and public fallback configuration.
-- The official public RPC is last because Robinhood documents it as rate-limited and unsuitable for production use.
-- Local address-book labels remain browser-local and are not proof of identity.
-- Onchain events and Blockscout receipts are authoritative; offchain records are a read model only.
+- Duffel: official test-mode flight offers only; no real ticket or payment.
+- Ticketmaster: official Discovery API plus provider-hosted checkout link; no autonomous purchase API claim.
+- Direct onchain and recurring transfers: supported by V3 when the recipient and every policy are configured.
+- Shopify, Stripe Issuing, food ordering, and other rails: adapters remain disabled until real credentials, provider approval, webhooks, settlement, and reconciliation exist.
 
-## Notification boundary
+Provider credentials are server-only. Provider adapters have no owner, approver, guardian, or default-admin role.
 
-Testnet execution records are durably stored before notification delivery is attempted. A typed event envelope classifies confirmed execution, approval required, ordinary failure, and unusual-spending policy failures. An optional authenticated HTTPS adapter can route these events to email, Telegram, Slack, or an incident system.
+## Data and operations
 
-The adapter is observational only. It receives no signing authority, cannot mutate a strategy or approval, and cannot convert a blocked action into an executable one. Endpoint URLs and bearer tokens remain server-only; the browser receives only readiness booleans and supported topic names. Delivery failure does not delete or change the receipt.
-
-## Deployment boundary
-
-The factory pins chain ID and canonical USDG in immutable state. Personal accounts are deployed with CREATE2 from owner-specific salts, recorded by owner and version hash, and are not proxies. A new version requires a new factory/account deployment and an explicit owner migration.
+- Upstash Redis stores expiring quotes, carts/orders, approval requests, replay-safe login challenges, strategy records, idempotency claims, locks, pending nonces, and public receipts. Owner strategy signatures are AES-256-GCM encrypted and authenticated against their strategy/account/owner identity before storage.
+- Private order and approval APIs require a short-lived wallet-signed session. Its HttpOnly cookie cannot authorize a transfer; onchain approvals and strategies remain separate exact EIP-712 signatures.
+- Blockscout and onchain events are authoritative for payment state.
+- Browser-local names improve usability but do not prove identity.
+- The RPC proxy accepts only read/simulation methods.
+- Alerts are observational and carry no signing authority.
 
 See [`THREAT_MODEL.md`](THREAT_MODEL.md), [`DEPLOYMENT.md`](DEPLOYMENT.md), and [`MAINNET_CHECKLIST.md`](MAINNET_CHECKLIST.md).

@@ -7,6 +7,11 @@ import {
   type MainnetAgentStrategy,
 } from "@/lib/mainnet-agent-types";
 import type { Address, Hash, Hex } from "viem";
+import {
+  decryptStrategySignature,
+  encryptStrategySignature,
+  type EncryptedStrategySignature,
+} from "@/lib/strategy-encryption";
 
 const prefix = "rulewallet:mainnet:4663";
 const strategyIdsKey = `${prefix}:strategy-ids`;
@@ -31,6 +36,25 @@ function strategyKey(id: string) {
   return `${prefix}:strategy:${id}`;
 }
 
+type StoredMainnetStrategy = Omit<MainnetAgentStrategy, "signature"> & {
+  encryptedSignature: EncryptedStrategySignature;
+};
+
+function strategyAssociatedData(strategy: Pick<MainnetAgentStrategy, "id" | "account" | "owner" | "digest">) {
+  return `${prefix}:${strategy.id}:${strategy.account.toLowerCase()}:${strategy.owner.toLowerCase()}:${strategy.digest ?? ""}`;
+}
+
+function restoreStrategy(value: unknown) {
+  if (!value || typeof value !== "object" || !("encryptedSignature" in value)) {
+    throw new Error("Stored mainnet strategy is not encrypted with the current release.");
+  }
+  const stored = value as StoredMainnetStrategy;
+  return mainnetStrategySchema.parse({
+    ...stored,
+    signature: decryptStrategySignature(stored.encryptedSignature, strategyAssociatedData(stored)),
+  });
+}
+
 export async function claimMainnetStrategyDigest(digest: string, ttlSeconds: number) {
   const key = `${prefix}:strategy-digest:${digest.toLowerCase()}`;
   const result = await client().set(key, "claimed", { nx: true, ex: Math.max(300, ttlSeconds) });
@@ -49,19 +73,24 @@ export async function listMainnetStrategies() {
   const values = await client().mget<unknown[]>(...ids.map(strategyKey));
   return values
     .filter((value): value is NonNullable<typeof value> => value !== null)
-    .map((value) => mainnetStrategySchema.parse(value))
+    .map(restoreStrategy)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 export async function getMainnetStrategy(id: string) {
   const value = await client().get<unknown>(strategyKey(id));
-  return value ? mainnetStrategySchema.parse(value) : undefined;
+  return value ? restoreStrategy(value) : undefined;
 }
 
 export async function saveMainnetStrategy(strategy: MainnetAgentStrategy) {
   const parsed = mainnetStrategySchema.parse(strategy);
+  const { signature, ...publicFields } = parsed;
+  const stored: StoredMainnetStrategy = {
+    ...publicFields,
+    encryptedSignature: encryptStrategySignature(signature as Hex, strategyAssociatedData(parsed)),
+  };
   await Promise.all([
-    client().set(strategyKey(parsed.id), parsed),
+    client().set(strategyKey(parsed.id), stored),
     client().sadd(strategyIdsKey, parsed.id),
   ]);
   return parsed;

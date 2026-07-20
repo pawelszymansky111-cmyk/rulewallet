@@ -8,7 +8,7 @@ import {
 } from "./handler.mjs";
 
 const abi = parseAbi([
-  "function executeSignedStrategy((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy,bytes ownerSignature,uint64 requestDeadline) returns (uint256 requestId)",
+  "function executeSignedStrategy((uint256 chainId,address account,address asset,address recipient,uint128 amount,uint8 category,bytes32 intentHash,uint64 nonce,uint64 expiry,uint32 intervalSeconds,uint32 maxExecutions) strategy,bytes ownerSignature,uint64 requestDeadline) returns (uint256 requestId)",
 ]);
 const account = getAddress("0x1111111111111111111111111111111111111111");
 const recipient = getAddress("0x2222222222222222222222222222222222222222");
@@ -27,6 +27,8 @@ function intent(overrides = {}) {
       asset: zeroAddress,
       recipient,
       amount: BigInt(1),
+      category: 3,
+      intentHash: `0x${"44".repeat(32)}`,
       nonce: BigInt(7),
       expiry: BigInt(Math.floor(Date.now() / 1000) + 3600),
       intervalSeconds: 300,
