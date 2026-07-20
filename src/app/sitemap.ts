@@ -10,7 +10,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/activity",
     "/playground",
     "/docs",
-    "/security",
     "/mainnet",
     "/app",
     "/app/deploy",

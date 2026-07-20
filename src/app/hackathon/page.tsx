@@ -9,7 +9,6 @@ import {
   Gauge,
   LockKeyhole,
   Network,
-  Pause,
   Radio,
   Route,
   ShieldCheck,
@@ -120,7 +119,7 @@ export default function HackathonPage() {
             <LockKeyhole className="mx-auto size-7 text-primary" />
             <h2 className="mt-5 text-balance text-4xl font-semibold tracking-tight">Inspect it. Break it. Verify it.</h2>
             <p className="mx-auto mt-4 max-w-2xl leading-7 text-muted-foreground">No pitch deck is required to prove the core flow. The contract, automation, receipts, tests, and failure boundaries are public.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button><Button asChild size="lg" variant="ghost"><Link href="/security"><Pause /> Security model</Link></Button></div>
+            <div className="mt-8 flex flex-wrap justify-center gap-3"><Button asChild size="lg"><Link href="/demo"><Timer /> 2-minute demo</Link></Button></div>
           </div>
         </section>
       </main>

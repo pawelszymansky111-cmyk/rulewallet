@@ -11,7 +11,6 @@ import {
   ExternalLink,
   Fingerprint,
   Gauge,
-  LockKeyhole,
   Pause,
   Route,
   ShieldCheck,
@@ -139,7 +138,6 @@ export default function Home() {
               <p className="eyebrow">Architecture</p>
               <h2 className="mt-3 text-balance text-4xl font-semibold tracking-[-0.04em]">The contract decides. The interface explains.</h2>
               <p className="mt-4 leading-7 text-muted-foreground">Frontend previews are useful, but they never grant authority. The policy account remains the financial security boundary.</p>
-              <Button asChild variant="outline" className="mt-6"><Link href="/security"><LockKeyhole /> Read the threat model</Link></Button>
             </div>
             <div className="grid gap-3">
               {architecture.map(({ icon: Icon, label, detail }, index) => (

@@ -30,7 +30,6 @@ RuleWallet is original open-source testnet infrastructure. Never imply a Robinho
 - Owner onboarding: https://rulewallet.vercel.app/start
 - Public receipts: https://rulewallet.vercel.app/activity
 - Documentation: https://rulewallet.vercel.app/docs
-- Security model: https://rulewallet.vercel.app/security
 - Repository: https://github.com/pawelszymansky111-cmyk/rulewallet
 - X thread: [`X_LAUNCH_THREAD.md`](X_LAUNCH_THREAD.md)
 - Demo runbook: [`PUBLIC_DEMO.md`](PUBLIC_DEMO.md)
