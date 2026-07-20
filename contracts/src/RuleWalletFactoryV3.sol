@@ -8,7 +8,7 @@ import {RuleWalletPolicyRegistryDeployerV3} from "./RuleWalletPolicyRegistryDepl
 /// @title RuleWalletFactoryV3
 /// @notice Versioned factory for personal, non-upgradeable RuleWallet commerce accounts.
 contract RuleWalletFactoryV3 {
-    string public constant VERSION = "3.0.0-commerce-beta";
+    string public constant VERSION = "3.1.0-commerce-beta";
     bytes32 public constant VERSION_HASH = keccak256(bytes(VERSION));
 
     address public immutable canonicalStablecoin;

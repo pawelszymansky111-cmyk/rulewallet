@@ -18,8 +18,9 @@ This document maps the internal findings in `SECURITY_AUDIT.md` to the security-
 | V3-02 stored strategy confidentiality | Owner strategy signatures are encrypted with AES-256-GCM using per-record authenticated context before Redis persistence. Old plaintext records fail closed, and production storage readiness requires a valid server-only key. | `strategy-encryption.test.ts`; storage gate tests | Fixed in code; production key still required |
 | V3-03 commerce policy spoofing | The order API ignores client-supplied policy/spend claims. Direct payment quotes must contain an onchain recipient and pass exact V3 provenance plus live `validatePayment` reads on both RPCs before an order can proceed. | `commerce-onchain-policy.test.ts`; provider tests | Fixed for the direct onchain rail |
 | V3-04 private commerce access | Order creation/listing and approval listing/decisions require a short-lived wallet-authenticated session. Challenges are atomically consumed, and the HttpOnly cookie cannot authorize funds. | `commerce-session.test.ts`; route checks | Fixed in code; deployment secret required |
+| V3-05 trusted-merchant discovery | The V3 registry maintains an enumerable current trusted-merchant set across enable, approval-only pause, revoke, and re-enable changes. | `testOwnerCanDiscoverPauseRevokeAndReenableTrustedMerchants`; Command Center live account dashboard | Fixed |
 
-V3 also adds merchant/category/time/period controls, EIP-712 intent/category binding, expiring approval signatures, and broader invariants. V1/V2 factories are not compatible with V3. New-account and autonomy paths accept only `3.0.0-commerce-beta` provenance.
+V3 also adds merchant/category/time/period controls, an enumerable current trusted-merchant set, EIP-712 intent/category binding, expiring approval signatures, and broader invariants. V1/V2 factories are not compatible with V3. New-account and autonomy paths accept only `3.1.0-commerce-beta` provenance.
 
 ## Closed release boundary
 

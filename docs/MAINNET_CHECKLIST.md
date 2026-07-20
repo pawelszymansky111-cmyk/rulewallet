@@ -36,7 +36,7 @@ Publishing code or a frontend is not the same as activating a real-funds system.
 
 - [ ] Confirm receipt/finality and verify source/constructor arguments on Blockscout.
 - [ ] Match factory, account-deployer, and registry-deployer runtime hashes from a second machine.
-- [ ] Confirm version `3.0.0-commerce-beta`, chain `4663`, and canonical USDG.
+- [ ] Confirm version `3.1.0-commerce-beta`, chain `4663`, and canonical USDG.
 - [ ] Set `NEXT_PUBLIC_RULEWALLET_MAINNET_V3_FACTORY_ADDRESS` only after verification.
 - [ ] Deploy one canary personal account with distinct owner/guardian/agent/approver addresses.
 - [ ] Verify factory account version, registry controller, stablecoin, roles, thresholds, and every configured rule.

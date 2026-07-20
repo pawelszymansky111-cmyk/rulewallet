@@ -58,7 +58,7 @@ A search result is never presented as a completed purchase.
 Today’s provider boundary is honest:
 
 ✓ direct trusted-recipient ETH/USDG rails
-✓ Duffel official test flight offers
+✓ Duffel official test flight and Stays search
 ✓ Ticketmaster discovery + hosted checkout
 ◌ Shopify/card/food purchasing stays disabled until production integrations exist
 

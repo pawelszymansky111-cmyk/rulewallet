@@ -55,6 +55,8 @@ Every agent payment must pass all applicable controls at execution time:
 
 The frontend policy evaluator is explanatory only. Neither an API response, database row, provider quote, operator, agent, nor signer can override the contracts.
 
+The account exposes its enumerable active-agent set and the paired registry exposes its enumerable current trusted-merchant set. The Command Center reads both directly from verified V3 contracts, so revocation and emergency review do not depend on an offchain index.
+
 ## Commerce lifecycle
 
 ```text

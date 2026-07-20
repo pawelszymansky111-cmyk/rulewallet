@@ -21,7 +21,7 @@ export async function GET() {
       chainId: runtime.chainId,
       latestBlock: runtime.blockNumber?.toString(),
       mainnetUiEnabled: environment.ENABLE_MAINNET === "true",
-      factoryVersion: "3.0.0-commerce-beta",
+      factoryVersion: "3.1.0-commerce-beta",
       factoryAddress: runtime.factoryAddress,
       factoryVerifiedOnchain: runtime.factoryVerification?.verified ?? false,
       factoryRuntimeCodeHash: runtime.factoryVerification?.factoryRuntimeHash,

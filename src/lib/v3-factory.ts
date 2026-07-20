@@ -14,7 +14,7 @@ import {
   type PublicClient,
 } from "viem";
 
-export const RULEWALLET_V3_VERSION = "3.0.0-commerce-beta";
+export const RULEWALLET_V3_VERSION = "3.1.0-commerce-beta";
 export const ruleWalletFactoryV3Abi = factoryArtifact.abi as Abi;
 export const ruleWalletFactoryV3Bytecode = factoryArtifact.bytecode as Hex;
 

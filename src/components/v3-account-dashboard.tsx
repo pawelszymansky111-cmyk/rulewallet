@@ -67,6 +67,7 @@ type Snapshot = {
   activeApprovers: number;
   totalRequests: bigint;
   activeAgents: Address[];
+  activeMerchants: Address[];
   eth: AssetMetrics;
   usdg: AssetMetrics;
 };
@@ -201,7 +202,7 @@ export function V3AccountDashboard({
       if (!publicClient) return;
       const [
         ethBalance, usdgBalance, policyActive, paused, minimumApprovals,
-        activeApprovers, nextRequestId, activeAgents, ethPolicy, usdgPolicy, ethRolling,
+        activeApprovers, nextRequestId, activeAgents, activeMerchants, ethPolicy, usdgPolicy, ethRolling,
         usdgRolling, ethPeriods, usdgPeriods,
       ] = await Promise.all([
         publicClient.getBalance({ address: context.account }),
@@ -212,6 +213,7 @@ export function V3AccountDashboard({
         publicClient.readContract({ address: context.account, abi: accountAbi, functionName: "activeApproverCount" }),
         publicClient.readContract({ address: context.account, abi: accountAbi, functionName: "nextRequestId" }),
         publicClient.readContract({ address: context.account, abi: accountAbi, functionName: "activeAgents" }),
+        publicClient.readContract({ address: context.registry, abi: registryAbi, functionName: "activeMerchants" }),
         publicClient.readContract({ address: context.registry, abi: registryAbi, functionName: "assetPolicies", args: [zeroAddress] }),
         publicClient.readContract({ address: context.registry, abi: registryAbi, functionName: "assetPolicies", args: [context.stablecoin] }),
         publicClient.readContract({ address: context.registry, abi: registryAbi, functionName: "rollingSpent", args: [zeroAddress] }),
@@ -239,6 +241,7 @@ export function V3AccountDashboard({
         activeApprovers: Number(activeApprovers),
         totalRequests: BigInt(nextRequestId as bigint) - BigInt(1),
         activeAgents: (activeAgents as Address[]).map(getAddress),
+        activeMerchants: (activeMerchants as Address[]).map(getAddress),
         eth: mapMetrics(ethBalance, BigInt(ethRolling as bigint), ethPolicy, ethPeriods),
         usdg: mapMetrics(BigInt(usdgBalance as bigint), BigInt(usdgRolling as bigint), usdgPolicy, usdgPeriods),
       });
@@ -428,6 +431,16 @@ export function V3AccountDashboard({
               <div className="rounded-xl border p-3"><p className="text-xs text-muted-foreground">Spent this month</p><p className="mt-1 font-medium">{display(selectedMetrics!.monthly, decimals)} {asset}</p></div>
             </div>
             <p className="break-all font-mono text-[10px] text-muted-foreground">Registry: {snapshot.registry}</p>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-primary/15 p-4">
+                <p className="text-xs font-medium text-muted-foreground">Active agent sessions</p>
+                {snapshot.activeAgents.length ? <div className="mt-2 flex flex-wrap gap-2">{snapshot.activeAgents.map((activeAgent) => <Badge key={activeAgent} variant="outline" className="font-mono">{short(activeAgent)}</Badge>)}</div> : <p className="mt-2 text-sm text-muted-foreground">No active agents.</p>}
+              </div>
+              <div className="rounded-xl border border-primary/15 p-4">
+                <p className="text-xs font-medium text-muted-foreground">Trusted merchant addresses</p>
+                {snapshot.activeMerchants.length ? <div className="mt-2 flex flex-wrap gap-2">{snapshot.activeMerchants.map((activeMerchant) => <Badge key={activeMerchant} variant="outline" className="font-mono">{short(activeMerchant)}</Badge>)}</div> : <p className="mt-2 text-sm text-muted-foreground">No trusted merchants.</p>}
+              </div>
+            </div>
           </>
         ) : null}
 

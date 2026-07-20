@@ -115,7 +115,7 @@ export function mainnetProductionGates(
   const signerReady = signer.verified && runtime.signerIdentityVerified === true;
   return [
     { id: "release", ready: MAINNET_AUTONOMY_RELEASE_ENABLED, message: "This build contains the production-gated autonomous execution path." },
-    { id: "factory", ready: runtime.factoryVerified === true, message: runtime.factoryVerified ? "The configured 3.0.0-commerce-beta factory and helper runtimes are pinned and verified." : "Deploy and configure the pinned V3 commerce factory." },
+    { id: "factory", ready: runtime.factoryVerified === true, message: runtime.factoryVerified ? "The configured 3.1.0-commerce-beta factory and helper runtimes are pinned and verified." : "Deploy and configure the pinned V3 commerce factory." },
     { id: "asset", ready: runtime.canonicalAssetVerified === true, message: runtime.canonicalAssetVerified ? "Canonical Robinhood Chain USDG reports symbol USDG and 6 decimals." : "Canonical USDG metadata verification has not passed." },
     { id: "signer", ready: signerReady, message: signerReady ? `Remote identity and non-exportable signer attestation verified for ${signer.keyId}.` : signer.verified ? "Signer configuration is valid, but the remote identity attestation handshake has not passed." : signer.reason },
     { id: "storage", ready: storageReady, message: storageReady ? "Durable storage and authenticated encryption for strategy signatures are configured." : "Durable Redis plus a 32-byte MAINNET_STRATEGY_ENCRYPTION_KEY are required." },

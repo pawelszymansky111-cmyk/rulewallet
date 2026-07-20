@@ -75,6 +75,35 @@ contract RuleWalletPolicyAccountV3Test is Test {
         assertFalse(account.hasRole(agentRole, secondAgent));
     }
 
+    function testOwnerCanDiscoverPauseRevokeAndReenableTrustedMerchants() public {
+        address secondMerchant = makeAddr("v3-second-merchant");
+        uint64 expiry = uint64(block.timestamp + 30 days);
+        vm.startPrank(owner);
+        registry.setMerchantPolicy(
+            secondMerchant, RuleWalletPolicyRegistryV3.MerchantPolicy(true, true, TRAVEL, expiry)
+        );
+        registry.setMerchantPolicy(merchant, RuleWalletPolicyRegistryV3.MerchantPolicy(true, false, TRAVEL, expiry));
+        vm.stopPrank();
+
+        address[] memory active = registry.activeMerchants();
+        assertEq(active.length, 2);
+        assertEq(active[0], merchant);
+        assertEq(active[1], secondMerchant);
+
+        vm.prank(owner);
+        registry.setMerchantPolicy(merchant, RuleWalletPolicyRegistryV3.MerchantPolicy(false, false, TRAVEL, 0));
+        active = registry.activeMerchants();
+        assertEq(active.length, 1);
+        assertEq(active[0], secondMerchant);
+
+        vm.prank(owner);
+        registry.setMerchantPolicy(merchant, RuleWalletPolicyRegistryV3.MerchantPolicy(true, true, TRAVEL, expiry));
+        active = registry.activeMerchants();
+        assertEq(active.length, 2);
+        assertEq(active[0], secondMerchant);
+        assertEq(active[1], merchant);
+    }
+
     function testOwnerRecoveryTransfersOperationalAndDelayedAdminControlSeparately() public {
         address replacement = makeAddr("v3-replacement-owner");
         bytes32 ownerRole = account.OWNER_ROLE();

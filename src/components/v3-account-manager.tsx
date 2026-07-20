@@ -275,7 +275,7 @@ export function V3AccountManager({
         ) : null}
 
         {!factory || !stablecoin ? (
-          <Alert className="border-amber-500/30 bg-amber-50"><ShieldAlert /><AlertTitle>{isMainnet ? "V3 mainnet deployment is closed" : "V3 testnet operator setup is incomplete"}</AlertTitle><AlertDescription>{isMainnet ? "A runtime-pinned 3.0.0-commerce-beta factory has not been configured. Existing preview controls do not make an older factory compatible." : "Deploy and verify the shared V3 factory and six-decimal test token, then set the public addresses in Vercel."}</AlertDescription></Alert>
+          <Alert className="border-amber-500/30 bg-amber-50"><ShieldAlert /><AlertTitle>{isMainnet ? "V3 mainnet deployment is closed" : "V3 testnet operator setup is incomplete"}</AlertTitle><AlertDescription>{isMainnet ? "A runtime-pinned 3.1.0-commerce-beta factory has not been configured. Existing preview controls do not make an older factory compatible." : "Deploy and verify the shared V3 factory and six-decimal test token, then set the public addresses in Vercel."}</AlertDescription></Alert>
         ) : null}
 
         <Button onClick={() => void createPreview()} disabled={Boolean(busy) || !factory || !stablecoin}>

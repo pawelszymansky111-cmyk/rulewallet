@@ -121,6 +121,8 @@ contract RuleWalletPolicyRegistryV3 {
 
     mapping(address asset => AssetPolicy policy) public assetPolicies;
     mapping(address merchant => MerchantPolicy policy) public merchantPolicies;
+    address[] private _activeMerchants;
+    mapping(address merchant => uint256 indexPlusOne) private _activeMerchantIndex;
     mapping(address merchant => mapping(address asset => MerchantAssetPolicy policy)) public merchantAssetPolicies;
     mapping(address merchant => TimePolicy policy) public merchantTimePolicies;
     mapping(uint8 category => mapping(address asset => CategoryBudget budget)) public categoryBudgets;
@@ -189,8 +191,28 @@ contract RuleWalletPolicyRegistryV3 {
             merchant == address(0) || (policy.autonomous && !policy.trusted)
                 || (policy.trusted && (policy.category > MAX_CATEGORY || policy.expiresAt <= block.timestamp))
         ) revert InvalidConfiguration(CODE_MERCHANT, merchant);
+        uint256 indexPlusOne = _activeMerchantIndex[merchant];
+        if (policy.trusted && indexPlusOne == 0) {
+            _activeMerchants.push(merchant);
+            _activeMerchantIndex[merchant] = _activeMerchants.length;
+        } else if (!policy.trusted && indexPlusOne != 0) {
+            uint256 index = indexPlusOne - 1;
+            uint256 lastIndex = _activeMerchants.length - 1;
+            if (index != lastIndex) {
+                address moved = _activeMerchants[lastIndex];
+                _activeMerchants[index] = moved;
+                _activeMerchantIndex[moved] = indexPlusOne;
+            }
+            _activeMerchants.pop();
+            delete _activeMerchantIndex[merchant];
+        }
         merchantPolicies[merchant] = policy;
         emit MerchantPolicyChanged(merchant, policy.trusted, policy.autonomous, policy.category, policy.expiresAt);
+    }
+
+    /// @notice Current trusted merchants, maintained onchain for owner dashboards and emergency review.
+    function activeMerchants() external view returns (address[] memory) {
+        return _activeMerchants;
     }
 
     function setMerchantAssetPolicy(address merchant, address asset, MerchantAssetPolicy calldata policy)

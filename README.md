@@ -4,7 +4,7 @@
 
 RuleWallet is an open-source spending command center for AI agents on Robinhood Chain. A user connects an external wallet or creates a passkey-backed embedded wallet, deploys named personal policy accounts, and gives an agent narrow payment authority instead of a private key.
 
-> **Release:** V3 `3.0.0-commerce-beta` is implemented for Robinhood Chain testnet (`46630`) and mainnet (`4663`). Testnet uses valueless assets. Mainnet contracts and automation require separate operator/user signatures and production infrastructure; missing gates fail closed. This repository is not independently audited and is not affiliated with Robinhood or any named commerce provider.
+> **Release:** V3 `3.1.0-commerce-beta` is implemented for Robinhood Chain testnet (`46630`) and mainnet (`4663`). Testnet uses valueless assets. Mainnet contracts and automation require separate operator/user signatures and production infrastructure; missing gates fail closed. This repository is not independently audited and is not affiliated with Robinhood or any named commerce provider.
 
 ## What V3 does
 
