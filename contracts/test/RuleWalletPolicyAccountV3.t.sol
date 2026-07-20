@@ -75,6 +75,31 @@ contract RuleWalletPolicyAccountV3Test is Test {
         assertFalse(account.hasRole(agentRole, secondAgent));
     }
 
+    function testOwnerRecoveryTransfersOperationalAndDelayedAdminControlSeparately() public {
+        address replacement = makeAddr("v3-replacement-owner");
+        bytes32 ownerRole = account.OWNER_ROLE();
+
+        vm.prank(owner);
+        account.grantRole(ownerRole, replacement);
+        assertTrue(account.hasRole(ownerRole, replacement));
+        assertEq(account.defaultAdmin(), owner);
+
+        vm.prank(owner);
+        account.beginDefaultAdminTransfer(replacement);
+        (address pendingAdmin, uint48 acceptSchedule) = account.pendingDefaultAdmin();
+        assertEq(pendingAdmin, replacement);
+
+        vm.warp(uint256(acceptSchedule) + 1);
+        vm.prank(replacement);
+        account.acceptDefaultAdminTransfer();
+        assertEq(account.defaultAdmin(), replacement);
+
+        vm.prank(replacement);
+        account.revokeRole(ownerRole, owner);
+        assertFalse(account.hasRole(ownerRole, owner));
+        assertTrue(account.hasRole(ownerRole, replacement));
+    }
+
     function testAllDeploymentRuntimeSizesRemainDeployable() public view {
         assertLt(address(account).code.length, 24_576);
         assertLt(address(registry).code.length, 24_576);

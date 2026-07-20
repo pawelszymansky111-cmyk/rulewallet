@@ -5,19 +5,18 @@ import {
   saveQuoteIdempotently,
 } from "@/lib/commerce-store";
 import { quoteRequestSchema } from "@/lib/commerce-types";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     `commerce-quote:${request.headers.get("x-forwarded-for") ?? "unknown"}`,
     { limit: 20, windowMs: 60_000 },
   );
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Too many quote requests. Try again shortly." }, { status: 429 });
-  }
+  const failure = rateLimitFailure(rateLimit, "Too many quote requests. Try again shortly.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
   try {
     const input = quoteRequestSchema.parse(await request.json());
     const quote = await createProviderQuote(input);

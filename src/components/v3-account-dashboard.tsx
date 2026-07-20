@@ -127,6 +127,8 @@ export function V3AccountDashboard({
   const [amount, setAmount] = useState("1");
   const [withdrawTo, setWithdrawTo] = useState("");
   const [agentToRevoke, setAgentToRevoke] = useState("");
+  const [newOwner, setNewOwner] = useState("");
+  const [formerOwner, setFormerOwner] = useState("");
   const [prepared, setPrepared] = useState<PreparedAction>();
   const [receipt, setReceipt] = useState<Hash>();
   const [busy, setBusy] = useState<string>();
@@ -248,7 +250,20 @@ export function V3AccountDashboard({
     }
   }
 
-  async function prepare(kind: "deposit" | "withdraw" | "pause" | "unpause" | "disable" | "enable" | "revoke" | "revoke-all") {
+  async function prepare(kind:
+    | "deposit"
+    | "withdraw"
+    | "pause"
+    | "unpause"
+    | "disable"
+    | "enable"
+    | "revoke"
+    | "revoke-all"
+    | "grant-owner"
+    | "begin-admin-transfer"
+    | "accept-admin-transfer"
+    | "revoke-former-owner"
+  ) {
     setBusy(kind);
     setError(undefined);
     setReceipt(undefined);
@@ -291,6 +306,32 @@ export function V3AccountDashboard({
         title = kind === "disable" ? "Disable spending policy" : "Enable spending policy";
         data = encodeFunctionData({ abi: accountAbi, functionName: "setPolicyActive", args: [kind === "enable"] });
         expected = kind === "disable" ? "All agent payment requests remain disabled until re-enabled by the owner." : "The configured spending policy becomes active.";
+      } else if (kind === "grant-owner" || kind === "begin-admin-transfer") {
+        if (!isAddress(newOwner)) throw new Error("Enter a valid replacement owner address.");
+        const replacement = getAddress(newOwner);
+        if (replacement === connection.address) throw new Error("The replacement owner must be a different address.");
+        if (kind === "grant-owner") {
+          const ownerRole = await publicClient.readContract({ address: context.account, abi: accountAbi, functionName: "OWNER_ROLE" });
+          title = "Grant replacement OWNER_ROLE";
+          data = encodeFunctionData({ abi: accountAbi, functionName: "grantRole", args: [ownerRole, replacement] });
+          expected = `${replacement} gains owner capabilities. The current owner remains active until the final revocation step.`;
+        } else {
+          title = "Schedule default-admin transfer";
+          data = encodeFunctionData({ abi: accountAbi, functionName: "beginDefaultAdminTransfer", args: [replacement] });
+          expected = `${replacement} may accept default-admin control after the contract's two-day safety delay. This step does not remove the current owner.`;
+        }
+      } else if (kind === "accept-admin-transfer") {
+        title = "Accept delayed default-admin transfer";
+        data = encodeFunctionData({ abi: accountAbi, functionName: "acceptDefaultAdminTransfer" });
+        expected = "The connected replacement owner accepts default-admin control after the onchain delay. The former OWNER_ROLE must still be revoked separately.";
+      } else if (kind === "revoke-former-owner") {
+        if (!isAddress(formerOwner)) throw new Error("Enter the exact former owner address.");
+        const previous = getAddress(formerOwner);
+        if (previous === connection.address) throw new Error("Do not revoke the currently connected replacement owner.");
+        const ownerRole = await publicClient.readContract({ address: context.account, abi: accountAbi, functionName: "OWNER_ROLE" });
+        title = "Revoke former OWNER_ROLE";
+        data = encodeFunctionData({ abi: accountAbi, functionName: "revokeRole", args: [ownerRole, previous] });
+        expected = `${previous} loses OWNER_ROLE. Sign only after the replacement owner has accepted default-admin control and recovery has been tested.`;
       } else {
         const agents = kind === "revoke-all"
           ? snapshot?.activeAgents ?? []
@@ -406,6 +447,21 @@ export function V3AccountDashboard({
             <Button variant="outline" onClick={() => void prepare(snapshot?.policyActive ? "disable" : "enable")} disabled={Boolean(busy)}><ShieldOff /> {snapshot?.policyActive ? "Disable policy" : "Enable policy"}</Button>
           </div>
           <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]"><Input className="font-mono" value={agentToRevoke} onChange={(event) => setAgentToRevoke(event.target.value)} placeholder="Exact agent address to revoke 0x…" /><Button variant="destructive" onClick={() => void prepare("revoke")} disabled={Boolean(busy)}>Revoke agent</Button><Button variant="destructive" onClick={() => void prepare("revoke-all")} disabled={Boolean(busy) || !snapshot?.activeAgents.length}>Revoke all ({snapshot?.activeAgents.length ?? 0})</Button></div>
+        </div>
+
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/60 p-4">
+          <p className="font-medium">Transfer account ownership</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">Four separately simulated signatures prevent a one-click takeover: grant the replacement owner role, schedule the delayed default-admin transfer, let the replacement accept after two days, then revoke the former owner.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto]">
+            <Input aria-label="Replacement owner address" className="font-mono" value={newOwner} onChange={(event) => setNewOwner(event.target.value)} placeholder="Replacement owner 0x…" />
+            <Button variant="outline" onClick={() => void prepare("grant-owner")} disabled={Boolean(busy)}>1. Grant owner role</Button>
+            <Button variant="outline" onClick={() => void prepare("begin-admin-transfer")} disabled={Boolean(busy)}>2. Start two-day transfer</Button>
+          </div>
+          <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto_auto]">
+            <Input aria-label="Former owner address" className="font-mono" value={formerOwner} onChange={(event) => setFormerOwner(event.target.value)} placeholder="Former owner to revoke 0x…" />
+            <Button variant="outline" onClick={() => void prepare("accept-admin-transfer")} disabled={Boolean(busy)}>3. Accept as replacement</Button>
+            <Button variant="destructive" onClick={() => void prepare("revoke-former-owner")} disabled={Boolean(busy)}>4. Revoke former owner</Button>
+          </div>
         </div>
 
         {prepared ? (

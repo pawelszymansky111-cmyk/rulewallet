@@ -2,7 +2,7 @@
 
 ## 1. Create or connect a wallet
 
-Open `/command`. If Privy is configured, sign in with passkey/email and create an embedded wallet; otherwise connect an EVM wallet. RuleWallet never asks for a seed phrase. For low-value beta role separation you may create additional embedded addresses; for serious use choose independently recovered/hardware owner, guardian, and approver wallets.
+Open `/command`. If Privy is configured, sign in with passkey/email and choose **Create wallet with recovery**; otherwise connect an EVM wallet. The app creates the address and immediately opens Privy's isolated recovery flow. **Set recovery method** and **Export securely** remain available later, and RuleWallet cannot read the recovery secret or exported key. Do not fund a new embedded wallet until recovery finishes. For low-value beta role separation you may create additional embedded addresses; for serious use choose independently recovered/hardware owner, guardian, and approver wallets.
 
 ## 2. Create a named policy account
 
@@ -45,6 +45,7 @@ Pause the offchain schedule when temporarily unnecessary. Revoke the digest onch
 - Guardian or owner: simulate and sign `pause()` immediately.
 - Owner: revoke the agent role and affected strategies.
 - Owner: verify chain, account, asset, amount, recovery recipient, and calldata before a withdrawal.
+- Owner recovery: grant the replacement owner role, start the delayed default-admin transfer, accept from the replacement after two days, then revoke the former owner. Each step is simulated and signed separately.
 - Owner only: unpause after the incident runbook's recovery gates pass.
 
 Frontend rollback cannot reverse a blockchain payment. Follow [`INCIDENT_RESPONSE.md`](INCIDENT_RESPONSE.md).

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 import { getServerEnvironment } from "@/lib/server-env";
 
 export const runtime = "nodejs";
@@ -63,15 +63,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
-  const limit = checkRateLimit(`rpc:${clientKey(request)}`, {
+  const limit = await checkRateLimit(`rpc:${clientKey(request)}`, {
     limit: 120,
     windowMs: 60_000,
   });
-  if (!limit.allowed) {
+  const failure = rateLimitFailure(limit, "RPC rate limit exceeded");
+  if (failure) {
     return NextResponse.json(
-      { error: "RPC rate limit exceeded" },
+      { error: failure.error },
       {
-        status: 429,
+        status: failure.status,
         headers: {
           "Retry-After": Math.ceil((limit.resetAt - Date.now()) / 1_000).toString(),
         },

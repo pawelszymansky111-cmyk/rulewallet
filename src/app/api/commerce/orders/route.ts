@@ -17,7 +17,7 @@ import { type PurchaseOrder } from "@/lib/commerce-types";
 import { readCommerceSession } from "@/lib/commerce-session";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
 import { ROBINHOOD_MAINNET_USDG } from "@/lib/mainnet-registry";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 import {
   mainnetFactoryV3Address,
   testnetFactoryV3Address,
@@ -73,13 +73,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     `commerce-order:${request.headers.get("x-forwarded-for") ?? "unknown"}`,
     { limit: 10, windowMs: 60_000 },
   );
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Too many order requests. Try again shortly." }, { status: 429 });
-  }
+  const failure = rateLimitFailure(rateLimit, "Too many order requests. Try again shortly.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
   if (!commerceStorageConfigured()) {
     return NextResponse.json({ error: "Durable storage is required before creating orders." }, { status: 503 });
   }

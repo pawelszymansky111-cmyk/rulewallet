@@ -23,7 +23,9 @@ export function EmbeddedWalletProvider({ children }: { children: React.ReactNode
         defaultChain: robinhoodTestnet,
         supportedChains: [robinhoodTestnet, robinhoodMainnet],
         embeddedWallets: {
-          ethereum: { createOnLogin: "users-without-wallets" },
+          ethereum: {
+            createOnLogin: "off",
+          },
         },
       }}
     >

@@ -3,20 +3,19 @@ import { formatEther, getAddress, isAddress } from "viem";
 import { agentSignerConfigured, getAgentAccount, getAgentPublicClient } from "@/lib/agent-clients";
 import { listExecutions, listStrategies, storageConfigured } from "@/lib/agent-store";
 import { remainingRollingLimit, summarizeExecutionStatuses, type PublicMetrics } from "@/lib/public-metrics";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 import { hasPinnedRuleWalletRuntime, nativeAssetAddress, ruleWalletAbi, ruleWalletAddress } from "@/lib/rulewallet-contract";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const rateLimit = checkRateLimit(
+  const rateLimit = await checkRateLimit(
     `agent-dashboard:${request.headers.get("x-forwarded-for") ?? "unknown"}`,
     { limit: 60, windowMs: 60_000 },
   );
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: "Too many dashboard refreshes." }, { status: 429 });
-  }
+  const failure = rateLimitFailure(rateLimit, "Too many dashboard refreshes.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
 
   const requested = request.nextUrl.searchParams.get("policyAccount");
   if (!requested || !isAddress(requested)) {

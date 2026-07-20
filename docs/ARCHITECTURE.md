@@ -87,7 +87,7 @@ Provider credentials are server-only. Provider adapters have no owner, approver,
 
 ## Data and operations
 
-- Upstash Redis stores expiring quotes, carts/orders, approval requests, replay-safe login challenges, strategy records, idempotency claims, locks, pending nonces, and public receipts. Private commerce records and owner strategy signatures use separate AES-256-GCM keys and are authenticated against their Redis key or strategy/account/owner identity before storage. Plaintext legacy records fail closed.
+- Upstash Redis stores expiring quotes, carts/orders, approval requests, replay-safe login challenges, strategy records, idempotency claims, locks, pending nonces, distributed API rate-limit counters, and public receipts. Rate limiting uses one atomic increment/expiry script per request; production fails closed when the durable store is unavailable. Private commerce records and owner strategy signatures use separate AES-256-GCM keys and are authenticated against their Redis key or strategy/account/owner identity before storage. Plaintext legacy records fail closed.
 - Private order and approval APIs require a short-lived wallet-signed session. Its HttpOnly cookie cannot authorize a transfer; onchain approvals and strategies remain separate exact EIP-712 signatures.
 - Outbound alerts use bearer authentication plus a replay-resistant HMAC over the timestamp, unique delivery ID, and raw body. Receivers must enforce the five-minute window and atomically deduplicate delivery IDs.
 - Blockscout and onchain events are authoritative for payment state.

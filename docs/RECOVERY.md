@@ -14,7 +14,7 @@ The Command Center shows every active agent address and lets the owner revoke on
 ## Before funding
 
 1. Confirm the selected chain and exact V3 factory/account provenance.
-2. Back up the owner wallet using the wallet provider's supported recovery mechanism.
+2. For an embedded wallet, finish the provider-isolated recovery flow and verify **Export securely** before funding. RuleWallet cannot read either secret.
 3. Put the guardian on a separate device.
 4. Verify the approver and agent are different from owner and guardian.
 5. Configure conservative policies and expiries.
@@ -33,7 +33,16 @@ Queued requests from a revoked agent cannot execute, even if they were previousl
 
 ## Lost owner access
 
-The V3 beta does not invent a backend recovery bypass. The guardian can stop activity but cannot take ownership or withdraw. Recovery depends on the connected wallet or embedded-wallet provider's documented recovery. Do not fund an account until that recovery path has been tested. A future ownership-transfer UI must separately transfer the delayed default admin and OWNER role; it is not represented as available in this beta.
+The V3 beta does not invent a backend recovery bypass. The guardian can stop activity but cannot take ownership or withdraw. Recovery depends on the connected wallet or embedded-wallet provider's documented recovery. Do not fund an account until that recovery path has been tested.
+
+While the current owner is still available, the Command Center can transfer control with four separately simulated wallet signatures:
+
+1. grant `OWNER_ROLE` to the recovered replacement address;
+2. schedule the delayed default-admin transfer;
+3. after the onchain two-day delay, connect the replacement and accept default-admin control;
+4. verify recovery and withdrawals, then revoke the former `OWNER_ROLE`.
+
+The UI cannot skip the delay or sign any step. Do not revoke the former owner until the replacement is both default admin and owner.
 
 ## Lost guardian, agent, or approver
 

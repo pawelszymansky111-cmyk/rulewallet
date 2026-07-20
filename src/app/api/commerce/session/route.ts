@@ -12,7 +12,7 @@ import {
   verifyCommerceSessionToken,
 } from "@/lib/commerce-session";
 import { commerceStorageConfigured } from "@/lib/commerce-store";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,11 +38,12 @@ export async function GET(request: NextRequest) {
   if (!commerceSessionConfigured()) {
     return NextResponse.json({ error: "The server-only commerce session secret is not configured." }, { status: 503 });
   }
-  const limit = checkRateLimit(`commerce-session:${request.headers.get("x-forwarded-for") ?? "unknown"}`, {
+  const limit = await checkRateLimit(`commerce-session:${request.headers.get("x-forwarded-for") ?? "unknown"}`, {
     limit: 10,
     windowMs: 60_000,
   });
-  if (!limit.allowed) return NextResponse.json({ error: "Too many login attempts. Try again shortly." }, { status: 429 });
+  const failure = rateLimitFailure(limit, "Too many login attempts. Try again shortly.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
   try {
     const challenge = await createCommerceChallenge(address, request.nextUrl.origin);
     return NextResponse.json({ authenticated: false, ...challenge });

@@ -5,7 +5,7 @@ This document separates working features from demos and future integrations. The
 | Capability | Testnet | Mainnet | Current boundary |
 | --- | --- | --- | --- |
 | External wallet connection | Working | Working | User controls signatures |
-| Passkey/email embedded owner wallet | Working when Privy is configured | Working when Privy is configured | RuleWallet never receives the private key |
+| Passkey/email embedded owner wallet | Working when Privy is configured | Working when Privy is configured | Explicit create/recovery/export provider flows; RuleWallet never receives the private key |
 | Multiple embedded role addresses | Working when Privy is configured | Working when Privy is configured | Independent devices/recovery recommended |
 | Named personal V3 policy accounts | Working after V3 factory configuration | Working after V3 factory deployment | Separate owner/agent/approver/guardian required |
 | ETH and six-decimal stablecoin balances | Valueless ETH + tUSDG | Real ETH + canonical USDG | Only these two agent assets |

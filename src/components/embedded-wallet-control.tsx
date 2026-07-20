@@ -1,7 +1,13 @@
 "use client";
 
-import { useCreateWallet, usePrivy, useWallets } from "@privy-io/react-auth";
-import { Check, Copy, KeyRound, LogOut, Plus, ShieldCheck, Wallet } from "lucide-react";
+import {
+  useCreateWallet,
+  useExportWallet,
+  usePrivy,
+  useSetWalletRecovery,
+  useWallets,
+} from "@privy-io/react-auth";
+import { Check, Copy, Download, KeyRound, LifeBuoy, LogOut, Plus, ShieldCheck, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,8 +20,12 @@ export function EmbeddedWalletControl() {
   const { ready, authenticated, login, logout } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
   const { createWallet } = useCreateWallet();
+  const { exportWallet } = useExportWallet();
+  const { setWalletRecovery } = useSetWalletRecovery();
   const [copied, setCopied] = useState<string>();
+  const [providerAction, setProviderAction] = useState<string>();
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const embedded = wallets.filter((wallet) => wallet.walletClientType === "privy");
   const embeddedAddressKey = embedded.map((wallet) => wallet.address).join(",");
 
@@ -34,10 +44,54 @@ export function EmbeddedWalletControl() {
 
   async function addWallet() {
     setError(undefined);
+    setNotice(undefined);
+    setProviderAction("create");
+    let created = false;
+    const needsRecoverySetup = embedded.length === 0;
     try {
       await createWallet(embedded.length > 0 ? { createAdditional: true } : undefined);
+      created = true;
+      if (needsRecoverySetup) {
+        setProviderAction("recovery");
+        await setWalletRecovery();
+        setNotice("Wallet created and the provider recovery flow completed.");
+      } else {
+        setNotice("Additional wallet created. Verify its provider recovery coverage and secure export before funding it.");
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Wallet creation failed.");
+      const detail = cause instanceof Error ? cause.message : "The provider flow did not finish.";
+      setError(created
+        ? `The wallet was created, but recovery setup did not finish: ${detail}`
+        : `Wallet creation failed: ${detail}`);
+    } finally {
+      setProviderAction(undefined);
+    }
+  }
+
+  async function configureRecovery() {
+    setError(undefined);
+    setNotice(undefined);
+    setProviderAction("recovery");
+    try {
+      await setWalletRecovery();
+      setNotice("The provider recovery flow completed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Recovery setup failed.");
+    } finally {
+      setProviderAction(undefined);
+    }
+  }
+
+  async function exportEmbeddedWallet(address: string) {
+    setError(undefined);
+    setNotice(undefined);
+    setProviderAction(`export:${address}`);
+    try {
+      await exportWallet({ address });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Wallet export failed.");
+    } finally {
+      setProviderAction(undefined);
     }
   }
 
@@ -80,8 +134,8 @@ export function EmbeddedWalletControl() {
             <p className="mt-1 text-sm text-muted-foreground">
               Create one protected by your authenticated provider session.
             </p>
-            <Button className="mt-4" onClick={() => void addWallet()}>
-              <Plus /> Create wallet
+            <Button className="mt-4" onClick={() => void addWallet()} disabled={Boolean(providerAction)}>
+              <Plus /> {providerAction === "create" ? "Creating wallet…" : providerAction === "recovery" ? "Set recovery to finish…" : "Create wallet with recovery"}
             </Button>
           </div>
         ) : null}
@@ -103,21 +157,43 @@ export function EmbeddedWalletControl() {
               {copied === wallet.address ? <Check /> : <Copy />}
               {copied === wallet.address ? "Copied" : "Copy address"}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => void exportEmbeddedWallet(wallet.address)}
+              disabled={Boolean(providerAction)}
+            >
+              <Download />
+              {providerAction === `export:${wallet.address}` ? "Opening secure export…" : "Export securely"}
+            </Button>
           </div>
         ))}
         {authenticated && walletsReady && embedded.length > 0 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-primary/25 p-4">
-            <div>
-              <p className="text-sm font-medium">Need a separate role address?</p>
-              <p className="mt-1 text-xs text-muted-foreground">Create another embedded address for a low-value beta guardian or approver.</p>
+          <div className="space-y-4 rounded-xl border border-dashed border-primary/25 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Recovery and portability</p>
+                <p className="mt-1 text-xs text-muted-foreground">Recovery and export open the wallet provider&apos;s isolated flow. RuleWallet cannot read the recovery secret or exported key.</p>
+              </div>
+              <Button variant="outline" onClick={() => void configureRecovery()} disabled={Boolean(providerAction)}>
+                <LifeBuoy /> {providerAction === "recovery" ? "Opening recovery…" : "Set recovery method"}
+              </Button>
             </div>
-            <Button variant="outline" onClick={() => void addWallet()}><Plus /> Create another wallet</Button>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-primary/15 pt-4">
+              <div>
+                <p className="text-sm font-medium">Need a separate role address?</p>
+                <p className="mt-1 text-xs text-muted-foreground">Create another embedded address for a low-value beta guardian or approver.</p>
+              </div>
+              <Button variant="outline" onClick={() => void addWallet()} disabled={Boolean(providerAction)}><Plus /> {providerAction === "create" ? "Creating…" : "Create another wallet"}</Button>
+            </div>
           </div>
         ) : null}
+        {notice ? <p role="status" className="text-sm text-primary">{notice}</p> : null}
         {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         <p className="text-xs leading-5 text-muted-foreground">
-          Embedded wallet availability depends on `NEXT_PUBLIC_PRIVY_APP_ID` and the provider dashboard. For
-          larger balances, use a hardware wallet as owner and independently recovered guardian and approver wallets.
+          Embedded wallet availability depends on `NEXT_PUBLIC_PRIVY_APP_ID` and the provider dashboard. New
+          wallets use an explicit create-then-recovery flow. Do not fund a new wallet until recovery is complete.
+          For larger balances, use a hardware wallet as owner and
+          independently recovered guardian and approver wallets.
         </p>
       </CardContent>
     </Card>

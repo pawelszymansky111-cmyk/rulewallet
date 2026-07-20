@@ -26,7 +26,7 @@ Never set a V3 factory variable until the factory and both helper runtime hashes
 | --- | --- |
 | `RH_TESTNET_RPC_URL` / `RH_TESTNET_RPC_FALLBACK_URL` | Managed testnet primary/failover |
 | `RH_MAINNET_RPC_URL` / `RH_MAINNET_RPC_FALLBACK_URL` | Two independent managed mainnet hosts |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Quotes, carts, approvals, strategies, receipts, locks, nonces, idempotency |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Quotes, carts, approvals, strategies, receipts, locks, nonces, idempotency, and atomic distributed rate limits |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Supported Vercel Marketplace aliases |
 | `COMMERCE_SESSION_SECRET` | Server-only 32-byte hex key for short-lived wallet-authenticated private commerce sessions |
 | `COMMERCE_DATA_ENCRYPTION_KEY` | Separate server-only 32-byte hex key for AES-256-GCM encryption of commerce records at rest |
@@ -35,6 +35,8 @@ Never set a V3 factory variable until the factory and both helper runtime hashes
 | `AGENT_PRIVATE_KEY` | Legacy testnet-only signer; mainnet code never reads it |
 
 The official Robinhood RPC is rate-limited and is a public fallback, not one of the two production signer RPCs.
+
+Production API routes fail closed with HTTP 429 if durable Redis rate limiting is unavailable. The in-memory fallback exists only for local development and tests; it is never treated as a production safety control.
 
 ## Mainnet signer and operations
 

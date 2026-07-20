@@ -19,7 +19,8 @@ Publishing code or a frontend is not the same as activating a real-funds system.
 - [x] Passkey/embedded or external-wallet onboarding and multiple named personal accounts.
 - [x] Mainnet raw-key path excluded; external KMS signer identity required.
 - [x] Signer-global nonce locking, pending reservation, RPC agreement, fee ceilings, confirmations, replacement/timeout/late reconciliation, and alerts.
-- [x] Unit, fuzz, invariant, malicious-token, provenance, signer, provider, and current-state fork tests.
+- [x] Unit, component, desktop/mobile Playwright, fuzz, invariant, malicious-token, provenance, signer, provider, and current-state fork tests.
+- [x] Embedded-wallet create/recovery/export UI coverage and four-step owner/default-admin transfer regression coverage.
 - [x] Exact chain/target/value/calldata/gas/result preview before every owner transaction.
 - [x] Commerce quote/cart/order/approval states and honest provider capability registry.
 

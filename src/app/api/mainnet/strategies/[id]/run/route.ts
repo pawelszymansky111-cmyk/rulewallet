@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 import { verifyMainnetAdminAction } from "@/lib/mainnet-agent-auth";
 import { signedMainnetAdminActionSchema } from "@/lib/mainnet-agent-types";
 import { executeMainnetStrategy } from "@/lib/mainnet-agent-runner";
@@ -12,11 +12,12 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = checkRateLimit(
+  const limit = await checkRateLimit(
     `mainnet-strategy-run:${request.headers.get("x-forwarded-for") ?? "unknown"}`,
     { limit: 5, windowMs: 60_000 },
   );
-  if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded." }, { status: 429 });
+  const failure = rateLimitFailure(limit, "Rate limit exceeded.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
 
   try {
     const { id } = await context.params;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAddress, hashTypedData, parseAbi, verifyTypedData, zeroAddress, type Hex } from "viem";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimitFailure } from "@/lib/rate-limit";
 import { getMainnetPublicClient } from "@/lib/mainnet-clients";
 import {
   createMainnetStrategySchema,
@@ -40,8 +40,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const limit = checkRateLimit(`mainnet-strategy:${clientKey(request)}`, { limit: 10, windowMs: 60_000 });
-  if (!limit.allowed) return NextResponse.json({ error: "Rate limit exceeded." }, { status: 429 });
+  const limit = await checkRateLimit(`mainnet-strategy:${clientKey(request)}`, { limit: 10, windowMs: 60_000 });
+  const failure = rateLimitFailure(limit, "Rate limit exceeded.");
+  if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status });
 
   try {
     const input = createMainnetStrategySchema.parse(await request.json());
