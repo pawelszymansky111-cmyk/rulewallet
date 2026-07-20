@@ -4,7 +4,8 @@ import { storageConfigured } from "@/lib/agent-store";
 import { ruleWalletAddress } from "@/lib/rulewallet-contract";
 import { getServerEnvironment } from "@/lib/server-env";
 import { mainnetSignerStatus } from "@/lib/secure-agent-signer";
-import { MAINNET_AUTONOMY_RELEASE_ENABLED, mainnetProductionGates } from "@/lib/mainnet-safety";
+import { mainnetAutonomyReady, mainnetProductionGates } from "@/lib/mainnet-safety";
+import { verifyMainnetRuntime } from "@/lib/mainnet-runtime-verification";
 import { commerceStorageConfigured } from "@/lib/commerce-store";
 import { commerceSessionConfigured } from "@/lib/commerce-session";
 import { commerceDataEncryptionConfigured } from "@/lib/commerce-data-encryption";
@@ -12,9 +13,11 @@ import { commerceDataEncryptionConfigured } from "@/lib/commerce-data-encryption
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export function GET() {
+export async function GET() {
   const environment = getServerEnvironment();
   const mainnetSigner = mainnetSignerStatus();
+  const mainnetRuntime = await verifyMainnetRuntime();
+  const productionGates = mainnetProductionGates(environment, mainnetRuntime.runtimeVerification);
   return NextResponse.json(
     {
       status: "ok",
@@ -22,9 +25,9 @@ export function GET() {
       network: "robinhood-chain-testnet",
       chainId: 46_630,
       mainnetEnabled: environment.ENABLE_MAINNET === "true",
-      mainnetAutonomyEnabled:
-        MAINNET_AUTONOMY_RELEASE_ENABLED && environment.ENABLE_MAINNET_AUTONOMY === "true" && mainnetSigner.configured,
-      mainnetProductionGates: mainnetProductionGates(),
+      mainnetAutonomyEnabled: mainnetAutonomyReady(environment, mainnetRuntime.runtimeVerification),
+      mainnetProductionGates: productionGates,
+      mainnetProductionStatusEndpoint: "/api/mainnet/status",
       mainnetSignerMode: mainnetSigner.mode,
       policyContractConfigured: Boolean(ruleWalletAddress),
       agentSignerConfigured: agentSignerConfigured(),
